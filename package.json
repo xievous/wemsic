@@ -1,0 +1,22 @@
+{
+  "name": "wemsic",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev:all",
+    "dev:all": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run dev -w @wemsic/api",
+    "dev:web": "npm run dev -w @wemsic/web",
+    "build": "npm run build -w @wemsic/shared && npm run build -w @wemsic/api && npm run build -w @wemsic/web",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

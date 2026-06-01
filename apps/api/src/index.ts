@@ -1,0 +1,210 @@
+import cookie from '@fastify/cookie';
+import cors from '@fastify/cors';
+import Fastify from 'fastify';
+import { Server } from 'socket.io';
+import { config } from './config.js';
+import { RoomManager } from './rooms/RoomManager.js';
+import { registerSocketHandlers } from './socket/handlers.js';
+import {
+  consumePkceSession,
+  exchangeCode,
+  fetchUserPlaylists,
+  getLoginUrl,
+  getSpotifyTokens,
+  importPlaylistTracks,
+  parsePlaylistId,
+  setSpotifyTokens,
+  storePkceSession,
+} from './spotify/client.js';
+import {
+  generateCodeChallenge,
+  generateCodeVerifier,
+  generateState,
+} from './spotify/pkce.js';
+
+const fastify = Fastify({ logger: true });
+
+await fastify.register(cors, {
+  origin: (origin, cb) => {
+    if (!origin || config.webOrigins.includes(origin)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Not allowed by CORS'), false);
+    }
+  },
+  credentials: true,
+});
+
+await fastify.register(cookie);
+
+const io = new Server(fastify.server, {
+  cors: { origin: config.webOrigins, credentials: true },
+});
+
+const roomManager = new RoomManager((roomCode, event, payload) => {
+  io.to(`room:${roomCode}`).emit(event, payload);
+});
+
+registerSocketHandlers(io, roomManager);
+
+fastify.get('/health', async () => ({ ok: true }));
+
+fastify.get('/', async () => ({
+  name: 'Wemsic API',
+  message: 'This is the backend only. Open the web app in your browser.',
+  webApp: config.webOrigin,
+  health: '/health',
+}));
+
+fastify.post<{ Params: { code: string }; Body: { displayName: string } }>(
+  '/rooms/:code/join',
+  async (request) => {
+    const displayName = request.body?.displayName?.trim();
+    if (!displayName || displayName.length < 1 || displayName.length > 24) {
+      return { error: 'Invalid display name' };
+    }
+    const result = roomManager.joinRoom(request.params.code, displayName);
+    if ('error' in result) return { error: result.error };
+    return { playerId: result.playerId, roomCode: request.params.code.toUpperCase() };
+  },
+);
+
+fastify.get<{ Params: { code: string } }>('/rooms/:code', async (request) => {
+  const state = roomManager.getLobbyState(request.params.code);
+  if (!state) return { error: 'Room not found' };
+  return state;
+});
+
+async function createRoomWithHostHandler(request: {
+  body?: { displayName?: string };
+}) {
+  const displayName = request.body?.displayName?.trim() || 'Host';
+  const created = roomManager.createRoom(displayName);
+  return {
+    roomCode: created.roomCode,
+    playerId: created.playerId,
+    hostPlayerId: created.hostPlayerId,
+  };
+}
+
+fastify.post<{ Body: { displayName: string } }>(
+  '/rooms/create-with-host',
+  createRoomWithHostHandler,
+);
+
+fastify.post<{ Params: { code: string }; Body: { displayName: string } }>(
+  '/rooms/:code/create-with-host',
+  createRoomWithHostHandler,
+);
+
+fastify.get('/auth/spotify/login', async (request, reply) => {
+  if (!config.spotifyConfigured()) {
+    return reply.status(503).send({ error: 'Spotify not configured' });
+  }
+  const { playerId, roomCode } = request.query as {
+    playerId?: string;
+    roomCode?: string;
+  };
+  if (!playerId || !roomCode) {
+    return reply.status(400).send({ error: 'Missing playerId or roomCode' });
+  }
+
+  const verifier = generateCodeVerifier();
+  const challenge = generateCodeChallenge(verifier);
+  const state = generateState();
+  storePkceSession(state, verifier, playerId, roomCode);
+
+  const url = getLoginUrl(state, challenge);
+  return reply.redirect(url);
+});
+
+fastify.get('/auth/spotify/callback', async (request, reply) => {
+  const { code, state, error } = request.query as {
+    code?: string;
+    state?: string;
+    error?: string;
+  };
+
+  if (error) {
+    return reply.redirect(`${config.webOrigin}/lobby?spotify=error`);
+  }
+
+  const session = state ? consumePkceSession(state) : null;
+  if (!session || !code) {
+    return reply.redirect(`${config.webOrigin}/lobby?spotify=error`);
+  }
+
+  try {
+    const tokens = await exchangeCode(code, session.verifier);
+    setSpotifyTokens(session.playerId, tokens);
+    roomManager.setSpotifyConnected(session.roomCode, session.playerId, true);
+    return reply.redirect(
+      `${config.webOrigin}/lobby/${session.roomCode}?spotify=connected&playerId=${session.playerId}`,
+    );
+  } catch {
+    return reply.redirect(`${config.webOrigin}/lobby?spotify=error`);
+  }
+});
+
+fastify.get<{ Querystring: { playerId: string } }>(
+  '/spotify/playlists',
+  async (request, reply) => {
+    const { playerId } = request.query;
+    if (!playerId || !getSpotifyTokens(playerId)) {
+      return reply.status(401).send({ error: 'Spotify not connected' });
+    }
+    try {
+      const playlists = await fetchUserPlaylists(playerId);
+      return { playlists };
+    } catch (e) {
+      return reply.status(500).send({ error: String(e) });
+    }
+  },
+);
+
+fastify.post<{
+  Params: { code: string };
+  Body: { playerId: string; playlistId: string };
+}>('/rooms/:code/playlists', async (request, reply) => {
+  const { playerId, playlistId } = request.body ?? {};
+  if (!playerId || !playlistId) {
+    return reply.status(400).send({ error: 'Missing fields' });
+  }
+  if (!getSpotifyTokens(playerId)) {
+    return reply.status(401).send({ error: 'Spotify not connected' });
+  }
+
+  const id = parsePlaylistId(playlistId) ?? playlistId;
+  try {
+    const { tracks, playlistName } = await importPlaylistTracks(playerId, id);
+    roomManager.setPlaylist(
+      request.params.code,
+      playerId,
+      id,
+      playlistName,
+      tracks,
+    );
+    return { trackCount: tracks.length, playlistName };
+  } catch (e) {
+    return reply.status(400).send({ error: String(e) });
+  }
+});
+
+fastify.post<{ Body: { roomCode: string; playerId: string } }>(
+  '/rooms/reconnect',
+  async (request) => {
+    const { roomCode, playerId } = request.body ?? {};
+    if (!roomCode || !playerId) return { error: 'Missing fields' };
+    const result = roomManager.reconnectPlayer(roomCode, playerId);
+    if ('error' in result) return result;
+    return result;
+  },
+);
+
+try {
+  await fastify.listen({ port: config.port, host: '0.0.0.0' });
+  console.log(`API listening on http://localhost:${config.port}`);
+} catch (err) {
+  fastify.log.error(err);
+  process.exit(1);
+}
