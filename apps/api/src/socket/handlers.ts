@@ -41,15 +41,29 @@ export function registerSocketHandlers(
       if (err) socket.emit('error', { message: err });
     });
 
-    socket.on('answer:submit', (payload: { answer: unknown }) => {
+    socket.on('answer:submit', (payload: { optionId: string }) => {
       if (!roomCode || !playerId) return;
-      const ok = roomManager.submitAnswer(roomCode, playerId, payload.answer);
+      const ok = roomManager.submitMcqAnswer(
+        roomCode,
+        playerId,
+        payload.optionId,
+      );
       if (!ok) socket.emit('error', { message: 'Could not submit answer' });
       else socket.emit('answer:ack', { ok: true });
     });
 
+    socket.on('answer:typing', (payload: { guess: string }) => {
+      if (!roomCode || !playerId) return;
+      const result = roomManager.submitTypingGuess(
+        roomCode,
+        playerId,
+        payload.guess ?? '',
+      );
+      socket.emit('typing:result', result);
+    });
+
     socket.on('disconnect', () => {
-      /* Keep player in room for reconnection; session TTL handled by room lifecycle */
+      /* Keep player in room for reconnection */
     });
   });
 }

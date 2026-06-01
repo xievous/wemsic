@@ -14,3 +14,8 @@ export const TYPING_TITLE_POINTS = 400;
 export const TYPING_BOTH_POINTS = 1000;
 
 export const MCQ_OPTION_COUNT = 4;
+
+/** Max share of remaining time removed when all players have submitted (0–1) */
+export const TIMER_SHRINK_PER_SUBMISSION_RATIO = 0.65;
+export const MIN_ROUND_REMAINING_MS = 800;
+export const ALL_ANSWERED_REVEAL_DELAY_MS = 400;

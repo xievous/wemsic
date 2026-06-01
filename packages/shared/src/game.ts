@@ -45,6 +45,19 @@ export interface McqOption {
   label: string;
 }
 
+export interface RoundPlayerStatus {
+  playerId: string;
+  displayName: string;
+  done: boolean;
+}
+
+export interface RoundProgressPayload {
+  roundIndex: number;
+  roundEndsAt: number;
+  roundDurationMs: number;
+  players: RoundPlayerStatus[];
+}
+
 export interface RoundStartPayload {
   roundIndex: number;
   totalRounds: number;
@@ -52,6 +65,7 @@ export interface RoundStartPayload {
   previewUrl: string;
   roundEndsAt: number;
   roundDurationMs: number;
+  players: RoundPlayerStatus[];
   options?: McqOption[];
 }
 
@@ -79,9 +93,8 @@ export interface SpeedChoiceAnswer {
   optionId: string;
 }
 
-export interface TypingAnswer {
-  artist: string;
-  title: string;
+export interface TypingGuessAnswer {
+  guess: string;
 }
 
-export type AnswerPayload = SpeedChoiceAnswer | TypingAnswer;
+export type AnswerPayload = SpeedChoiceAnswer | TypingGuessAnswer;

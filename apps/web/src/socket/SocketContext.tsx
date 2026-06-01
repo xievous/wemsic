@@ -1,6 +1,7 @@
 import type {
   GameEndPayload,
   LobbyState,
+  RoundProgressPayload,
   RoundRevealPayload,
   RoundStartPayload,
 } from '@wemsic/shared';
@@ -20,6 +21,7 @@ interface SocketContextValue {
   connected: boolean;
   lobby: LobbyState | null;
   round: RoundStartPayload | null;
+  roundProgress: RoundProgressPayload | null;
   reveal: RoundRevealPayload | null;
   gameEnd: GameEndPayload | null;
   error: string | null;
@@ -27,7 +29,9 @@ interface SocketContextValue {
   setReady: (ready: boolean) => void;
   updateSettings: (settings: Partial<LobbyState['settings']>) => void;
   startGame: () => void;
-  submitAnswer: (answer: unknown) => void;
+  submitMcqAnswer: (optionId: string) => void;
+  submitTypingGuess: (guess: string) => void;
+  typingLocked: boolean;
   clearReveal: () => void;
 }
 
@@ -38,9 +42,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [connected, setConnected] = useState(false);
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [round, setRound] = useState<RoundStartPayload | null>(null);
+  const [roundProgress, setRoundProgress] =
+    useState<RoundProgressPayload | null>(null);
   const [reveal, setReveal] = useState<RoundRevealPayload | null>(null);
   const [gameEnd, setGameEnd] = useState<GameEndPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [typingLocked, setTypingLocked] = useState(false);
 
   useEffect(() => {
     const socket = io(API_URL, { transports: ['websocket', 'polling'] });
@@ -48,23 +55,38 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
+    socket.on('typing:result', (result: { correct: boolean }) => {
+      if (result.correct) setTypingLocked(true);
+    });
     socket.on('lobby:state', (state: LobbyState) => {
       setLobby(state);
-      if (state.phase === 'playing' && !round) {
-        /* wait for round:start */
-      }
     });
     socket.on('round:start', (payload: RoundStartPayload) => {
+      setTypingLocked(false);
       setRound(payload);
+      setRoundProgress({
+        roundIndex: payload.roundIndex,
+        roundEndsAt: payload.roundEndsAt,
+        roundDurationMs: payload.roundDurationMs,
+        players: payload.players,
+      });
       setReveal(null);
+    });
+    socket.on('round:progress', (payload: RoundProgressPayload) => {
+      setRoundProgress(payload);
+      setRound((prev) =>
+        prev ? { ...prev, roundEndsAt: payload.roundEndsAt } : prev,
+      );
     });
     socket.on('round:reveal', (payload: RoundRevealPayload) => {
       setReveal(payload);
       setRound(null);
+      setRoundProgress(null);
     });
     socket.on('game:end', (payload: GameEndPayload) => {
       setGameEnd(payload);
       setRound(null);
+      setRoundProgress(null);
       setReveal(null);
     });
     socket.on('error', (payload: { message: string }) => {
@@ -95,8 +117,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socketRef.current?.emit('host:start');
   }, []);
 
-  const submitAnswer = useCallback((answer: unknown) => {
-    socketRef.current?.emit('answer:submit', { answer });
+  const submitMcqAnswer = useCallback((optionId: string) => {
+    socketRef.current?.emit('answer:submit', { optionId });
+  }, []);
+
+  const submitTypingGuess = useCallback((guess: string) => {
+    socketRef.current?.emit('answer:typing', { guess });
   }, []);
 
   const clearReveal = useCallback(() => setReveal(null), []);
@@ -107,6 +133,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         connected,
         lobby,
         round,
+        roundProgress,
         reveal,
         gameEnd,
         error,
@@ -114,7 +141,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         setReady,
         updateSettings,
         startGame,
-        submitAnswer,
+        submitMcqAnswer,
+        submitTypingGuess,
+        typingLocked,
         clearReveal,
       }}
     >

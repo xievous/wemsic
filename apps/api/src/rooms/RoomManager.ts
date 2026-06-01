@@ -230,6 +230,9 @@ export class RoomManager {
         onRoundStart: (payload) => {
           this.broadcast(room.code, 'round:start', payload);
         },
+        onRoundProgress: (payload) => {
+          this.broadcast(room.code, 'round:progress', payload);
+        },
         onRoundReveal: (payload) => {
           for (const [id, pts] of Object.entries(payload.roundScores)) {
             const pl = room.players.get(id);
@@ -272,10 +275,24 @@ export class RoomManager {
     return null;
   }
 
-  submitAnswer(roomCode: string, playerId: string, answer: unknown): boolean {
+  submitMcqAnswer(
+    roomCode: string,
+    playerId: string,
+    optionId: string,
+  ): boolean {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room?.engine) return false;
-    return room.engine.submitAnswer(playerId, answer);
+    return room.engine.submitMcqAnswer(playerId, optionId);
+  }
+
+  submitTypingGuess(
+    roomCode: string,
+    playerId: string,
+    guess: string,
+  ): { correct: boolean } {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room?.engine) return { correct: false };
+    return room.engine.submitTypingGuess(playerId, guess);
   }
 
   getLobbyState(roomCode: string): LobbyState | null {
