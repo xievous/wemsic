@@ -4,6 +4,7 @@ import type {
   RoundProgressPayload,
   RoundRevealPayload,
   RoundStartPayload,
+  TypingGuessResult,
 } from '@wemsic/shared';
 import {
   createContext,
@@ -25,20 +26,24 @@ interface SocketContextValue {
   reveal: RoundRevealPayload | null;
   gameEnd: GameEndPayload | null;
   error: string | null;
+  lastTypingResult: TypingGuessResult | null;
   joinRoom: (roomCode: string, playerId: string) => void;
   setReady: (ready: boolean) => void;
   updateSettings: (settings: Partial<LobbyState['settings']>) => void;
   startGame: () => void;
+  kickPlayer: (targetId: string) => void;
+  rematch: () => void;
   submitMcqAnswer: (optionId: string) => void;
   submitTypingGuess: (guess: string) => void;
-  typingLocked: boolean;
   clearReveal: () => void;
+  resetRoomState: () => void;
 }
 
 const SocketContext = createContext<SocketContextValue | null>(null);
 
 export function SocketProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
+  const activeRoomRef = useRef<string | null>(null);
   const [connected, setConnected] = useState(false);
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [round, setRound] = useState<RoundStartPayload | null>(null);
@@ -47,7 +52,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [reveal, setReveal] = useState<RoundRevealPayload | null>(null);
   const [gameEnd, setGameEnd] = useState<GameEndPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [typingLocked, setTypingLocked] = useState(false);
+  const [lastTypingResult, setLastTypingResult] =
+    useState<TypingGuessResult | null>(null);
+
+  const resetRoomState = useCallback(() => {
+    activeRoomRef.current = null;
+    setLobby(null);
+    setRound(null);
+    setRoundProgress(null);
+    setReveal(null);
+    setGameEnd(null);
+    setLastTypingResult(null);
+    setError(null);
+  }, []);
 
   useEffect(() => {
     const socket = io(API_URL, { transports: ['websocket', 'polling'] });
@@ -55,14 +72,22 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
     socket.on('connect', () => setConnected(true));
     socket.on('disconnect', () => setConnected(false));
-    socket.on('typing:result', (result: { correct: boolean }) => {
-      if (result.correct) setTypingLocked(true);
+    socket.on('typing:result', (result: TypingGuessResult) => {
+      setLastTypingResult(result);
     });
     socket.on('lobby:state', (state: LobbyState) => {
+      activeRoomRef.current = state.roomCode.toUpperCase();
       setLobby(state);
+      if (state.phase === 'lobby') {
+        setGameEnd(null);
+        setReveal(null);
+        setRound(null);
+        setRoundProgress(null);
+        setLastTypingResult(null);
+      }
     });
     socket.on('round:start', (payload: RoundStartPayload) => {
-      setTypingLocked(false);
+      setLastTypingResult(null);
       setRound(payload);
       setRoundProgress({
         roundIndex: payload.roundIndex,
@@ -74,20 +99,19 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
     socket.on('round:progress', (payload: RoundProgressPayload) => {
       setRoundProgress(payload);
-      setRound((prev) =>
-        prev ? { ...prev, roundEndsAt: payload.roundEndsAt } : prev,
-      );
     });
     socket.on('round:reveal', (payload: RoundRevealPayload) => {
       setReveal(payload);
       setRound(null);
       setRoundProgress(null);
+      setLastTypingResult(null);
     });
     socket.on('game:end', (payload: GameEndPayload) => {
       setGameEnd(payload);
       setRound(null);
       setRoundProgress(null);
       setReveal(null);
+      setLastTypingResult(null);
     });
     socket.on('error', (payload: { message: string }) => {
       setError(payload.message);
@@ -99,7 +123,18 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const joinRoom = useCallback((roomCode: string, playerId: string) => {
-    socketRef.current?.emit('room:join', { roomCode, playerId });
+    const normalized = roomCode.toUpperCase();
+    if (activeRoomRef.current !== normalized) {
+      activeRoomRef.current = normalized;
+      setLobby(null);
+      setRound(null);
+      setRoundProgress(null);
+      setReveal(null);
+      setGameEnd(null);
+      setLastTypingResult(null);
+      setError(null);
+    }
+    socketRef.current?.emit('room:join', { roomCode: normalized, playerId });
   }, []);
 
   const setReady = useCallback((ready: boolean) => {
@@ -115,6 +150,14 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const startGame = useCallback(() => {
     socketRef.current?.emit('host:start');
+  }, []);
+
+  const kickPlayer = useCallback((targetId: string) => {
+    socketRef.current?.emit('host:kick', { targetId });
+  }, []);
+
+  const rematch = useCallback(() => {
+    socketRef.current?.emit('room:rematch');
   }, []);
 
   const submitMcqAnswer = useCallback((optionId: string) => {
@@ -137,14 +180,17 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         reveal,
         gameEnd,
         error,
+        lastTypingResult,
         joinRoom,
         setReady,
         updateSettings,
         startGame,
+        kickPlayer,
+        rematch,
         submitMcqAnswer,
         submitTypingGuess,
-        typingLocked,
         clearReveal,
+        resetRoomState,
       }}
     >
       {children}

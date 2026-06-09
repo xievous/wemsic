@@ -12,9 +12,9 @@ import type {
   Player,
   RoomPhase,
   RoomSettings,
+  TypingGuessResult,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
-import { resolvePreviewsForTracks } from '../deezer/preview.js';
 import { clearSpotifyTokens, getSpotifyTokens } from '../spotify/client.js';
 import { generateRoomCode } from '../utils/roomCode.js';
 import { GameEngine } from './GameEngine.js';
@@ -126,6 +126,42 @@ export class RoomManager {
     this.emitLobby(room);
   }
 
+  /**
+   * Host removes a player from the room. Works in the pre-game lobby and in the
+   * post-game rematch waiting room. The host cannot remove themselves.
+   */
+  kickPlayer(roomCode: string, hostPlayerId: string, targetPlayerId: string): void {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room || room.hostPlayerId !== hostPlayerId) return;
+    if (targetPlayerId === hostPlayerId) return;
+    if (!room.players.has(targetPlayerId)) return;
+
+    room.players.delete(targetPlayerId);
+    clearSpotifyTokens(targetPlayerId);
+    this.emitLobby(room);
+  }
+
+  /**
+   * Send a finished room back to the lobby for a rematch. Players, their
+   * playlists and Spotify connections are kept; scores and ready states reset.
+   * Any player may trigger it; repeated calls once back in the lobby are no-ops.
+   */
+  rematch(roomCode: string, playerId: string): void {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room || !room.players.has(playerId)) return;
+    if (room.phase === 'lobby') return;
+
+    room.engine?.destroy();
+    room.engine = null;
+    room.phase = 'lobby';
+    room.skippedTracksCount = 0;
+    for (const p of room.players.values()) {
+      p.score = 0;
+      p.isReady = false;
+    }
+    this.emitLobby(room);
+  }
+
   setSpotifyConnected(roomCode: string, playerId: string, connected: boolean): void {
     const player = this.getPlayer(roomCode, playerId);
     if (!player) return;
@@ -152,11 +188,9 @@ export class RoomManager {
   setReady(roomCode: string, playerId: string, ready: boolean): void {
     const player = this.getPlayer(roomCode, playerId);
     if (!player) return;
-    if (player.tracks.length < MIN_PLAYLIST_TRACKS) {
-      player.isReady = false;
-    } else {
-      player.isReady = ready;
-    }
+    // A player no longer needs their own playlist to ready up. As long as
+    // someone in the room has contributed a playlist, everyone can ready.
+    player.isReady = ready;
     this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
   }
 
@@ -192,17 +226,21 @@ export class RoomManager {
 
   canStart(room: Room): boolean {
     if (room.players.size < 1) return false;
-    const withPlaylist = [...room.players.values()].filter(
+    // At least one playlist must exist in the room...
+    const hasPlaylist = [...room.players.values()].some(
       (p) => p.tracks.length >= MIN_PLAYLIST_TRACKS,
     );
-    if (withPlaylist.length === 0) return false;
-    return withPlaylist.every((p) => p.isReady);
+    if (!hasPlaylist) return false;
+    // ...and every player (with or without their own playlist) is ready.
+    return [...room.players.values()].every((p) => p.isReady);
   }
 
   async startGame(roomCode: string, hostPlayerId: string): Promise<string | null> {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room || room.hostPlayerId !== hostPlayerId) return 'Not host';
-    if (!this.canStart(room)) return 'Not all players are ready';
+    if (!this.canStart(room)) {
+      return 'Add at least one playlist and make sure everyone is ready';
+    }
 
     const allTracks: NormalizedTrack[] = [];
     for (const p of room.players.values()) {
@@ -211,8 +249,11 @@ export class RoomManager {
       }
     }
 
-    const { skipped } = await resolvePreviewsForTracks(allTracks);
-    room.skippedTracksCount = skipped;
+    // Flip to "playing" and broadcast immediately so every client navigates
+    // into the game right away. Previews are resolved lazily per-round by the
+    // engine (with caching), so we no longer block the start on a slow,
+    // sequential pre-pass over every track.
+    room.skippedTracksCount = 0;
     room.phase = 'playing';
 
     const playerIds = [...room.players.keys()];
@@ -289,9 +330,18 @@ export class RoomManager {
     roomCode: string,
     playerId: string,
     guess: string,
-  ): { correct: boolean } {
+  ): TypingGuessResult {
     const room = this.rooms.get(roomCode.toUpperCase());
-    if (!room?.engine) return { correct: false };
+    if (!room?.engine) {
+      return {
+        incorrect: true,
+        matchedArtist: false,
+        matchedTitle: false,
+        artistCorrect: false,
+        titleCorrect: false,
+        bothCorrect: false,
+      };
+    }
     return room.engine.submitTypingGuess(playerId, guess);
   }
 

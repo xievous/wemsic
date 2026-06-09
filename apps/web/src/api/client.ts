@@ -47,19 +47,28 @@ export async function fetchSpotifyPlaylists(playerId: string) {
   }>;
 }
 
+export async function importMusic(
+  roomCode: string,
+  playerId: string,
+  urlOrId: string,
+) {
+  const res = await fetch(`${API_URL}/rooms/${roomCode}/playlists`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ playerId, url: urlOrId }),
+  });
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error ?? 'Import failed');
+  return data as { trackCount: number; playlistName: string };
+}
+
+/** @deprecated use importMusic */
 export async function importPlaylist(
   roomCode: string,
   playerId: string,
   playlistId: string,
 ) {
-  const res = await fetch(`${API_URL}/rooms/${roomCode}/playlists`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId, playlistId }),
-  });
-  const data = await res.json();
-  if (!res.ok || data.error) throw new Error(data.error ?? 'Import failed');
-  return data as { trackCount: number; playlistName: string };
+  return importMusic(roomCode, playerId, playlistId);
 }
 
 export function spotifyLoginUrl(playerId: string, roomCode: string) {

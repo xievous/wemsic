@@ -13,6 +13,8 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource/dm-sans": "^5.1.1",
+    "@fontsource/fredoka": "^5.2.10",
+    "@fontsource/outfit": "^5.2.8",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
     "@wemsic/shared": "*",

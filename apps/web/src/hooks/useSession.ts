@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 const SESSION_KEY = 'wemsic_session';
 
 export interface Session {
@@ -18,6 +20,12 @@ export function loadSession(): Session | null {
   } catch {
     return null;
   }
+}
+
+/** Stable session reference for the component lifetime (avoids re-read loops). */
+export function useSession(): Session | null {
+  const [session] = useState(() => loadSession());
+  return session;
 }
 
 export function clearSession(): void {

@@ -3,7 +3,10 @@ import type { NormalizedTrack } from '@wemsic/shared';
 import { config } from '../config.js';
 import type { SpotifyPlaylistSummary, SpotifyTokens, SpotifyTrackRaw } from './types.js';
 
-const tokenStore = new Map<string, SpotifyTokens>();
+const tokenStore = new Map<
+  string,
+  { accessToken: string; refreshToken: string; expiresAt: number }
+>();
 const pkceStore = new Map<
   string,
   { verifier: string; playerId: string; roomCode: string; expiresAt: number }
@@ -163,58 +166,76 @@ export async function fetchUserPlaylists(
   }));
 }
 
-export function parsePlaylistId(input: string): string | null {
-  const trimmed = input.trim();
-  if (/^[a-zA-Z0-9]{22}$/.test(trimmed)) return trimmed;
-  const match = trimmed.match(/playlist\/([a-zA-Z0-9]{22})/);
-  return match?.[1] ?? null;
+export type SpotifyLinkKind = 'playlist' | 'album';
+
+export interface ParsedSpotifyLink {
+  kind: SpotifyLinkKind;
+  id: string;
 }
 
-export async function importPlaylistTracks(
-  playerId: string,
-  playlistId: string,
-): Promise<{ tracks: NormalizedTrack[]; playlistName: string }> {
-  const meta = await spotifyFetch<{ name: string }>(
-    playerId,
-    `/playlists/${playlistId}?fields=name`,
-  );
+const SPOTIFY_ID = '[a-zA-Z0-9]{22}';
 
+export function parseSpotifyLink(input: string): ParsedSpotifyLink | null {
+  const trimmed = input.trim();
+  if (new RegExp(`^${SPOTIFY_ID}$`).test(trimmed)) {
+    return { kind: 'playlist', id: trimmed };
+  }
+
+  const album = trimmed.match(new RegExp(`album\\/(${SPOTIFY_ID})`, 'i'))?.[1];
+  if (album) return { kind: 'album', id: album };
+
+  const playlist = trimmed.match(new RegExp(`playlist\\/(${SPOTIFY_ID})`, 'i'))?.[1];
+  if (playlist) return { kind: 'playlist', id: playlist };
+
+  return null;
+}
+
+/** @deprecated use parseSpotifyLink */
+export function parsePlaylistId(input: string): string | null {
+  const parsed = parseSpotifyLink(input);
+  return parsed?.kind === 'playlist' ? parsed.id : null;
+}
+
+function toNormalizedTrack(
+  item: SpotifyTrackRaw,
+  playerId: string,
+): NormalizedTrack | null {
+  if (!item?.id || !item.name) return null;
+  return {
+    spotifyTrackId: item.id,
+    title: item.name,
+    artists: item.artists.map((a) => a.name),
+    albumArtUrl: item.album?.images?.[0]?.url ?? null,
+    durationMs: item.duration_ms,
+    contributedBy: playerId,
+  };
+}
+
+async function fetchTracksFromPages(
+  playerId: string,
+  fetchPage: (offset: number, limit: number) => Promise<{
+    items: Array<SpotifyTrackRaw | { item: SpotifyTrackRaw | null } | null>;
+    next: string | null;
+  }>,
+): Promise<NormalizedTrack[]> {
   const tracks: NormalizedTrack[] = [];
   const seen = new Set<string>();
   let offset = 0;
   const limit = 50;
 
   while (tracks.length < MAX_TRACKS_PER_PLAYER) {
-    const page = await spotifyFetch<{
-      items: Array<{ item: SpotifyTrackRaw | null }>;
-      next: string | null;
-    }>(
-      playerId,
-      `/playlists/${playlistId}/items?offset=${offset}&limit=${limit}&fields=items(item(id,name,artists,album(images),duration_ms))`,
-    );
-
-    if (!page.items?.length) {
-      if (offset === 0) {
-        throw new Error(
-          'Could not read playlist tracks. You can only import playlists you own or collaborate on.',
-        );
-      }
-      break;
-    }
+    const page = await fetchPage(offset, limit);
+    if (!page.items?.length) break;
 
     for (const entry of page.items) {
-      const item = entry.item;
-      if (!item?.id || !item.name) continue;
-      if (seen.has(item.id)) continue;
-      seen.add(item.id);
-      tracks.push({
-        spotifyTrackId: item.id,
-        title: item.name,
-        artists: item.artists.map((a) => a.name),
-        albumArtUrl: item.album.images[0]?.url ?? null,
-        durationMs: item.duration_ms,
-        contributedBy: playerId,
-      });
+      const raw =
+        entry && typeof entry === 'object' && 'item' in entry
+          ? entry.item
+          : (entry as SpotifyTrackRaw | null);
+      const track = raw ? toNormalizedTrack(raw, playerId) : null;
+      if (!track || seen.has(track.spotifyTrackId)) continue;
+      seen.add(track.spotifyTrackId);
+      tracks.push(track);
       if (tracks.length >= MAX_TRACKS_PER_PLAYER) break;
     }
 
@@ -222,5 +243,96 @@ export async function importPlaylistTracks(
     offset += limit;
   }
 
-  return { tracks, playlistName: meta.name };
+  return tracks;
+}
+
+export async function importAlbumTracks(
+  playerId: string,
+  albumId: string,
+): Promise<{ tracks: NormalizedTrack[]; sourceName: string }> {
+  const meta = await spotifyFetch<{ name: string; images: Array<{ url: string }> }>(
+    playerId,
+    `/albums/${albumId}?fields=name,images`,
+  );
+
+  const tracks = await fetchTracksFromPages(playerId, async (offset, limit) => {
+    const page = await spotifyFetch<{
+      items: SpotifyTrackRaw[];
+      next: string | null;
+    }>(
+      playerId,
+      `/albums/${albumId}/tracks?offset=${offset}&limit=${limit}&fields=items(id,name,artists,album(images),duration_ms)`,
+    );
+    return { items: page.items, next: page.next };
+  });
+
+  if (tracks.length === 0) {
+    throw new Error('Album has no importable tracks.');
+  }
+
+  if (!tracks[0]!.albumArtUrl && meta.images[0]?.url) {
+    for (const t of tracks) {
+      t.albumArtUrl = meta.images[0]!.url;
+    }
+  }
+
+  return { tracks, sourceName: meta.name };
+}
+
+export async function importPlaylistTracks(
+  playerId: string,
+  playlistId: string,
+): Promise<{ tracks: NormalizedTrack[]; sourceName: string }> {
+  const meta = await spotifyFetch<{ name: string }>(
+    playerId,
+    `/playlists/${playlistId}?fields=name`,
+  );
+
+  const tracks = await fetchTracksFromPages(playerId, async (offset, limit) => {
+    const page = await spotifyFetch<{
+      items: Array<{ item: SpotifyTrackRaw | null }>;
+      next: string | null;
+    }>(
+      playerId,
+      `/playlists/${playlistId}/items?offset=${offset}&limit=${limit}&fields=items(item(id,name,artists,album(images),duration_ms))`,
+    );
+    return { items: page.items, next: page.next };
+  });
+
+  if (tracks.length === 0) {
+    throw new Error(
+      'Could not read playlist tracks. Try your own playlist, one you collaborate on, a public playlist link, or an album link.',
+    );
+  }
+
+  return { tracks, sourceName: meta.name };
+}
+
+export async function importMusicFromLink(
+  playerId: string,
+  input: string,
+): Promise<{ tracks: NormalizedTrack[]; sourceName: string }> {
+  const parsed = parseSpotifyLink(input);
+  if (!parsed) {
+    throw new Error(
+      'Invalid Spotify link. Paste a playlist URL, album URL, or 22-character ID.',
+    );
+  }
+
+  if (parsed.kind === 'album') {
+    return importAlbumTracks(playerId, parsed.id);
+  }
+
+  try {
+    return await importPlaylistTracks(playerId, parsed.id);
+  } catch (playlistErr) {
+    if (new RegExp(`^${SPOTIFY_ID}$`).test(input.trim())) {
+      try {
+        return await importAlbumTracks(playerId, parsed.id);
+      } catch {
+        throw playlistErr;
+      }
+    }
+    throw playlistErr;
+  }
 }

@@ -1,5 +1,6 @@
 import { CssBaseline, ThemeProvider } from '@mui/material';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AudioProvider } from './audio/AudioProvider';
 import { SocketProvider } from './socket/SocketContext';
 import { theme } from './theme';
 import { CreateRoom } from './pages/CreateRoom';
@@ -13,20 +14,22 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <SocketProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/create" element={<CreateRoom />} />
-            <Route path="/join" element={<JoinRoom />} />
-            <Route path="/join/:code" element={<JoinRoom />} />
-            <Route path="/lobby/:code" element={<Lobby />} />
-            <Route path="/game/:code" element={<Game />} />
-            <Route path="/results/:code" element={<Results />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </BrowserRouter>
-      </SocketProvider>
+      <AudioProvider>
+        <SocketProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/create" element={<CreateRoom />} />
+              <Route path="/join" element={<JoinRoom />} />
+              <Route path="/join/:code" element={<JoinRoom />} />
+              <Route path="/lobby/:code" element={<Lobby />} />
+              <Route path="/game/:code" element={<Game />} />
+              <Route path="/results/:code" element={<Results />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </BrowserRouter>
+        </SocketProvider>
+      </AudioProvider>
     </ThemeProvider>
   );
 }

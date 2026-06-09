@@ -48,7 +48,11 @@ export interface McqOption {
 export interface RoundPlayerStatus {
   playerId: string;
   displayName: string;
+  /** Speed choice: picked an option. Typing: got artist + title */
   done: boolean;
+  artistCorrect?: boolean;
+  titleCorrect?: boolean;
+  bothCorrect?: boolean;
 }
 
 export interface RoundProgressPayload {

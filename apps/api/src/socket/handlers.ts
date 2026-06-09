@@ -10,7 +10,11 @@ export function registerSocketHandlers(
     let playerId: string | null = null;
 
     socket.on('room:join', (payload: { roomCode: string; playerId: string }) => {
-      roomCode = payload.roomCode.toUpperCase();
+      const nextCode = payload.roomCode.toUpperCase();
+      if (roomCode && roomCode !== nextCode) {
+        socket.leave(`room:${roomCode}`);
+      }
+      roomCode = nextCode;
       playerId = payload.playerId;
       socket.join(`room:${roomCode}`);
 
@@ -39,6 +43,16 @@ export function registerSocketHandlers(
       if (!roomCode || !playerId) return;
       const err = await roomManager.startGame(roomCode, playerId);
       if (err) socket.emit('error', { message: err });
+    });
+
+    socket.on('host:kick', (payload: { targetId: string }) => {
+      if (!roomCode || !playerId || !payload?.targetId) return;
+      roomManager.kickPlayer(roomCode, playerId, payload.targetId);
+    });
+
+    socket.on('room:rematch', () => {
+      if (!roomCode || !playerId) return;
+      roomManager.rematch(roomCode, playerId);
     });
 
     socket.on('answer:submit', (payload: { optionId: string }) => {

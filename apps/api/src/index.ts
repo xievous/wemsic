@@ -11,8 +11,7 @@ import {
   fetchUserPlaylists,
   getLoginUrl,
   getSpotifyTokens,
-  importPlaylistTracks,
-  parsePlaylistId,
+  importMusicFromLink,
   setSpotifyTokens,
   storePkceSession,
 } from './spotify/client.js';
@@ -164,29 +163,31 @@ fastify.get<{ Querystring: { playerId: string } }>(
 
 fastify.post<{
   Params: { code: string };
-  Body: { playerId: string; playlistId: string };
+  Body: { playerId: string; playlistId?: string; url?: string };
 }>('/rooms/:code/playlists', async (request, reply) => {
-  const { playerId, playlistId } = request.body ?? {};
-  if (!playerId || !playlistId) {
+  const { playerId, playlistId, url } = request.body ?? {};
+  const source = url ?? playlistId;
+  if (!playerId || !source) {
     return reply.status(400).send({ error: 'Missing fields' });
   }
   if (!getSpotifyTokens(playerId)) {
     return reply.status(401).send({ error: 'Spotify not connected' });
   }
 
-  const id = parsePlaylistId(playlistId) ?? playlistId;
   try {
-    const { tracks, playlistName } = await importPlaylistTracks(playerId, id);
+    const { tracks, sourceName } = await importMusicFromLink(playerId, source);
+    const parsed = source.match(/album\/([a-zA-Z0-9]{22})/i);
     roomManager.setPlaylist(
       request.params.code,
       playerId,
-      id,
-      playlistName,
+      parsed ? `album:${parsed[1]}` : source.slice(0, 32),
+      sourceName,
       tracks,
     );
-    return { trackCount: tracks.length, playlistName };
+    return { trackCount: tracks.length, playlistName: sourceName };
   } catch (e) {
-    return reply.status(400).send({ error: String(e) });
+    const message = e instanceof Error ? e.message : String(e);
+    return reply.status(400).send({ error: message });
   }
 });
 
