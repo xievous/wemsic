@@ -1,0 +1,32 @@
+# Render blueprint for the Wemsic API (Fastify + Socket.io).
+# The web app deploys to Vercel; this hosts the stateful API.
+# Deploy: Render Dashboard -> New -> Blueprint -> point at this repo.
+services:
+  - type: web
+    name: wemsic-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3001"
+      # Comma-separated browser origins allowed for CORS + Socket.io.
+      # Set this to your Vercel web URL, e.g. https://wemsic.vercel.app
+      - key: WEB_ORIGIN
+        sync: false
+      # Public URL of this API, e.g. https://wemsic-api.onrender.com
+      - key: API_PUBLIC_URL
+        sync: false
+      - key: SPOTIFY_CLIENT_ID
+        sync: false
+      - key: SPOTIFY_CLIENT_SECRET
+        sync: false
+      # Must match a Redirect URI in your Spotify app settings:
+      # https://wemsic-api.onrender.com/auth/spotify/callback
+      - key: SPOTIFY_REDIRECT_URI
+        sync: false

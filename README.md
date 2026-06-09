@@ -93,10 +93,44 @@ Real-time multiplayer music quiz. Each player connects Spotify and contributes a
 
 Spotify no longer provides `preview_url` via the Web API. Wemsic resolves ~30s previews via the [Deezer API](https://developers.deezer.com/) using track title and artist. Some tracks may be skipped if no preview is found.
 
-## Deploy (MVP)
+## Deploy
 
-- **Web:** Vercel/Netlify — set `VITE_API_URL` to your API URL.
-- **API:** Railway/Fly/single VPS — set `WEB_ORIGIN`, `API_PUBLIC_URL`, Spotify vars. Use one instance (in-memory rooms).
+Wemsic is split into two deployables:
+
+| Part | Host | Why |
+|------|------|-----|
+| **Web** (`apps/web`) | **Vercel** | Static Vite SPA — ideal for Vercel. |
+| **API** (`apps/api`) | **Railway / Render / Fly** | Holds **in-memory room state** and long-lived **Socket.io** connections, so it needs a single persistent server. It cannot run on Vercel serverless functions. |
+
+Deploy the API first so you have its URL for the web app's `VITE_API_URL`.
+
+### 1. API — persistent host (Render example)
+
+A `Dockerfile` (repo root) and `render.yaml` blueprint are included.
+
+1. Render → **New → Blueprint** → select this repo (uses `render.yaml`), or **New → Web Service → Docker** pointing at the root `Dockerfile`.
+2. Set environment variables:
+   - `NODE_ENV=production`
+   - `WEB_ORIGIN` — your Vercel URL (e.g. `https://wemsic.vercel.app`)
+   - `API_PUBLIC_URL` — this service's URL (e.g. `https://wemsic-api.onrender.com`)
+   - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`
+   - `SPOTIFY_REDIRECT_URI` — `<API_PUBLIC_URL>/auth/spotify/callback`
+3. In the Spotify Dashboard, add that exact redirect URI to your app.
+4. Health check: `GET /health` → `{ "ok": true }`.
+
+> Run a **single instance** — rooms and Spotify tokens live in memory and are not shared across replicas.
+
+### 2. Web — Vercel
+
+The repo includes a root `vercel.json` that builds the shared package and the web app from the monorepo.
+
+1. Vercel → **Add New → Project** → import this repo.
+2. Keep the **Root Directory** as the repo root (the root `vercel.json` handles the build).
+3. Add an environment variable:
+   - `VITE_API_URL` — your API URL from step 1 (e.g. `https://wemsic-api.onrender.com`)
+4. Deploy. Vercel runs `npm run build -w @wemsic/shared && npm run build -w @wemsic/web` and serves `apps/web/dist` with SPA routing.
+
+`VITE_API_URL` is baked in at build time, so changing it requires a redeploy. After both are live, double-check `WEB_ORIGIN` on the API matches the Vercel domain so CORS and Socket.io connect.
 
 ## Project structure
 

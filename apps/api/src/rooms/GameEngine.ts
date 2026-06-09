@@ -65,7 +65,6 @@ export class GameEngine {
   private activeRound: ActiveRound | null = null;
   private scores = new Map<string, number>();
   private roundTimer: ReturnType<typeof setTimeout> | null = null;
-  private earlyEndTimer: ReturnType<typeof setTimeout> | null = null;
   private revealPending = false;
   private isRevealing = false;
 
@@ -283,26 +282,7 @@ export class GameEngine {
     const round = this.activeRound;
     if (!round || this.revealPending || this.isRevealing) return;
     if (!this.allPlayersFinished()) return;
-
-    if (this.gameMode === 'typing') {
-      this.triggerEarlyReveal();
-      return;
-    }
-
-    const earliest = this.earliestEndAt(round);
-    const now = Date.now();
-
-    if (now >= earliest) {
-      this.triggerEarlyReveal();
-      return;
-    }
-
-    if (this.earlyEndTimer) return;
-
-    this.earlyEndTimer = setTimeout(() => {
-      this.earlyEndTimer = null;
-      this.tryEarlyEnd();
-    }, earliest - now + 50);
+    this.triggerEarlyReveal();
   }
 
   private triggerEarlyReveal(): void {
@@ -322,16 +302,8 @@ export class GameEngine {
     }
   }
 
-  private clearEarlyEndTimer(): void {
-    if (this.earlyEndTimer) {
-      clearTimeout(this.earlyEndTimer);
-      this.earlyEndTimer = null;
-    }
-  }
-
   private clearTimers(): void {
     this.clearRoundTimer();
-    this.clearEarlyEndTimer();
   }
 
   private scheduleReveal(): void {

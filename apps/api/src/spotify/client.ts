@@ -211,6 +211,13 @@ function toNormalizedTrack(
   };
 }
 
+function shuffleTracks<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+}
+
 async function fetchTracksFromPages(
   playerId: string,
   fetchPage: (offset: number, limit: number) => Promise<{
@@ -218,12 +225,14 @@ async function fetchTracksFromPages(
     next: string | null;
   }>,
 ): Promise<NormalizedTrack[]> {
-  const tracks: NormalizedTrack[] = [];
+  const all: NormalizedTrack[] = [];
   const seen = new Set<string>();
   let offset = 0;
   const limit = 50;
 
-  while (tracks.length < MAX_TRACKS_PER_PLAYER) {
+  // Load every page so we shuffle across the full playlist/album, not just
+  // Spotify's first page of results.
+  while (true) {
     const page = await fetchPage(offset, limit);
     if (!page.items?.length) break;
 
@@ -235,15 +244,17 @@ async function fetchTracksFromPages(
       const track = raw ? toNormalizedTrack(raw, playerId) : null;
       if (!track || seen.has(track.spotifyTrackId)) continue;
       seen.add(track.spotifyTrackId);
-      tracks.push(track);
-      if (tracks.length >= MAX_TRACKS_PER_PLAYER) break;
+      all.push(track);
     }
 
-    if (!page.next || tracks.length >= MAX_TRACKS_PER_PLAYER) break;
+    if (!page.next) break;
     offset += limit;
   }
 
-  return tracks;
+  shuffleTracks(all);
+  return all.length <= MAX_TRACKS_PER_PLAYER
+    ? all
+    : all.slice(0, MAX_TRACKS_PER_PLAYER);
 }
 
 export async function importAlbumTracks(
