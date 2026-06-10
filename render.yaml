@@ -7,7 +7,10 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    plan: starter
+    # Free plan: $0. Sleeps after ~15 min idle and cold-starts on next
+    # request (in-memory rooms reset on sleep). Bump to "starter" ($7/mo)
+    # for an always-on instance.
+    plan: free
     healthCheckPath: /health
     autoDeploy: true
     envVars:
