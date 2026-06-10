@@ -62,11 +62,17 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const unlockedRef = useRef(false);
   const [enabled, setEnabled] = useState(false);
   const [volume, setVolumeState] = useState<number>(loadStoredVolume);
+  // Mirror volume in a ref so the play callbacks can read the current value
+  // without listing `volume` as a dependency. Otherwise changing the volume
+  // recreates those callbacks and re-fires the "play pending preview" effect,
+  // restarting the song mid-round.
+  const volumeRef = useRef(volume);
 
   // Keep the shared audio element in sync with the current volume. This runs on
   // mount and whenever volume changes, so the setting carries across rounds and
   // into a replay without any per-round wiring.
   useEffect(() => {
+    volumeRef.current = volume;
     const el = audioRef.current;
     if (el) el.volume = volume;
   }, [volume]);
@@ -74,6 +80,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
   const setVolume = useCallback((value: number) => {
     const clamped = Math.min(1, Math.max(0, value));
     setVolumeState(clamped);
+    volumeRef.current = clamped;
     const el = audioRef.current;
     if (el) el.volume = clamped;
     try {
@@ -88,10 +95,10 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     if (!el) return;
     resolveSrc(el, url);
     el.muted = false;
-    el.volume = volume;
+    el.volume = volumeRef.current;
     el.currentTime = 0;
     void el.play().catch(() => {});
-  }, [volume]);
+  }, []);
 
   const playPendingPreview = useCallback(() => {
     const pending = pendingPreviewRef.current;
