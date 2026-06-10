@@ -3,6 +3,9 @@ import {
   Box,
   Button,
   CircularProgress,
+  IconButton,
+  Popover,
+  Slider,
   Stack,
   TextField,
   Typography,
@@ -15,6 +18,8 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import HexagonRoundedIcon from '@mui/icons-material/HexagonRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
+import VolumeDownRoundedIcon from '@mui/icons-material/VolumeDownRounded';
+import VolumeOffRoundedIcon from '@mui/icons-material/VolumeOffRounded';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '../audio/AudioProvider';
@@ -76,16 +81,79 @@ function Equalizer({ playing }: { playing: boolean }) {
   );
 }
 
+function VolumeControl({
+  volume,
+  onChange,
+}: {
+  volume: number;
+  onChange: (value: number) => void;
+}) {
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
+  const muted = volume === 0;
+  const VolumeIcon = muted
+    ? VolumeOffRoundedIcon
+    : volume < 0.5
+      ? VolumeDownRoundedIcon
+      : VolumeUpRoundedIcon;
+
+  return (
+    <>
+      <IconButton
+        aria-label="Adjust volume"
+        onClick={(e) => setAnchorEl(e.currentTarget)}
+        sx={{ color: '#fff', p: 0.5 }}
+      >
+        <VolumeIcon />
+      </IconButton>
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'center' }}
+        slotProps={{ paper: { sx: { borderRadius: '16px', overflow: 'visible' } } }}
+      >
+        <Stack
+          direction="row"
+          spacing={1}
+          alignItems="center"
+          sx={{ px: 1.5, py: 1, width: 180 }}
+        >
+          <Slider
+            aria-label="Volume"
+            size="small"
+            value={Math.round(volume * 100)}
+            onChange={(_, v) => onChange((Array.isArray(v) ? v[0] : v) / 100)}
+            min={0}
+            max={100}
+          />
+          <Typography
+            variant="caption"
+            color="text.secondary"
+            sx={{ width: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+          >
+            {Math.round(volume * 100)}%
+          </Typography>
+        </Stack>
+      </Popover>
+    </>
+  );
+}
+
 function Stage({
   roundIndex,
   totalRounds,
   timeLeft,
   progress,
+  volume,
+  onVolumeChange,
 }: {
   roundIndex: number;
   totalRounds: number;
   timeLeft: number;
   progress: number;
+  volume: number;
+  onVolumeChange: (value: number) => void;
 }) {
   const seconds = (timeLeft / 1000).toFixed(1);
   const low = timeLeft <= 5000;
@@ -106,8 +174,8 @@ function Stage({
           <Typography variant="overline" sx={{ opacity: 0.7 }}>
             Round {roundIndex + 1} of {totalRounds}
           </Typography>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mt: 0.5 }}>
-            <VolumeUpRoundedIcon />
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, ml: -0.5 }}>
+            <VolumeControl volume={volume} onChange={onVolumeChange} />
             <Typography variant="h5" sx={{ color: '#fff' }}>
               Now playing
             </Typography>
@@ -176,7 +244,7 @@ export function Game() {
     gameEnd,
   } = useSocket();
 
-  const { enabled: audioEnabled, playPreview, stop } = useAudio();
+  const { enabled: audioEnabled, playPreview, stop, volume, setVolume } = useAudio();
   const lastAudioKeyRef = useRef<string | null>(null);
   const [mcqAnswered, setMcqAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -437,6 +505,8 @@ export function Game() {
               totalRounds={round.totalRounds}
               timeLeft={timeLeft}
               progress={progress}
+              volume={volume}
+              onVolumeChange={setVolume}
             />
 
             {!audioEnabled && (

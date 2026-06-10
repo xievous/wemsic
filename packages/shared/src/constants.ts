@@ -1,5 +1,4 @@
 export const MIN_PLAYLIST_TRACKS = 10;
-export const MAX_TRACKS_PER_PLAYER = 50;
 export const DEFAULT_ROUND_COUNT = 10;
 export const DEFAULT_SPEED_CHOICE_SECONDS = 15;
 export const DEFAULT_TYPING_SECONDS = 30;

@@ -1,4 +1,3 @@
-import { MAX_TRACKS_PER_PLAYER } from '@wemsic/shared';
 import type { NormalizedTrack } from '@wemsic/shared';
 import { config } from '../config.js';
 import type { SpotifyPlaylistSummary, SpotifyTokens, SpotifyTrackRaw } from './types.js';
@@ -231,6 +230,102 @@ async function spotifyFetch<T>(playerId: string, path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** Follow Spotify `next` links returned by paginated list endpoints. */
+async function spotifyFetchUrl<T>(playerId: string, url: string): Promise<T> {
+  const token = await getValidToken(playerId);
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw toFriendlySpotifyError(res.status, text);
+  }
+  return res.json() as Promise<T>;
+}
+
+/** Spotify caps playlist/album item pages at 50 (not 100). */
+const SPOTIFY_ITEMS_PAGE_LIMIT = 50;
+
+type SpotifyTrackPageItem =
+  | SpotifyTrackRaw
+  | { item: SpotifyTrackRaw | null }
+  | null;
+
+interface SpotifyTrackPage {
+  items: SpotifyTrackPageItem[];
+  next: string | null;
+  total?: number;
+}
+
+function shuffleTracks<T>(arr: T[]): void {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
+  }
+}
+
+function buildSpotifyPageUrl(resourcePath: string, offset?: number): string {
+  const params = new URLSearchParams({
+    limit: String(SPOTIFY_ITEMS_PAGE_LIMIT),
+  });
+  if (offset != null && offset > 0) {
+    params.set('offset', String(offset));
+  }
+  return `${resourcePath}?${params.toString()}`;
+}
+
+async function fetchTracksFromPages(
+  playerId: string,
+  resourcePath: string,
+): Promise<NormalizedTrack[]> {
+  const all: NormalizedTrack[] = [];
+  const seen = new Set<string>();
+  let url: string | null = buildSpotifyPageUrl(resourcePath);
+  let pageOffset = 0;
+
+  // Do not pass Spotify's `fields` filter on paginated track requests. If `next`
+  // is omitted from `fields`, the API returns page 1 only with no pagination link.
+  while (url) {
+    const page: SpotifyTrackPage = url.startsWith('https://')
+      ? await spotifyFetchUrl(playerId, url)
+      : await spotifyFetch(playerId, url);
+
+    if (!page.items?.length) break;
+
+    const before = all.length;
+    for (const entry of page.items) {
+      const raw =
+        entry && typeof entry === 'object' && 'item' in entry
+          ? entry.item
+          : (entry as SpotifyTrackRaw | null);
+      const track = raw ? toNormalizedTrack(raw, playerId) : null;
+      if (!track || seen.has(track.spotifyTrackId)) continue;
+      seen.add(track.spotifyTrackId);
+      all.push(track);
+    }
+
+    pageOffset += page.items.length;
+
+    if (page.next) {
+      url = page.next;
+      continue;
+    }
+
+    const gotFullPage = page.items.length >= SPOTIFY_ITEMS_PAGE_LIMIT;
+    const knowsMore =
+      page.total != null ? pageOffset < page.total : gotFullPage;
+    if (gotFullPage && knowsMore && all.length > before) {
+      url = buildSpotifyPageUrl(resourcePath, pageOffset);
+      continue;
+    }
+
+    url = null;
+  }
+
+  shuffleTracks(all);
+  return all;
+}
+
 export async function fetchUserPlaylists(
   playerId: string,
 ): Promise<SpotifyPlaylistSummary[]> {
@@ -296,52 +391,6 @@ function toNormalizedTrack(
   };
 }
 
-function shuffleTracks<T>(arr: T[]): void {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j]!, arr[i]!];
-  }
-}
-
-async function fetchTracksFromPages(
-  playerId: string,
-  fetchPage: (offset: number, limit: number) => Promise<{
-    items: Array<SpotifyTrackRaw | { item: SpotifyTrackRaw | null } | null>;
-    next: string | null;
-  }>,
-): Promise<NormalizedTrack[]> {
-  const all: NormalizedTrack[] = [];
-  const seen = new Set<string>();
-  let offset = 0;
-  const limit = 50;
-
-  // Load every page so we shuffle across the full playlist/album, not just
-  // Spotify's first page of results.
-  while (true) {
-    const page = await fetchPage(offset, limit);
-    if (!page.items?.length) break;
-
-    for (const entry of page.items) {
-      const raw =
-        entry && typeof entry === 'object' && 'item' in entry
-          ? entry.item
-          : (entry as SpotifyTrackRaw | null);
-      const track = raw ? toNormalizedTrack(raw, playerId) : null;
-      if (!track || seen.has(track.spotifyTrackId)) continue;
-      seen.add(track.spotifyTrackId);
-      all.push(track);
-    }
-
-    if (!page.next) break;
-    offset += limit;
-  }
-
-  shuffleTracks(all);
-  return all.length <= MAX_TRACKS_PER_PLAYER
-    ? all
-    : all.slice(0, MAX_TRACKS_PER_PLAYER);
-}
-
 export async function importAlbumTracks(
   playerId: string,
   albumId: string,
@@ -351,16 +400,10 @@ export async function importAlbumTracks(
     `/albums/${albumId}?fields=name,images`,
   );
 
-  const tracks = await fetchTracksFromPages(playerId, async (offset, limit) => {
-    const page = await spotifyFetch<{
-      items: SpotifyTrackRaw[];
-      next: string | null;
-    }>(
-      playerId,
-      `/albums/${albumId}/tracks?offset=${offset}&limit=${limit}&fields=items(id,name,artists,album(images),duration_ms)`,
-    );
-    return { items: page.items, next: page.next };
-  });
+  const tracks = await fetchTracksFromPages(
+    playerId,
+    `/albums/${albumId}/tracks`,
+  );
 
   if (tracks.length === 0) {
     throw new Error('Album has no importable tracks.');
@@ -384,16 +427,10 @@ export async function importPlaylistTracks(
     `/playlists/${playlistId}?fields=name`,
   );
 
-  const tracks = await fetchTracksFromPages(playerId, async (offset, limit) => {
-    const page = await spotifyFetch<{
-      items: Array<{ item: SpotifyTrackRaw | null }>;
-      next: string | null;
-    }>(
-      playerId,
-      `/playlists/${playlistId}/items?offset=${offset}&limit=${limit}&fields=items(item(id,name,artists,album(images),duration_ms))`,
-    );
-    return { items: page.items, next: page.next };
-  });
+  const tracks = await fetchTracksFromPages(
+    playerId,
+    `/playlists/${playlistId}/items`,
+  );
 
   if (tracks.length === 0) {
     throw new Error(
