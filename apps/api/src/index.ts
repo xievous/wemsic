@@ -13,6 +13,7 @@ import {
   getSpotifyTokens,
   importMusicFromLink,
   setSpotifyTokens,
+  SpotifyError,
   storePkceSession,
 } from './spotify/client.js';
 import {
@@ -156,7 +157,12 @@ fastify.get<{ Querystring: { playerId: string } }>(
       const playlists = await fetchUserPlaylists(playerId);
       return { playlists };
     } catch (e) {
-      return reply.status(500).send({ error: String(e) });
+      if (e instanceof SpotifyError) {
+        return reply.status(e.status ?? 502).send({ error: e.message });
+      }
+      return reply
+        .status(500)
+        .send({ error: 'Could not load your playlists. Please try again.' });
     }
   },
 );

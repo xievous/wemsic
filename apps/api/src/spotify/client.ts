@@ -3,6 +3,86 @@ import type { NormalizedTrack } from '@wemsic/shared';
 import { config } from '../config.js';
 import type { SpotifyPlaylistSummary, SpotifyTokens, SpotifyTrackRaw } from './types.js';
 
+/**
+ * Error whose `message` is safe and friendly to show directly to a player.
+ * `status` is the upstream Spotify HTTP status when available.
+ */
+export class SpotifyError extends Error {
+  readonly status?: number;
+
+  constructor(message: string, status?: number) {
+    super(message);
+    this.name = 'SpotifyError';
+    this.status = status;
+  }
+}
+
+/** Pull a human-readable reason out of a Spotify error response body. */
+function parseSpotifyErrorBody(body: string): string {
+  try {
+    const json = JSON.parse(body) as {
+      error?: string | { message?: string };
+      error_description?: string;
+    };
+    if (typeof json.error === 'string') {
+      return json.error_description ?? json.error;
+    }
+    return json.error?.message ?? body;
+  } catch {
+    return body;
+  }
+}
+
+/** Map an upstream Spotify Web API failure to a friendly, player-facing error. */
+function toFriendlySpotifyError(status: number, body: string): SpotifyError {
+  const reason = parseSpotifyErrorBody(body).toLowerCase();
+
+  if (status === 403 && reason.includes('not registered')) {
+    return new SpotifyError(
+      "This Spotify account isn't approved for Wemsic yet. While the app is in " +
+        'Spotify Development Mode, the owner has to add each player to the allowlist ' +
+        '(Spotify Dashboard → your app → User Management), or get the app approved for ' +
+        'Extended Quota Mode. Ask the host to add your Spotify email, then try again.',
+      status,
+    );
+  }
+
+  if (status === 403) {
+    return new SpotifyError(
+      "Spotify denied access for this account. It may not be approved for Wemsic, or " +
+        "the playlist/album isn't accessible. Ask the host to add your Spotify email, " +
+        'then try again.',
+      status,
+    );
+  }
+
+  if (status === 401) {
+    return new SpotifyError(
+      'Your Spotify session expired. Please disconnect and reconnect Spotify.',
+      status,
+    );
+  }
+
+  if (status === 429) {
+    return new SpotifyError(
+      "Spotify is busy right now (rate limited). Wait a few seconds and try again.",
+      status,
+    );
+  }
+
+  if (status === 404) {
+    return new SpotifyError(
+      "Spotify couldn't find that playlist or album. Double-check the link and try again.",
+      status,
+    );
+  }
+
+  return new SpotifyError(
+    `Spotify request failed (${status}). Please try again.`,
+    status,
+  );
+}
+
 const tokenStore = new Map<
   string,
   { accessToken: string; refreshToken: string; expiresAt: number }
@@ -109,7 +189,12 @@ async function refreshAccessToken(tokens: SpotifyTokens): Promise<SpotifyTokens>
     body,
   });
 
-  if (!res.ok) throw new Error('Spotify token refresh failed');
+  if (!res.ok) {
+    throw new SpotifyError(
+      'Your Spotify session expired. Please disconnect and reconnect Spotify.',
+      res.status,
+    );
+  }
 
   const data = (await res.json()) as {
     access_token: string;
@@ -141,7 +226,7 @@ async function spotifyFetch<T>(playerId: string, path: string): Promise<T> {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Spotify API error: ${res.status} ${text}`);
+    throw toFriendlySpotifyError(res.status, text);
   }
   return res.json() as Promise<T>;
 }
