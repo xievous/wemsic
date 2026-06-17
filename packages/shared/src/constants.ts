@@ -22,8 +22,7 @@ export const MIN_ROUND_REMAINING_MS = 2000;
 /** Minimum time a preview plays before early round end (ms) */
 export const MIN_ROUND_PLAY_MS = 10000;
 export const MIN_ROUND_PLAY_FRACTION = 0.45;
-/** Keep audio playing briefly after everyone has answered (speed mode) */
-export const ALL_ANSWERED_REVEAL_DELAY_MS = 3500;
+export const ALL_ANSWERED_REVEAL_DELAY_MS = 600;
 export const BETWEEN_ROUNDS_DELAY_MS = 4500;
 /** Host start button countdown before the game begins (seconds) */
-export const GAME_START_COUNTDOWN_SECONDS = 5;
+export const GAME_START_COUNTDOWN_SECONDS = 3;

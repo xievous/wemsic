@@ -315,12 +315,11 @@ export function Game() {
     playPreview(previewUrl);
   }, [audioEnabled, previewUrl, roundIndex, playPreview]);
 
-  // Pause the preview once the round resolves (reveal) or there is no active
-  // round. We intentionally do NOT pause on timerExpired: `timeLeft` starts at
-  // 0, so the first render of a new round would momentarily look "expired" and
-  // immediately silence the song that just started playing.
+  // Keep the preview playing through reveal until the next round starts.
+  // playPreview swaps tracks on round:start; only stop when fully idle.
   useEffect(() => {
-    if (reveal || !round) stop();
+    if (round || reveal) return;
+    stop();
   }, [reveal, round, stop]);
 
   // Stop playback when leaving the game screen.
