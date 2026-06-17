@@ -2,6 +2,7 @@ import {
   DEFAULT_ROUND_COUNT,
   DEFAULT_SPEED_CHOICE_SECONDS,
   DEFAULT_TYPING_SECONDS,
+  GAME_START_COUNTDOWN_SECONDS,
   MIN_PLAYLIST_TRACKS,
   MAX_PLAYERS,
 } from '@wemsic/shared';
@@ -40,6 +41,8 @@ interface Room {
   engine: GameEngine | null;
   skippedTracksCount: number;
   createdAt: number;
+  startCountdownEndsAt: number | null;
+  startCountdownTimer: ReturnType<typeof setTimeout> | null;
 }
 
 type BroadcastFn = (roomCode: string, event: string, payload: unknown) => void;
@@ -76,6 +79,8 @@ export class RoomManager {
       engine: null,
       skippedTracksCount: 0,
       createdAt: Date.now(),
+      startCountdownEndsAt: null,
+      startCountdownTimer: null,
     };
 
     room.players.set(playerId, this.newPlayer(playerId, hostDisplayName, true));
@@ -155,6 +160,11 @@ export class RoomManager {
     room.engine = null;
     room.phase = 'lobby';
     room.skippedTracksCount = 0;
+    if (room.startCountdownTimer) {
+      clearTimeout(room.startCountdownTimer);
+      room.startCountdownTimer = null;
+    }
+    room.startCountdownEndsAt = null;
     for (const p of room.players.values()) {
       p.score = 0;
       p.isReady = false;
@@ -235,9 +245,52 @@ export class RoomManager {
     return [...room.players.values()].every((p) => p.isReady);
   }
 
+  toggleStartCountdown(
+    roomCode: string,
+    hostPlayerId: string,
+  ): string | null {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    if (!room || room.hostPlayerId !== hostPlayerId) return 'Not host';
+    if (room.phase !== 'lobby') return 'Game already started';
+
+    if (room.startCountdownEndsAt !== null) {
+      this.cancelStartCountdown(room);
+      return null;
+    }
+
+    if (!this.canStart(room)) {
+      return 'Add at least one playlist and make sure everyone is ready';
+    }
+
+    room.startCountdownEndsAt =
+      Date.now() + GAME_START_COUNTDOWN_SECONDS * 1000;
+    room.startCountdownTimer = setTimeout(() => {
+      room.startCountdownTimer = null;
+      room.startCountdownEndsAt = null;
+      void this.startGame(room.code, hostPlayerId);
+    }, GAME_START_COUNTDOWN_SECONDS * 1000);
+
+    this.emitLobby(room);
+    return null;
+  }
+
+  private cancelStartCountdown(room: Room): void {
+    if (room.startCountdownTimer) {
+      clearTimeout(room.startCountdownTimer);
+      room.startCountdownTimer = null;
+    }
+    room.startCountdownEndsAt = null;
+    this.emitLobby(room);
+  }
+
   async startGame(roomCode: string, hostPlayerId: string): Promise<string | null> {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room || room.hostPlayerId !== hostPlayerId) return 'Not host';
+    if (room.startCountdownTimer) {
+      clearTimeout(room.startCountdownTimer);
+      room.startCountdownTimer = null;
+    }
+    room.startCountdownEndsAt = null;
     if (!this.canStart(room)) {
       return 'Add at least one playlist and make sure everyone is ready';
     }
@@ -404,10 +457,19 @@ export class RoomManager {
       players,
       canStart: this.canStart(room),
       skippedTracksCount: room.skippedTracksCount,
+      startCountdownEndsAt: room.startCountdownEndsAt,
     };
   }
 
   private emitLobby(room: Room): void {
+    if (
+      room.startCountdownEndsAt !== null &&
+      room.phase === 'lobby' &&
+      !this.canStart(room)
+    ) {
+      this.cancelStartCountdown(room);
+      return;
+    }
     this.broadcast(room.code, 'lobby:state', this.toLobbyState(room));
   }
 }

@@ -3,7 +3,7 @@ import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
-import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
+import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import {
@@ -14,25 +14,17 @@ import {
   CardContent,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogContent,
-  DialogTitle,
   IconButton,
-  List,
-  ListItemButton,
-  ListItemText,
+  LinearProgress,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import {
-  fetchSpotifyPlaylists,
-  importMusic,
-  spotifyLoginUrl,
-} from '../api/client';
+import type { PlaylistImportProgressPayload } from '@wemsic/shared';
+import { useNavigate, useParams } from 'react-router-dom';
+import { importMusic } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -84,6 +76,54 @@ function ModeTile({
   );
 }
 
+function ImportProgressBar({ progress }: { progress: PlaylistImportProgressPayload }) {
+  const hasTotal = progress.total != null && progress.total > 0;
+  const total = progress.total ?? 0;
+  const value = hasTotal
+    ? Math.min(100, Math.round((progress.loaded / total) * 100))
+    : undefined;
+
+  return (
+    <Box
+      sx={{
+        py: 1.25,
+        px: 1.5,
+        borderRadius: '14px',
+        bgcolor: 'rgba(58,107,255,0.05)',
+        border: '1px solid rgba(58,107,255,0.1)',
+      }}
+    >
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="baseline"
+        spacing={1}
+        sx={{ mb: 0.75 }}
+      >
+        <Typography variant="caption" color="text.secondary" fontWeight={600}>
+          {progress.label ?? 'Scanning playlist…'}
+        </Typography>
+        {hasTotal && (
+          <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ flexShrink: 0 }}>
+            {progress.loaded.toLocaleString()} / {total.toLocaleString()}
+          </Typography>
+        )}
+      </Stack>
+      <LinearProgress
+        variant={hasTotal ? 'determinate' : 'indeterminate'}
+        value={value}
+        sx={{
+          height: 5,
+          bgcolor: 'rgba(20,33,63,0.06)',
+          '& .MuiLinearProgress-bar': {
+            background: 'linear-gradient(90deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
+          },
+        }}
+      />
+    </Box>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -112,7 +152,6 @@ function NumberField({
 
 export function Lobby() {
   const { code } = useParams<{ code: string }>();
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const {
     lobby,
@@ -123,18 +162,16 @@ export function Lobby() {
     kickPlayer,
     connected,
     error: socketError,
+    playlistImportProgress,
+    clearPlaylistImportProgress,
   } = useSocket();
   const { enabled: soundOn, enableAudio } = useAudio();
 
   const [session, setSession] = useState<Session | null>(null);
-  const [playlistDialog, setPlaylistDialog] = useState(false);
-  const [playlists, setPlaylists] = useState<
-    Array<{ id: string; name: string; trackCount: number; imageUrl: string | null }>
-  >([]);
-  const [loadingPlaylists, setLoadingPlaylists] = useState(false);
   const [importing, setImporting] = useState(false);
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
 
   useEffect(() => {
     const s = loadSession();
@@ -144,14 +181,6 @@ export function Lobby() {
     }
     setSession(s);
 
-    const spotify = searchParams.get('spotify');
-    const pid = searchParams.get('playerId');
-    if (spotify === 'connected' && pid === s.playerId) {
-      setMessage('Spotify connected');
-    } else if (spotify === 'error') {
-      setMessage('Spotify connection failed. Try connecting again.');
-    }
-
     reconnect(s.roomCode, s.playerId).then((state) => {
       if (!('error' in state)) {
         /* lobby will sync via socket */
@@ -159,7 +188,7 @@ export function Lobby() {
     });
 
     if (connected) joinRoom(s.roomCode, s.playerId);
-  }, [code, connected, joinRoom, navigate, searchParams]);
+  }, [code, connected, joinRoom, navigate]);
 
   useEffect(() => {
     const roomCode = code?.toUpperCase();
@@ -172,8 +201,6 @@ export function Lobby() {
     }
   }, [lobby, code, navigate]);
 
-  // If the host removed us from the room, the lobby state will no longer
-  // contain our player. Drop the session and head home.
   useEffect(() => {
     if (!session || !lobby || lobby.roomCode !== code?.toUpperCase()) return;
     if (!lobby.players.some((p) => p.id === session.playerId)) {
@@ -181,6 +208,20 @@ export function Lobby() {
       navigate('/?removed=1');
     }
   }, [lobby, session, code, navigate]);
+
+  useEffect(() => {
+    const endsAt = lobby?.startCountdownEndsAt;
+    if (!endsAt) {
+      setCountdownLeft(null);
+      return;
+    }
+    const tick = () => {
+      setCountdownLeft(Math.max(0, Math.ceil((endsAt - Date.now()) / 1000)));
+    };
+    tick();
+    const id = setInterval(tick, 200);
+    return () => clearInterval(id);
+  }, [lobby?.startCountdownEndsAt]);
 
   if (!session || !code) return null;
 
@@ -197,40 +238,32 @@ export function Lobby() {
 
   const me = lobby.players.find((p) => p.id === session.playerId);
   const isHost = me?.isHost ?? false;
+  const countdownActive = countdownLeft !== null && countdownLeft > 0;
+  const myImportProgress =
+    importing &&
+    playlistImportProgress?.playerId === session.playerId
+      ? playlistImportProgress
+      : null;
 
-  async function openPlaylistPicker() {
-    setPlaylistDialog(true);
-    setLoadingPlaylists(true);
-    try {
-      const res = await fetchSpotifyPlaylists(session!.playerId);
-      if (res.playlists) setPlaylists(res.playlists);
-      else setMessage(res.error ?? 'Could not load your playlists');
-    } finally {
-      setLoadingPlaylists(false);
-    }
-  }
-
-  async function handleImportMusic(source: string) {
+  async function handleImportFromUrl() {
+    if (!playlistUrl.trim()) return;
     setImporting(true);
+    clearPlaylistImportProgress();
     try {
-      const res = await importMusic(code!, session!.playerId, source);
-      setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}`);
-      setPlaylistDialog(false);
+      const res = await importMusic(code!, session!.playerId, playlistUrl.trim());
+      const truncatedNote = res.truncated
+        ? ' (some tracks could not be loaded)'
+        : '';
+      setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
+      setPlaylistUrl('');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Import failed');
     } finally {
       setImporting(false);
+      clearPlaylistImportProgress();
     }
   }
 
-  async function handleImportFromUrl() {
-    if (!playlistUrl.trim()) return;
-    await handleImportMusic(playlistUrl.trim());
-    setPlaylistUrl('');
-  }
-
-  // A playlist is no longer required to ready up: as long as someone in the
-  // room has added one, every player can ready and the host can start.
   const roomHasPlaylist = lobby.players.some(
     (p) => p.trackCount >= MIN_PLAYLIST_TRACKS,
   );
@@ -370,8 +403,11 @@ export function Lobby() {
                   )}
                 </Stack>
                 <Typography variant="caption" color="text.secondary">
-                  {p.spotifyConnected ? 'Spotify connected' : 'No Spotify yet'}
-                  {p.trackCount > 0 && ` · ${p.trackCount} tracks`}
+                  {p.playlistName
+                    ? `${p.playlistName} · ${p.trackCount} tracks`
+                    : p.trackCount > 0
+                      ? `${p.trackCount} tracks`
+                      : 'No playlist yet'}
                 </Typography>
               </Box>
               {isHost && p.id !== session.playerId && (
@@ -400,52 +436,68 @@ export function Lobby() {
             Your music
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Add a playlist or album link (at least {MIN_PLAYLIST_TRACKS} tracks) to
-            throw your songs into the mix. Not everyone has to add one, you just
-            need a playlist in the room to play. Pick a new one any time to swap it.
+            Paste a public Spotify playlist or album link (at least {MIN_PLAYLIST_TRACKS}{' '}
+            tracks). Everyone can add their own — songs are mixed fairly across players
+            during the game. Swap yours any time by pasting a new link.
           </Typography>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-            {me?.spotifyConnected ? (
+          <Stack spacing={1.5}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <TextField
+                label="Spotify playlist or album link"
+                placeholder="https://open.spotify.com/playlist/…"
+                fullWidth
+                size="small"
+                value={playlistUrl}
+                onChange={(e) => setPlaylistUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') void handleImportFromUrl();
+                }}
+                disabled={importing}
+              />
               <Button
-                variant="outlined"
-                color="success"
-                startIcon={<CheckCircleRoundedIcon />}
-                disabled
-                sx={{ '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } }}
+                variant="contained"
+                startIcon={importing ? <CircularProgress size={18} color="inherit" /> : <LinkRoundedIcon />}
+                onClick={() => void handleImportFromUrl()}
+                disabled={importing || !playlistUrl.trim()}
+                sx={{ flexShrink: 0, minWidth: { sm: 120 } }}
               >
-                Spotify connected
+                {importing
+                  ? myImportProgress?.total
+                    ? `${Math.min(myImportProgress.loaded, myImportProgress.total).toLocaleString()}…`
+                    : 'Scanning…'
+                  : 'Add'}
               </Button>
-            ) : (
-              <Button variant="outlined" href={spotifyLoginUrl(session.playerId, code)}>
-                Connect Spotify
-              </Button>
+            </Stack>
+            {myImportProgress && <ImportProgressBar progress={myImportProgress} />}
+            {me?.playlistName && (
+              <Chip
+                icon={<CheckCircleRoundedIcon />}
+                label={`Your playlist: ${me.playlistName} (${me.trackCount} tracks)`}
+                color="success"
+                variant="outlined"
+                sx={{ alignSelf: 'flex-start' }}
+              />
             )}
-            <Button
-              variant="contained"
-              startIcon={<LibraryMusicRoundedIcon />}
-              onClick={openPlaylistPicker}
-              disabled={!me?.spotifyConnected}
-            >
-              {me?.playlistName ? 'Change playlist' : 'Choose playlist'}
-            </Button>
-            <Button
-              variant={soundOn ? 'outlined' : 'contained'}
-              color={soundOn ? 'success' : 'secondary'}
-              startIcon={soundOn ? <CheckCircleRoundedIcon /> : <VolumeUpRoundedIcon />}
-              onClick={enableAudio}
-              disabled={soundOn}
-              sx={soundOn ? { '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } } : undefined}
-            >
-              {soundOn ? 'Sound ready' : 'Enable sound'}
-            </Button>
-            <Button
-              variant={me?.isReady ? 'outlined' : 'contained'}
-              color="success"
-              onClick={() => setReady(!me?.isReady)}
-              sx={{ ml: { sm: 'auto' } }}
-            >
-              {me?.isReady ? "I'm not ready" : "I'm ready"}
-            </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+              <Button
+                variant={soundOn ? 'outlined' : 'contained'}
+                color={soundOn ? 'success' : 'secondary'}
+                startIcon={soundOn ? <CheckCircleRoundedIcon /> : <VolumeUpRoundedIcon />}
+                onClick={enableAudio}
+                disabled={soundOn}
+                sx={soundOn ? { '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } } : undefined}
+              >
+                {soundOn ? 'Sound ready' : 'Enable sound'}
+              </Button>
+              <Button
+                variant={me?.isReady ? 'outlined' : 'contained'}
+                color="success"
+                onClick={() => setReady(!me?.isReady)}
+                sx={{ ml: { sm: 'auto' } }}
+              >
+                {me?.isReady ? "I'm not ready" : "I'm ready"}
+              </Button>
+            </Stack>
           </Stack>
           {!soundOn && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
@@ -455,70 +507,32 @@ export function Lobby() {
         </CardContent>
       </Card>
 
+      {countdownActive && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          {isHost
+            ? `Game starts in ${countdownLeft} second${countdownLeft === 1 ? '' : 's'}. Tap the button again to cancel.`
+            : `The host is starting the game in ${countdownLeft}…`}
+        </Alert>
+      )}
+
       {isHost && (
         <Button
           variant="contained"
           size="large"
           fullWidth
-          startIcon={<PlayArrowRoundedIcon />}
-          disabled={!lobby.canStart}
+          color={countdownActive ? 'warning' : 'primary'}
+          startIcon={countdownActive ? <CloseRoundedIcon /> : <PlayArrowRoundedIcon />}
+          disabled={!lobby.canStart && !countdownActive}
           onClick={startGame}
           sx={{ py: 2, fontSize: '1.15rem' }}
         >
-          {roomHasPlaylist ? 'Start the game' : 'Add a playlist to start'}
+          {countdownActive
+            ? `Starting in ${countdownLeft}… (tap to cancel)`
+            : roomHasPlaylist
+              ? 'Start the game'
+              : 'Add a playlist to start'}
         </Button>
       )}
-
-      <Dialog
-        open={playlistDialog}
-        onClose={() => setPlaylistDialog(false)}
-        maxWidth="sm"
-        fullWidth
-        PaperProps={{ sx: { borderRadius: '24px' } }}
-      >
-        <DialogTitle sx={{ fontFamily: '"Fredoka", sans-serif', fontWeight: 600 }}>
-          Add music from Spotify
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            <Stack direction="row" spacing={1}>
-              <TextField
-                label="Playlist or album link"
-                placeholder="https://open.spotify.com/playlist/…"
-                fullWidth
-                size="small"
-                value={playlistUrl}
-                onChange={(e) => setPlaylistUrl(e.target.value)}
-              />
-              <Button variant="contained" onClick={handleImportFromUrl} disabled={importing}>
-                Add
-              </Button>
-            </Stack>
-            {loadingPlaylists ? (
-              <Stack alignItems="center" sx={{ py: 3 }}>
-                <CircularProgress />
-              </Stack>
-            ) : (
-              <List>
-                {playlists.map((pl) => (
-                  <ListItemButton
-                    key={pl.id}
-                    onClick={() => handleImportMusic(pl.id)}
-                    disabled={importing}
-                    sx={{ borderRadius: '14px' }}
-                  >
-                    <ListItemText
-                      primary={pl.name}
-                      secondary={`${pl.trackCount} tracks`}
-                      primaryTypographyProps={{ fontWeight: 600 }}
-                    />
-                  </ListItemButton>
-                ))}
-              </List>
-            )}
-          </Stack>
-        </DialogContent>
-      </Dialog>
     </Layout>
   );
 }

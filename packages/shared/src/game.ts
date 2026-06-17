@@ -38,6 +38,8 @@ export interface LobbyState {
   players: Player[];
   canStart: boolean;
   skippedTracksCount?: number;
+  /** Unix ms when the cancellable start countdown ends; null when idle */
+  startCountdownEndsAt?: number | null;
 }
 
 export interface McqOption {
@@ -102,3 +104,11 @@ export interface TypingGuessAnswer {
 }
 
 export type AnswerPayload = SpeedChoiceAnswer | TypingGuessAnswer;
+
+export interface PlaylistImportProgressPayload {
+  playerId: string;
+  phase: 'opening' | 'loading' | 'finishing';
+  loaded: number;
+  total: number | null;
+  label?: string;
+}

@@ -11,11 +11,11 @@ import {
   fetchUserPlaylists,
   getLoginUrl,
   getSpotifyTokens,
-  importMusicFromLink,
   setSpotifyTokens,
   SpotifyError,
   storePkceSession,
 } from './spotify/client.js';
+import { ScrapeError, scrapeMusicFromLink } from './spotify/scraper.js';
 import {
   generateCodeChallenge,
   generateCodeVerifier,
@@ -176,12 +176,19 @@ fastify.post<{
   if (!playerId || !source) {
     return reply.status(400).send({ error: 'Missing fields' });
   }
-  if (!getSpotifyTokens(playerId)) {
-    return reply.status(401).send({ error: 'Spotify not connected' });
-  }
 
   try {
-    const { tracks, sourceName } = await importMusicFromLink(playerId, source);
+    const roomCode = request.params.code.toUpperCase();
+    const { tracks, sourceName, truncated } = await scrapeMusicFromLink(
+      source,
+      playerId,
+      (progress) => {
+        io.to(`room:${roomCode}`).emit('playlist:import:progress', {
+          playerId,
+          ...progress,
+        });
+      },
+    );
     const parsed = source.match(/album\/([a-zA-Z0-9]{22})/i);
     roomManager.setPlaylist(
       request.params.code,
@@ -190,9 +197,18 @@ fastify.post<{
       sourceName,
       tracks,
     );
-    return { trackCount: tracks.length, playlistName: sourceName };
+    return {
+      trackCount: tracks.length,
+      playlistName: sourceName,
+      truncated: truncated ?? false,
+    };
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
+    const message =
+      e instanceof ScrapeError
+        ? e.message
+        : e instanceof Error
+          ? e.message
+          : String(e);
     return reply.status(400).send({ error: message });
   }
 });

@@ -1,6 +1,7 @@
 import type {
   GameEndPayload,
   LobbyState,
+  PlaylistImportProgressPayload,
   RoundProgressPayload,
   RoundRevealPayload,
   RoundStartPayload,
@@ -27,6 +28,8 @@ interface SocketContextValue {
   gameEnd: GameEndPayload | null;
   error: string | null;
   lastTypingResult: TypingGuessResult | null;
+  playlistImportProgress: PlaylistImportProgressPayload | null;
+  clearPlaylistImportProgress: () => void;
   joinRoom: (roomCode: string, playerId: string) => void;
   setReady: (ready: boolean) => void;
   updateSettings: (settings: Partial<LobbyState['settings']>) => void;
@@ -54,6 +57,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [lastTypingResult, setLastTypingResult] =
     useState<TypingGuessResult | null>(null);
+  const [playlistImportProgress, setPlaylistImportProgress] =
+    useState<PlaylistImportProgressPayload | null>(null);
+
+  const clearPlaylistImportProgress = useCallback(() => {
+    setPlaylistImportProgress(null);
+  }, []);
 
   const resetRoomState = useCallback(() => {
     activeRoomRef.current = null;
@@ -63,6 +72,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     setReveal(null);
     setGameEnd(null);
     setLastTypingResult(null);
+    setPlaylistImportProgress(null);
     setError(null);
   }, []);
 
@@ -116,6 +126,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('error', (payload: { message: string }) => {
       setError(payload.message);
     });
+    socket.on('playlist:import:progress', (payload: PlaylistImportProgressPayload) => {
+      setPlaylistImportProgress(payload);
+    });
 
     return () => {
       socket.disconnect();
@@ -132,6 +145,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setReveal(null);
       setGameEnd(null);
       setLastTypingResult(null);
+      setPlaylistImportProgress(null);
       setError(null);
     }
     socketRef.current?.emit('room:join', { roomCode: normalized, playerId });
@@ -181,6 +195,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         gameEnd,
         error,
         lastTypingResult,
+        playlistImportProgress,
+        clearPlaylistImportProgress,
         joinRoom,
         setReady,
         updateSettings,
