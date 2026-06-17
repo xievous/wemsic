@@ -15,12 +15,14 @@ import {
   Chip,
   CircularProgress,
   IconButton,
+  LinearProgress,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material';
 import { useEffect, useState } from 'react';
+import type { PlaylistImportProgressPayload } from '@wemsic/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import { importMusic } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
@@ -74,6 +76,54 @@ function ModeTile({
   );
 }
 
+function ImportProgressBar({ progress }: { progress: PlaylistImportProgressPayload }) {
+  const hasTotal = progress.total != null && progress.total > 0;
+  const total = progress.total ?? 0;
+  const value = hasTotal
+    ? Math.min(100, Math.round((progress.loaded / total) * 100))
+    : undefined;
+
+  return (
+    <Box
+      sx={{
+        py: 1.25,
+        px: 1.5,
+        borderRadius: '14px',
+        bgcolor: 'rgba(58,107,255,0.05)',
+        border: '1px solid rgba(58,107,255,0.1)',
+      }}
+    >
+      <Stack
+        direction="row"
+        justifyContent="space-between"
+        alignItems="baseline"
+        spacing={1}
+        sx={{ mb: 0.75 }}
+      >
+        <Typography variant="caption" color="text.secondary" fontWeight={600}>
+          {progress.label ?? 'Scanning playlist…'}
+        </Typography>
+        {hasTotal && (
+          <Typography variant="caption" color="primary.main" fontWeight={700} sx={{ flexShrink: 0 }}>
+            {progress.loaded.toLocaleString()} / {total.toLocaleString()}
+          </Typography>
+        )}
+      </Stack>
+      <LinearProgress
+        variant={hasTotal ? 'determinate' : 'indeterminate'}
+        value={value}
+        sx={{
+          height: 5,
+          bgcolor: 'rgba(20,33,63,0.06)',
+          '& .MuiLinearProgress-bar': {
+            background: 'linear-gradient(90deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
+          },
+        }}
+      />
+    </Box>
+  );
+}
+
 function NumberField({
   label,
   value,
@@ -112,6 +162,8 @@ export function Lobby() {
     kickPlayer,
     connected,
     error: socketError,
+    playlistImportProgress,
+    clearPlaylistImportProgress,
   } = useSocket();
   const { enabled: soundOn, enableAudio } = useAudio();
 
@@ -187,14 +239,20 @@ export function Lobby() {
   const me = lobby.players.find((p) => p.id === session.playerId);
   const isHost = me?.isHost ?? false;
   const countdownActive = countdownLeft !== null && countdownLeft > 0;
+  const myImportProgress =
+    importing &&
+    playlistImportProgress?.playerId === session.playerId
+      ? playlistImportProgress
+      : null;
 
   async function handleImportFromUrl() {
     if (!playlistUrl.trim()) return;
     setImporting(true);
+    clearPlaylistImportProgress();
     try {
       const res = await importMusic(code!, session!.playerId, playlistUrl.trim());
       const truncatedNote = res.truncated
-        ? ' (some tracks could not be loaded — try again or use a smaller playlist)'
+        ? ' (some tracks could not be loaded)'
         : '';
       setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
       setPlaylistUrl('');
@@ -202,6 +260,7 @@ export function Lobby() {
       setMessage(e instanceof Error ? e.message : 'Import failed');
     } finally {
       setImporting(false);
+      clearPlaylistImportProgress();
     }
   }
 
@@ -402,9 +461,14 @@ export function Lobby() {
                 disabled={importing || !playlistUrl.trim()}
                 sx={{ flexShrink: 0, minWidth: { sm: 120 } }}
               >
-                {importing ? 'Scanning…' : 'Add'}
+                {importing
+                  ? myImportProgress?.total
+                    ? `${Math.min(myImportProgress.loaded, myImportProgress.total).toLocaleString()}…`
+                    : 'Scanning…'
+                  : 'Add'}
               </Button>
             </Stack>
+            {myImportProgress && <ImportProgressBar progress={myImportProgress} />}
             {me?.playlistName && (
               <Chip
                 icon={<CheckCircleRoundedIcon />}

@@ -75,6 +75,15 @@ const TRACK_EMBED_BATCH_DELAY_MS = 150;
 
 const trackEmbedCache = new Map<string, EmbedTrack | null>();
 
+export interface ScrapeProgress {
+  phase: 'opening' | 'loading' | 'finishing';
+  loaded: number;
+  total: number | null;
+  label?: string;
+}
+
+export type ScrapeProgressCallback = (progress: ScrapeProgress) => void;
+
 export class ScrapeError extends Error {
   constructor(message: string) {
     super(message);
@@ -264,12 +273,20 @@ function pathfinderTrackToNormalized(
   };
 }
 
+function reportProgress(
+  onProgress: ScrapeProgressCallback | undefined,
+  progress: ScrapeProgress,
+): void {
+  onProgress?.(progress);
+}
+
 async function fetchPlaylistTracksViaPathfinder(
   playlistId: string,
   accessToken: string,
   playerId: string,
   fallbackArt: string | null,
   previewByTrackId: Map<string, string>,
+  onProgress?: ScrapeProgressCallback,
 ): Promise<{ tracks: NormalizedTrack[]; totalCount: number } | null> {
   const tracks: NormalizedTrack[] = [];
   const seen = new Set<string>();
@@ -312,6 +329,13 @@ async function fetchPlaylistTracksViaPathfinder(
       tracks.push(track);
     }
 
+    reportProgress(onProgress, {
+      phase: 'loading',
+      loaded: tracks.length,
+      total: totalCount || null,
+      label: 'Loading tracks…',
+    });
+
     offset += PATHFINDER_PAGE_SIZE;
     if (items.length < PATHFINDER_PAGE_SIZE || (totalCount > 0 && offset >= totalCount)) {
       break;
@@ -330,6 +354,7 @@ async function fetchAlbumTracksViaPathfinder(
   playerId: string,
   fallbackArt: string | null,
   previewByTrackId: Map<string, string>,
+  onProgress?: ScrapeProgressCallback,
 ): Promise<{ tracks: NormalizedTrack[]; totalCount: number } | null> {
   const tracks: NormalizedTrack[] = [];
   const seen = new Set<string>();
@@ -394,6 +419,13 @@ async function fetchAlbumTracksViaPathfinder(
       });
     }
 
+    reportProgress(onProgress, {
+      phase: 'loading',
+      loaded: tracks.length,
+      total: totalCount || null,
+      label: 'Loading album tracks…',
+    });
+
     offset += PATHFINDER_PAGE_SIZE;
     if (items.length < PATHFINDER_PAGE_SIZE || (totalCount > 0 && offset >= totalCount)) {
       break;
@@ -409,6 +441,7 @@ async function fetchAlbumTracksViaPathfinder(
 async function fetchAllSpclientPlaylistUris(
   playlistId: string,
   accessToken: string,
+  onProgress?: ScrapeProgressCallback,
 ): Promise<{ uris: string[]; total: number } | null> {
   const uris: string[] = [];
   let from = 0;
@@ -443,6 +476,13 @@ async function fetchAllSpclientPlaylistUris(
         .filter((uri): uri is string => !!uri && uri.startsWith('spotify:track:')) ?? [];
 
     uris.push(...pageUris);
+
+    reportProgress(onProgress, {
+      phase: 'loading',
+      loaded: uris.length,
+      total: Number.isFinite(total) ? total : null,
+      label: 'Reading playlist…',
+    });
 
     if (pageUris.length === 0) break;
     from += pageUris.length;
@@ -486,6 +526,9 @@ async function hydrateMissingTracks(
   playerId: string,
   fallbackArt: string | null,
   seen: Set<string>,
+  onProgress?: ScrapeProgressCallback,
+  progressBase = 0,
+  progressTotal: number | null = null,
 ): Promise<NormalizedTrack[]> {
   const hydrated: NormalizedTrack[] = [];
 
@@ -500,6 +543,13 @@ async function hydrateMissingTracks(
       seen.add(track.spotifyTrackId);
       hydrated.push(track);
     }
+
+    reportProgress(onProgress, {
+      phase: 'loading',
+      loaded: progressBase + hydrated.length,
+      total: progressTotal,
+      label: 'Loading track details…',
+    });
 
     if (i + TRACK_EMBED_BATCH_SIZE < trackIds.length) {
       await delay(TRACK_EMBED_BATCH_DELAY_MS);
@@ -522,6 +572,7 @@ async function fetchTracksFromEmbedFallback(
   accessToken: string | null,
   playerId: string,
   fallbackArt: string | null,
+  onProgress?: ScrapeProgressCallback,
 ): Promise<{ tracks: NormalizedTrack[]; expectedTrackCount: number }> {
   const seen = new Set<string>();
   const tracks: NormalizedTrack[] = [];
@@ -536,7 +587,7 @@ async function fetchTracksFromEmbedFallback(
   let expectedTrackCount = tracks.length;
 
   if (parsed.kind === 'playlist' && accessToken) {
-    const spclient = await fetchAllSpclientPlaylistUris(parsed.id, accessToken);
+    const spclient = await fetchAllSpclientPlaylistUris(parsed.id, accessToken, onProgress);
     if (spclient) {
       const uniqueUris = [...new Set(spclient.uris)];
       expectedTrackCount = uniqueUris.length;
@@ -545,7 +596,15 @@ async function fetchTracksFromEmbedFallback(
         .filter((trackId): trackId is string => !!trackId && !seen.has(trackId));
 
       if (missingIds.length > 0) {
-        const extra = await hydrateMissingTracks(missingIds, playerId, fallbackArt, seen);
+        const extra = await hydrateMissingTracks(
+          missingIds,
+          playerId,
+          fallbackArt,
+          seen,
+          onProgress,
+          tracks.length,
+          expectedTrackCount,
+        );
         tracks.push(...extra);
       }
     }
@@ -557,7 +616,15 @@ async function fetchTracksFromEmbedFallback(
 export async function scrapeMusicFromLink(
   input: string,
   playerId: string,
+  onProgress?: ScrapeProgressCallback,
 ): Promise<{ tracks: NormalizedTrack[]; sourceName: string; truncated?: boolean }> {
+  reportProgress(onProgress, {
+    phase: 'opening',
+    loaded: 0,
+    total: null,
+    label: 'Opening playlist…',
+  });
+
   const parsed = parseSpotifyLink(input);
   if (!parsed) {
     throw new ScrapeError(
@@ -572,6 +639,13 @@ export async function scrapeMusicFromLink(
   const fallbackArt = entity.coverArt?.sources?.[0]?.url ?? null;
   const previewByTrackId = previewMapFromEmbedTracks(entity.trackList);
 
+  reportProgress(onProgress, {
+    phase: 'loading',
+    loaded: 0,
+    total: null,
+    label: parsed.kind === 'album' ? 'Loading album tracks…' : 'Loading tracks…',
+  });
+
   let tracks: NormalizedTrack[] = [];
   let expectedTrackCount = entity.trackList?.length ?? 0;
 
@@ -584,6 +658,7 @@ export async function scrapeMusicFromLink(
             playerId,
             fallbackArt,
             previewByTrackId,
+            onProgress,
           )
         : await fetchAlbumTracksViaPathfinder(
             parsed.id,
@@ -591,6 +666,7 @@ export async function scrapeMusicFromLink(
             playerId,
             fallbackArt,
             previewByTrackId,
+            onProgress,
           );
 
     if (pathfinderResult) {
@@ -606,6 +682,7 @@ export async function scrapeMusicFromLink(
       accessToken,
       playerId,
       fallbackArt,
+      onProgress,
     );
     tracks = fallback.tracks;
     expectedTrackCount = fallback.expectedTrackCount;
@@ -614,6 +691,13 @@ export async function scrapeMusicFromLink(
   if (tracks.length === 0) {
     throw new ScrapeError('No importable tracks found in that playlist or album.');
   }
+
+  reportProgress(onProgress, {
+    phase: 'finishing',
+    loaded: tracks.length,
+    total: expectedTrackCount,
+    label: 'Finishing up…',
+  });
 
   shuffleTracks(tracks);
 

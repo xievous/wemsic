@@ -104,3 +104,11 @@ export interface TypingGuessAnswer {
 }
 
 export type AnswerPayload = SpeedChoiceAnswer | TypingGuessAnswer;
+
+export interface PlaylistImportProgressPayload {
+  playerId: string;
+  phase: 'opening' | 'loading' | 'finishing';
+  loaded: number;
+  total: number | null;
+  label?: string;
+}

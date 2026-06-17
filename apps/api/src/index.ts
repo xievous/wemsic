@@ -178,9 +178,16 @@ fastify.post<{
   }
 
   try {
+    const roomCode = request.params.code.toUpperCase();
     const { tracks, sourceName, truncated } = await scrapeMusicFromLink(
       source,
       playerId,
+      (progress) => {
+        io.to(`room:${roomCode}`).emit('playlist:import:progress', {
+          playerId,
+          ...progress,
+        });
+      },
     );
     const parsed = source.match(/album\/([a-zA-Z0-9]{22})/i);
     roomManager.setPlaylist(
