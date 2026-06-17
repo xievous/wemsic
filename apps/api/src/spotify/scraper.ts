@@ -4,29 +4,43 @@ import { parseSpotifyLink } from './client.js';
 interface EmbedTrack {
   uri: string;
   title: string;
-  subtitle: string;
+  subtitle?: string;
   duration: number;
   audioPreview?: { url: string } | null;
+  artists?: Array<{ name: string }>;
 }
 
 interface EmbedEntity {
   type: string;
   id: string;
+  uri?: string;
   name?: string;
   title?: string;
+  subtitle?: string;
+  duration?: number;
+  audioPreview?: { url: string } | null;
+  artists?: Array<{ name: string }>;
   coverArt?: { sources: Array<{ url: string }> };
   trackList?: EmbedTrack[];
 }
 
 interface EmbedPage {
   entity: EmbedEntity;
-  accessToken: string;
+  accessToken: string | null;
+}
+
+interface SpclientPlaylist {
+  uris: string[];
+  total: number;
 }
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
-const EMBED_TRACK_LIMIT = 50;
+const TRACK_EMBED_BATCH_SIZE = 6;
+const TRACK_EMBED_BATCH_DELAY_MS = 150;
+
+const trackEmbedCache = new Map<string, EmbedTrack | null>();
 
 export class ScrapeError extends Error {
   constructor(message: string) {
@@ -35,10 +49,35 @@ export class ScrapeError extends Error {
   }
 }
 
-async function fetchEmbedPage(
-  kind: 'playlist' | 'album',
-  id: string,
-): Promise<EmbedPage> {
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseEmbedNextData(html: string): {
+  props?: {
+    pageProps?: {
+      status?: number;
+      title?: string;
+      state?: {
+        data?: { entity?: EmbedEntity };
+        settings?: { session?: { accessToken?: string } };
+      };
+    };
+  };
+} {
+  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
+  if (!match) {
+    throw new ScrapeError('Could not read track data from Spotify. Try again in a moment.');
+  }
+
+  try {
+    return JSON.parse(match[1]);
+  } catch {
+    throw new ScrapeError('Could not parse Spotify playlist data.');
+  }
+}
+
+async function fetchEmbedHtml(kind: 'playlist' | 'album' | 'track', id: string): Promise<string> {
   const res = await fetch(`https://open.spotify.com/embed/${kind}/${id}`, {
     headers: { 'User-Agent': USER_AGENT, Accept: 'text/html' },
   });
@@ -49,40 +88,27 @@ async function fetchEmbedPage(
     );
   }
 
-  const html = await res.text();
-  const match = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/);
-  if (!match) {
-    throw new ScrapeError('Could not read track data from Spotify. Try again in a moment.');
-  }
+  return res.text();
+}
 
-  let data: {
-    props?: {
-      pageProps?: {
-        status?: number;
-        title?: string;
-        state?: {
-          data?: { entity?: EmbedEntity };
-          settings?: { session?: { accessToken?: string } };
-        };
-      };
-    };
-  };
-
-  try {
-    data = JSON.parse(match[1]);
-  } catch {
-    throw new ScrapeError('Could not parse Spotify playlist data.');
-  }
-
-  const pageProps = data.props?.pageProps;
+async function fetchEmbedPage(
+  kind: 'playlist' | 'album',
+  id: string,
+): Promise<EmbedPage> {
+  const html = await fetchEmbedHtml(kind, id);
+  const pageProps = parseEmbedNextData(html).props?.pageProps;
   const entity = pageProps?.state?.data?.entity;
-  const accessToken = pageProps?.state?.settings?.session?.accessToken;
+  const accessToken = pageProps?.state?.settings?.session?.accessToken ?? null;
 
   if (!entity?.trackList?.length) {
     const title = pageProps?.title ?? 'Unknown';
     if (pageProps?.status === 404 || title.toLowerCase().includes('not found')) {
+      const hint =
+        kind === 'album'
+          ? ' That album may be unavailable in your region — try a playlist link instead.'
+          : '';
       throw new ScrapeError(
-        'Spotify could not find that playlist or album. Double-check the link.',
+        `Spotify could not find that playlist or album. Double-check the link.${hint}`,
       );
     }
     throw new ScrapeError(
@@ -90,8 +116,8 @@ async function fetchEmbedPage(
     );
   }
 
-  if (!accessToken) {
-    throw new ScrapeError('Could not authenticate with Spotify embed. Try again.');
+  if (kind === 'playlist' && !accessToken) {
+    throw new ScrapeError('Could not read the full playlist from Spotify. Try again in a moment.');
   }
 
   return { entity, accessToken };
@@ -102,6 +128,18 @@ function trackIdFromUri(uri: string): string | null {
   return match?.[1] ?? null;
 }
 
+function artistsFromEmbedTrack(raw: EmbedTrack): string[] {
+  if (raw.artists?.length) {
+    const names = raw.artists.map((a) => a.name.trim()).filter(Boolean);
+    if (names.length > 0) return names;
+  }
+  if (raw.subtitle) {
+    const names = raw.subtitle.split(',').map((name) => name.trim()).filter(Boolean);
+    if (names.length > 0) return names;
+  }
+  return ['Unknown artist'];
+}
+
 function toNormalizedTrack(
   raw: EmbedTrack,
   playerId: string,
@@ -110,14 +148,12 @@ function toNormalizedTrack(
   const spotifyTrackId = trackIdFromUri(raw.uri);
   if (!spotifyTrackId || !raw.title) return null;
 
-  const artists = raw.subtitle
-    ? raw.subtitle.split(',').map((name) => name.trim()).filter(Boolean)
-    : ['Unknown artist'];
+  const artists = artistsFromEmbedTrack(raw);
 
   return {
     spotifyTrackId,
     title: raw.title,
-    artists: artists.length > 0 ? artists : ['Unknown artist'],
+    artists,
     albumArtUrl: fallbackArt,
     durationMs: raw.duration ?? 0,
     contributedBy: playerId,
@@ -125,59 +161,94 @@ function toNormalizedTrack(
   };
 }
 
-async function fetchPaginatedPlaylistTracks(
+async function fetchSpclientPlaylist(
   playlistId: string,
   accessToken: string,
-  playerId: string,
-  fallbackArt: string | null,
-  existingIds: Set<string>,
-): Promise<NormalizedTrack[]> {
-  const extra: NormalizedTrack[] = [];
-  let offset = EMBED_TRACK_LIMIT;
+): Promise<SpclientPlaylist | null> {
+  const res = await fetch(
+    `https://spclient.wg.spotify.com/playlist/v2/playlist/${playlistId}?format=json`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+    },
+  );
 
-  while (offset < 500) {
-    const res = await fetch(
-      `https://api.spotify.com/v1/playlists/${playlistId}/tracks?limit=50&offset=${offset}&fields=items(track(id,name,artists(name),duration_ms,album(images))),next`,
-      { headers: { Authorization: `Bearer ${accessToken}` } },
-    );
+  if (res.status === 429 || !res.ok) return null;
 
-    if (res.status === 429 || !res.ok) break;
+  const data = (await res.json()) as {
+    length?: number;
+    contents?: { items?: Array<{ uri?: string }> };
+  };
 
-    const page = (await res.json()) as {
-      items?: Array<{
-        track?: {
-          id?: string;
-          name?: string;
-          artists?: Array<{ name: string }>;
-          duration_ms?: number;
-          album?: { images?: Array<{ url: string }> };
-        } | null;
-      }>;
-      next?: string | null;
-    };
+  const uris =
+    data.contents?.items
+      ?.map((item) => item.uri)
+      .filter((uri): uri is string => !!uri && uri.startsWith('spotify:track:')) ?? [];
 
-    if (!page.items?.length) break;
+  return {
+    uris,
+    total: data.length ?? uris.length,
+  };
+}
 
-    for (const entry of page.items) {
-      const track = entry.track;
-      if (!track?.id || !track.name || existingIds.has(track.id)) continue;
-      existingIds.add(track.id);
-      extra.push({
-        spotifyTrackId: track.id,
-        title: track.name,
-        artists: track.artists?.map((a) => a.name).filter(Boolean) ?? ['Unknown artist'],
-        albumArtUrl: track.album?.images?.[0]?.url ?? fallbackArt,
-        durationMs: track.duration_ms ?? 0,
-        contributedBy: playerId,
-      });
-    }
-
-    if (!page.next || page.items.length < 50) break;
-    offset += 50;
-    await new Promise((resolve) => setTimeout(resolve, 250));
+async function fetchTrackEmbed(trackId: string): Promise<EmbedTrack | null> {
+  if (trackEmbedCache.has(trackId)) {
+    return trackEmbedCache.get(trackId) ?? null;
   }
 
-  return extra;
+  try {
+    const html = await fetchEmbedHtml('track', trackId);
+    const entity = parseEmbedNextData(html).props?.pageProps?.state?.data?.entity;
+    if (!entity?.uri || !entity.title) {
+      trackEmbedCache.set(trackId, null);
+      return null;
+    }
+
+    const track: EmbedTrack = {
+      uri: entity.uri,
+      title: entity.title,
+      subtitle: entity.subtitle,
+      duration: entity.duration ?? 0,
+      audioPreview: entity.audioPreview,
+      artists: entity.artists,
+    };
+    trackEmbedCache.set(trackId, track);
+    return track;
+  } catch {
+    trackEmbedCache.set(trackId, null);
+    return null;
+  }
+}
+
+async function hydrateMissingTracks(
+  trackIds: string[],
+  playerId: string,
+  fallbackArt: string | null,
+  seen: Set<string>,
+): Promise<NormalizedTrack[]> {
+  const hydrated: NormalizedTrack[] = [];
+
+  for (let i = 0; i < trackIds.length; i += TRACK_EMBED_BATCH_SIZE) {
+    const batch = trackIds.slice(i, i + TRACK_EMBED_BATCH_SIZE);
+    const embeds = await Promise.all(batch.map((trackId) => fetchTrackEmbed(trackId)));
+
+    for (const embed of embeds) {
+      if (!embed) continue;
+      const track = toNormalizedTrack(embed, playerId, fallbackArt);
+      if (!track || seen.has(track.spotifyTrackId)) continue;
+      seen.add(track.spotifyTrackId);
+      hydrated.push(track);
+    }
+
+    if (i + TRACK_EMBED_BATCH_SIZE < trackIds.length) {
+      await delay(TRACK_EMBED_BATCH_DELAY_MS);
+    }
+  }
+
+  return hydrated;
 }
 
 function shuffleTracks<T>(arr: T[]): void {
@@ -214,20 +285,21 @@ export async function scrapeMusicFromLink(
     tracks.push(track);
   }
 
-  let truncated = false;
+  let expectedTrackCount = tracks.length;
 
-  if (parsed.kind === 'playlist' && tracks.length >= EMBED_TRACK_LIMIT) {
-    const extra = await fetchPaginatedPlaylistTracks(
-      parsed.id,
-      accessToken,
-      playerId,
-      fallbackArt,
-      seen,
-    );
-    if (extra.length === 0) {
-      truncated = true;
-    } else {
-      tracks.push(...extra);
+  if (parsed.kind === 'playlist' && accessToken) {
+    const spclient = await fetchSpclientPlaylist(parsed.id, accessToken);
+    if (spclient) {
+      const uniqueUris = [...new Set(spclient.uris)];
+      expectedTrackCount = uniqueUris.length;
+      const missingIds = uniqueUris
+        .map((uri) => trackIdFromUri(uri))
+        .filter((trackId): trackId is string => !!trackId && !seen.has(trackId));
+
+      if (missingIds.length > 0) {
+        const extra = await hydrateMissingTracks(missingIds, playerId, fallbackArt, seen);
+        tracks.push(...extra);
+      }
     }
   }
 
@@ -236,5 +308,8 @@ export async function scrapeMusicFromLink(
   }
 
   shuffleTracks(tracks);
+
+  const truncated = tracks.length < expectedTrackCount;
+
   return { tracks, sourceName, truncated: truncated || undefined };
 }

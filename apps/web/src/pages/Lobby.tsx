@@ -194,7 +194,7 @@ export function Lobby() {
     try {
       const res = await importMusic(code!, session!.playerId, playlistUrl.trim());
       const truncatedNote = res.truncated
-        ? ' (first 50 tracks — Spotify limit for public scraping)'
+        ? ' (some tracks could not be loaded — try again or use a smaller playlist)'
         : '';
       setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
       setPlaylistUrl('');
