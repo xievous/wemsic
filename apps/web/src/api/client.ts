@@ -59,7 +59,7 @@ export async function importMusic(
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error ?? 'Import failed');
-  return data as { trackCount: number; playlistName: string };
+  return data as { trackCount: number; playlistName: string; truncated?: boolean };
 }
 
 /** @deprecated use importMusic */

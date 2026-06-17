@@ -41,7 +41,7 @@ export function registerSocketHandlers(
 
     socket.on('host:start', async () => {
       if (!roomCode || !playerId) return;
-      const err = await roomManager.startGame(roomCode, playerId);
+      const err = roomManager.toggleStartCountdown(roomCode, playerId);
       if (err) socket.emit('error', { message: err });
     });
 

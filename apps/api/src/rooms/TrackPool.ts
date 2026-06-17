@@ -22,17 +22,25 @@ export class TrackPool {
   }
 
   pickNext(): NormalizedTrack | null {
-    const playerIds = [...this.buckets.keys()].filter((id) => {
-      const bucket = this.buckets.get(id)!;
-      return bucket.some((t) => !this.usedIds.has(t.spotifyTrackId));
-    });
-    if (playerIds.length === 0) return null;
+    const candidates: Array<{ playerId: string; ratio: number }> = [];
 
-    const playerId = playerIds[Math.floor(Math.random() * playerIds.length)]!;
+    for (const [playerId, bucket] of this.buckets) {
+      const available = bucket.filter((t) => !this.usedIds.has(t.spotifyTrackId));
+      if (available.length === 0) continue;
+      const usedFromPlayer = bucket.filter((t) =>
+        this.usedIds.has(t.spotifyTrackId),
+      ).length;
+      candidates.push({ playerId, ratio: usedFromPlayer / bucket.length });
+    }
+
+    if (candidates.length === 0) return null;
+
+    const minRatio = Math.min(...candidates.map((c) => c.ratio));
+    const tied = candidates.filter((c) => c.ratio === minRatio);
+    const playerId = tied[Math.floor(Math.random() * tied.length)]!.playerId;
+
     const bucket = this.buckets.get(playerId)!;
     const available = bucket.filter((t) => !this.usedIds.has(t.spotifyTrackId));
-    if (available.length === 0) return this.pickNext();
-
     const track = available[Math.floor(Math.random() * available.length)]!;
     this.usedIds.add(track.spotifyTrackId);
     return track;

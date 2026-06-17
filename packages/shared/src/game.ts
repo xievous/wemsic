@@ -38,6 +38,8 @@ export interface LobbyState {
   players: Player[];
   canStart: boolean;
   skippedTracksCount?: number;
+  /** Unix ms when the cancellable start countdown ends; null when idle */
+  startCountdownEndsAt?: number | null;
 }
 
 export interface McqOption {
