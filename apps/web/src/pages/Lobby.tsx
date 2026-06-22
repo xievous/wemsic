@@ -27,9 +27,10 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { PlaylistImportProgressPayload } from '@wemsic/shared';
 import { useNavigate, useParams } from 'react-router-dom';
+import QRCode from 'react-qr-code';
 import { importMusic } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
 import { Layout } from '../components/Layout';
@@ -179,6 +180,10 @@ export function Lobby() {
   const [message, setMessage] = useState<string | null>(null);
   const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
+  const joinUrl = useMemo(
+    () => (code ? `${window.location.origin}/join/${code.toUpperCase()}` : ''),
+    [code],
+  );
 
   useEffect(() => {
     const s = loadSession();
@@ -282,39 +287,134 @@ export function Lobby() {
 
   return (
     <Layout maxWidth="md">
-      <Box
-        sx={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          mb: 3,
-          p: { xs: 2.5, sm: 3 },
-          borderRadius: '24px',
-          color: '#fff',
-          background: 'linear-gradient(120deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
-          boxShadow: '0 24px 50px -24px rgba(58,107,255,0.6)',
-        }}
-      >
-        <Box>
-          <Typography variant="overline" sx={{ opacity: 0.85 }}>
-            Room code
-          </Typography>
-          <Typography variant="h2" sx={{ letterSpacing: '0.18em', fontSize: { xs: '2.4rem', sm: '3rem' } }}>
-            {code}
-          </Typography>
-        </Box>
-        <Chip
-          label={connected ? 'Connected' : 'Connecting...'}
+      {hostMode ? (
+        <Box
           sx={{
-            bgcolor: 'rgba(255,255,255,0.2)',
+            mb: 3,
+            p: { xs: 2.5, sm: 3 },
+            borderRadius: '24px',
             color: '#fff',
-            fontWeight: 700,
-            backdropFilter: 'blur(4px)',
+            background: 'linear-gradient(120deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
+            boxShadow: '0 24px 50px -24px rgba(58,107,255,0.6)',
+            overflow: 'hidden',
           }}
-        />
-      </Box>
+        >
+          {isHost ? (
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                alignItems: 'center',
+                gap: { xs: 2.5, sm: 0 },
+              }}
+            >
+              <Stack
+                alignItems="center"
+                spacing={0.75}
+                sx={{
+                  textAlign: 'center',
+                  pb: { xs: 2.5, sm: 0 },
+                  borderBottom: { xs: '1px solid rgba(255,255,255,0.18)', sm: 'none' },
+                  borderRight: { sm: '1px solid rgba(255,255,255,0.18)' },
+                  pr: { sm: 3 },
+                }}
+              >
+                <Typography variant="overline" sx={{ opacity: 0.85 }}>
+                  Room code
+                </Typography>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    letterSpacing: '0.18em',
+                    fontSize: { xs: '2rem', sm: '2.35rem' },
+                    lineHeight: 1,
+                  }}
+                >
+                  {code}
+                </Typography>
+              </Stack>
+
+              <Stack alignItems="center" spacing={1} sx={{ pl: { sm: 3 }, pt: { xs: 0.5, sm: 0 } }}>
+                <Box
+                  sx={{
+                    lineHeight: 0,
+                    p: 1,
+                    borderRadius: '16px',
+                    bgcolor: 'rgba(255,255,255,0.1)',
+                    border: '1px solid rgba(255,255,255,0.18)',
+                    '& svg': {
+                      display: 'block',
+                      width: { xs: 88, sm: 96 },
+                      height: 'auto',
+                    },
+                  }}
+                >
+                  <QRCode value={joinUrl} size={96} bgColor="transparent" fgColor="#FFFFFF" />
+                </Box>
+                <Typography
+                  variant="overline"
+                  sx={{ opacity: 0.85, fontSize: '0.62rem', letterSpacing: '0.14em' }}
+                >
+                  Scan to join
+                </Typography>
+              </Stack>
+            </Box>
+          ) : (
+            <Stack alignItems="center" spacing={0.75} sx={{ textAlign: 'center' }}>
+              <Typography variant="overline" sx={{ opacity: 0.85 }}>
+                Room code
+              </Typography>
+              <Typography
+                variant="h2"
+                sx={{
+                  letterSpacing: '0.18em',
+                  fontSize: { xs: '2rem', sm: '2.35rem' },
+                  lineHeight: 1,
+                }}
+              >
+                {code}
+              </Typography>
+            </Stack>
+          )}
+        </Box>
+      ) : (
+        <Box
+          sx={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 2,
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 3,
+            p: { xs: 2.5, sm: 3 },
+            borderRadius: '24px',
+            color: '#fff',
+            background: 'linear-gradient(120deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
+            boxShadow: '0 24px 50px -24px rgba(58,107,255,0.6)',
+          }}
+        >
+          <Box>
+            <Typography variant="overline" sx={{ opacity: 0.85 }}>
+              Room code
+            </Typography>
+            <Typography
+              variant="h2"
+              sx={{ letterSpacing: '0.18em', fontSize: { xs: '2.4rem', sm: '3rem' } }}
+            >
+              {code}
+            </Typography>
+          </Box>
+          <Chip
+            label={connected ? 'Connected' : 'Connecting...'}
+            sx={{
+              bgcolor: 'rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontWeight: 700,
+              backdropFilter: 'blur(4px)',
+            }}
+          />
+        </Box>
+      )}
 
       {hostMode && (
         <Alert
