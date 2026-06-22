@@ -508,7 +508,15 @@ export function Lobby() {
       </Card>
 
       {countdownActive && (
-        <Alert severity="warning" sx={{ mb: 2 }}>
+        <Alert
+          severity="info"
+          sx={{
+            mb: 2,
+            bgcolor: 'rgba(58,107,255,0.08)',
+            color: 'text.primary',
+            '& .MuiAlert-icon': { color: 'primary.main' },
+          }}
+        >
           {isHost
             ? `Game starts in ${countdownLeft} second${countdownLeft === 1 ? '' : 's'}. Tap the button again to cancel.`
             : `The host is starting the game in ${countdownLeft}…`}
@@ -520,7 +528,7 @@ export function Lobby() {
           variant="contained"
           size="large"
           fullWidth
-          color={countdownActive ? 'warning' : 'primary'}
+          color="primary"
           startIcon={countdownActive ? <CloseRoundedIcon /> : <PlayArrowRoundedIcon />}
           disabled={!lobby.canStart && !countdownActive}
           onClick={startGame}
