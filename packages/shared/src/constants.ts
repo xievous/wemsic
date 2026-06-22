@@ -2,6 +2,7 @@ export const MIN_PLAYLIST_TRACKS = 10;
 export const DEFAULT_ROUND_COUNT = 10;
 export const DEFAULT_SPEED_CHOICE_SECONDS = 15;
 export const DEFAULT_TYPING_SECONDS = 30;
+export const DEFAULT_TYPING_SPELLING_LENIENCY = 'normal' as const;
 export const ROOM_CODE_LENGTH = 6;
 export const MAX_PLAYERS = 8;
 

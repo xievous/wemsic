@@ -19,6 +19,7 @@ import type {
   RoundRevealPayload,
   RoundStartPayload,
   TypingGuessResult,
+  TypingSpellingLeniency,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
 import { resolvePreviewUrl } from '../deezer/preview.js';
@@ -79,6 +80,7 @@ export class GameEngine {
     private totalRounds: number,
     private roundDurationMs: number,
     private playerIds: string[],
+    private typingSpellingLeniency: TypingSpellingLeniency,
     callbacks: {
       onRoundStart: (payload: RoundStartPayload) => void;
       onRoundProgress: (payload: RoundProgressPayload) => void;
@@ -134,6 +136,7 @@ export class GameEngine {
       round.track.artists,
       round.track.title,
       trimmed,
+      this.typingSpellingLeniency,
     );
 
     const incorrect = !matchedArtist && !matchedTitle;

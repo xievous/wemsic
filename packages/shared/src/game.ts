@@ -1,5 +1,8 @@
 export type GameMode = 'speed_choice' | 'typing';
 
+/** How strictly typed answers are matched in typing mode. */
+export type TypingSpellingLeniency = 'normal' | 'hard' | 'lenient';
+
 /**
  * How a room is played.
  * - `online`: every player answers on their own device and hears the preview there.
@@ -37,6 +40,8 @@ export interface RoomSettings {
   gameMode: GameMode;
   roundCount: number;
   roundDurationSeconds: number;
+  /** Typing mode only — how forgiving answer matching is. */
+  typingSpellingLeniency: TypingSpellingLeniency;
   /** Chosen at room creation and immutable afterwards. */
   roomType: RoomType;
 }

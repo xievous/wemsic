@@ -2,6 +2,7 @@ import {
   DEFAULT_ROUND_COUNT,
   DEFAULT_SPEED_CHOICE_SECONDS,
   DEFAULT_TYPING_SECONDS,
+  DEFAULT_TYPING_SPELLING_LENIENCY,
   GAME_START_COUNTDOWN_SECONDS,
   MIN_PLAYLIST_TRACKS,
   MAX_PLAYERS,
@@ -15,6 +16,7 @@ import type {
   RoomSettings,
   RoomType,
   TypingGuessResult,
+  TypingSpellingLeniency,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
 import { clearSpotifyTokens, getSpotifyTokens } from '../spotify/client.js';
@@ -78,6 +80,7 @@ export class RoomManager {
         gameMode: 'speed_choice',
         roundCount: DEFAULT_ROUND_COUNT,
         roundDurationSeconds: DEFAULT_SPEED_CHOICE_SECONDS,
+        typingSpellingLeniency: DEFAULT_TYPING_SPELLING_LENIENCY,
         roomType,
       },
       players: new Map(),
@@ -234,6 +237,12 @@ export class RoomManager {
         Math.max(10, settings.roundDurationSeconds),
       );
     }
+    if (settings.typingSpellingLeniency !== undefined) {
+      const allowed: TypingSpellingLeniency[] = ['normal', 'hard', 'lenient'];
+      if (allowed.includes(settings.typingSpellingLeniency)) {
+        room.settings.typingSpellingLeniency = settings.typingSpellingLeniency;
+      }
+    }
 
     this.emitLobby(room);
     return true;
@@ -346,6 +355,7 @@ export class RoomManager {
       room.settings.roundCount,
       room.settings.roundDurationSeconds * 1000,
       playerIds,
+      room.settings.typingSpellingLeniency ?? DEFAULT_TYPING_SPELLING_LENIENCY,
       {
         onRoundStart: (payload) => {
           this.broadcast(room.code, 'round:start', payload);
@@ -479,7 +489,11 @@ export class RoomManager {
       roomCode: room.code,
       phase: room.phase,
       hostPlayerId: room.hostPlayerId,
-      settings: { ...room.settings },
+      settings: {
+        ...room.settings,
+        typingSpellingLeniency:
+          room.settings.typingSpellingLeniency ?? DEFAULT_TYPING_SPELLING_LENIENCY,
+      },
       players,
       canStart: this.canStart(room),
       skippedTracksCount: room.skippedTracksCount,

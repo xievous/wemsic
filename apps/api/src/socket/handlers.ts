@@ -33,6 +33,7 @@ export function registerSocketHandlers(
         gameMode?: 'speed_choice' | 'typing';
         roundCount?: number;
         roundDurationSeconds?: number;
+        typingSpellingLeniency?: 'normal' | 'hard' | 'lenient';
       }) => {
         if (!roomCode || !playerId) return;
         roomManager.updateSettings(roomCode, playerId, payload);

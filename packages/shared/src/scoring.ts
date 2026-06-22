@@ -5,7 +5,19 @@ import {
   TYPING_BOTH_POINTS,
   TYPING_TITLE_POINTS,
 } from './constants.js';
-import { phraseMatchesTarget, titleMatchesGuess } from './normalize.js';
+import type { TypingSpellingLeniency } from './game.js';
+import {
+  hardPhraseMatchesTarget,
+  hardTitleMatchesGuess,
+  lenientCombinedMatchesGuess,
+  lenientPhraseMatchesTarget,
+  lenientTitleMatchesGuess,
+  normalizeAnswer,
+  phraseMatchesTarget,
+  removeNormalizedPhrase,
+  stripTitleQualifiers,
+  titleMatchesGuess,
+} from './normalize.js';
 
 export function scoreSpeedChoice(
   correct: boolean,
@@ -23,23 +35,96 @@ export interface TypingSubmissionMatch {
   matchedTitle: boolean;
 }
 
-/** Evaluate one submitted guess (strict — no auto-match on first letter) */
+function matchesArtist(
+  artists: string[],
+  guess: string,
+  leniency: TypingSpellingLeniency,
+): boolean {
+  if (leniency === 'hard') {
+    return artists.some((artist) => hardPhraseMatchesTarget(artist, guess));
+  }
+  if (leniency === 'lenient') {
+    return artists.some((artist) => lenientPhraseMatchesTarget(artist, guess));
+  }
+  return artists.some((artist) => phraseMatchesTarget(artist, guess));
+}
+
+function matchesTitle(
+  title: string,
+  guess: string,
+  leniency: TypingSpellingLeniency,
+): boolean {
+  if (leniency === 'hard') {
+    return hardTitleMatchesGuess(title, guess);
+  }
+  if (leniency === 'lenient') {
+    return lenientTitleMatchesGuess(title, guess);
+  }
+  return titleMatchesGuess(title, guess);
+}
+
+function evaluateNormalSubmission(
+  correctArtists: string[],
+  correctTitle: string,
+  guess: string,
+): TypingSubmissionMatch {
+  let matchedTitle = matchesTitle(correctTitle, guess, 'normal');
+  let matchedArtist = matchesArtist(correctArtists, guess, 'normal');
+
+  if (!matchedTitle) {
+    let withoutArtists = guess;
+    for (const artist of correctArtists) {
+      withoutArtists = removeNormalizedPhrase(withoutArtists, artist);
+    }
+    if (normalizeAnswer(withoutArtists) !== normalizeAnswer(guess)) {
+      matchedTitle = matchesTitle(correctTitle, withoutArtists, 'normal');
+    }
+  }
+
+  if (!matchedArtist) {
+    const withoutTitle = removeNormalizedPhrase(
+      guess,
+      stripTitleQualifiers(correctTitle),
+    );
+    if (normalizeAnswer(withoutTitle) !== normalizeAnswer(guess)) {
+      matchedArtist = matchesArtist(correctArtists, withoutTitle, 'normal');
+    }
+  }
+
+  return { matchedArtist, matchedTitle };
+}
+
+/** Evaluate one submitted guess for typing mode. */
 export function evaluateTypingSubmission(
   correctArtists: string[],
   correctTitle: string,
   guess: string,
+  leniency: TypingSpellingLeniency = 'normal',
 ): TypingSubmissionMatch {
   const trimmed = guess.trim();
   if (!trimmed) {
     return { matchedArtist: false, matchedTitle: false };
   }
 
-  const matchedTitle = titleMatchesGuess(correctTitle, trimmed);
-  const matchedArtist = correctArtists.some((a) =>
-    phraseMatchesTarget(a, trimmed),
-  );
+  if (leniency === 'normal') {
+    return evaluateNormalSubmission(correctArtists, correctTitle, trimmed);
+  }
 
-  return { matchedArtist, matchedTitle };
+  if (leniency === 'lenient') {
+    if (lenientCombinedMatchesGuess(correctArtists, correctTitle, trimmed)) {
+      return { matchedArtist: true, matchedTitle: true };
+    }
+
+    return {
+      matchedArtist: matchesArtist(correctArtists, trimmed, 'lenient'),
+      matchedTitle: matchesTitle(correctTitle, trimmed, 'lenient'),
+    };
+  }
+
+  return {
+    matchedArtist: matchesArtist(correctArtists, trimmed, 'hard'),
+    matchedTitle: matchesTitle(correctTitle, trimmed, 'hard'),
+  };
 }
 
 export interface TypingProgressScoreInput {

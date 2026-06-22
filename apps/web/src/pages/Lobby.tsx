@@ -28,7 +28,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import type { PlaylistImportProgressPayload } from '@wemsic/shared';
+import type { PlaylistImportProgressPayload, TypingSpellingLeniency } from '@wemsic/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { importMusic } from '../api/client';
@@ -154,6 +154,71 @@ function NumberField({
       onChange={(e) => onChange(Number(e.target.value))}
       inputProps={{ min, max }}
     />
+  );
+}
+
+const SPELLING_LENIENCY_OPTIONS: {
+  value: TypingSpellingLeniency;
+  title: string;
+  desc: string;
+}[] = [
+  {
+    value: 'normal',
+    title: 'Normal',
+    desc: 'Recommended — minor typos OK, spaces flexible',
+  },
+  {
+    value: 'hard',
+    title: 'Harder',
+    desc: 'Exact spelling, spaces, and punctuation required',
+  },
+  {
+    value: 'lenient',
+    title: 'Lenient',
+    desc: 'Forgives typos and missing spaces (e.g. rnubts for Run by BTS)',
+  },
+];
+
+function LeniencyTile({
+  active,
+  onClick,
+  title,
+  desc,
+}: {
+  active: boolean;
+  onClick: () => void;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Box
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
+      sx={{
+        cursor: 'pointer',
+        borderRadius: '14px',
+        p: 1.5,
+        border: '2px solid',
+        borderColor: active ? 'primary.main' : 'rgba(20,33,63,0.1)',
+        bgcolor: active ? 'rgba(58,107,255,0.08)' : 'background.paper',
+        transition: 'all 160ms ease',
+        '&:hover': { borderColor: 'primary.main' },
+      }}
+    >
+      <Typography fontWeight={700} sx={{ mb: 0.25 }}>
+        {title}
+        {title === 'Normal' && (
+          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>
+            (recommended)
+          </Box>
+        )}
+      </Typography>
+      <Typography variant="body2" color="text.secondary">
+        {desc}
+      </Typography>
+    </Box>
   );
 }
 
@@ -485,6 +550,18 @@ export function Lobby() {
               </Stack>
               <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
                 {lobby.settings.roundCount} rounds · {lobby.settings.roundDurationSeconds}s per round
+                {lobby.settings.gameMode === 'typing' && (
+                  <>
+                    {' '}
+                    ·{' '}
+                    {SPELLING_LENIENCY_OPTIONS.find(
+                      (o) =>
+                        o.value ===
+                        (lobby.settings.typingSpellingLeniency ?? 'normal'),
+                    )?.title ?? 'Normal'}{' '}
+                    spelling
+                  </>
+                )}
               </Typography>
             </CardContent>
           </Card>
@@ -517,6 +594,30 @@ export function Lobby() {
                   max={60}
                 />
               </Stack>
+
+              {lobby.settings.gameMode === 'typing' && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    Spelling leniency
+                  </Typography>
+                  <Stack spacing={1}>
+                    {SPELLING_LENIENCY_OPTIONS.map((option) => (
+                      <LeniencyTile
+                        key={option.value}
+                        active={
+                          (lobby.settings.typingSpellingLeniency ?? 'normal') ===
+                          option.value
+                        }
+                        onClick={() =>
+                          updateSettings({ typingSpellingLeniency: option.value })
+                        }
+                        title={option.title}
+                        desc={option.desc}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2.5 }}>
               <Button onClick={() => setAdvancedSettingsOpen(false)} variant="contained">

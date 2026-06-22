@@ -10,6 +10,25 @@ export function normalizeAnswer(value: string): string {
     .trim();
 }
 
+/** Hard mode — case and accents only; spaces and punctuation must match. */
+export function normalizeHard(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
+/** Lenient mode — letters and digits only, no spaces or punctuation. */
+export function normalizeLenient(value: string): string {
+  return value
+    .normalize('NFD')
+    .replace(/\p{M}/gu, '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]/gu, '')
+    .trim();
+}
+
 export function countNormalizedWords(value: string): number {
   return normalizeAnswer(value).split(' ').filter(Boolean).length;
 }
@@ -49,6 +68,104 @@ export function phraseMatchesTarget(target: string, guess: string): boolean {
   if (strictAnswerMatch(target, guess)) return true;
   if (nt.length >= 3 && ng.includes(nt)) return true;
   if (ng.length >= 3 && nt.includes(ng)) return true;
+  return false;
+}
+
+/** Remove a matched phrase from a guess to isolate the other field. */
+export function removeNormalizedPhrase(text: string, phrase: string): string {
+  const normalized = normalizeAnswer(text);
+  const needle = normalizeAnswer(phrase);
+  if (!needle || needle.length < 2 || !normalized.includes(needle)) {
+    return normalized;
+  }
+  return normalized.replace(needle, ' ').replace(/\s+/g, ' ').trim();
+}
+
+/** Hard mode — exact spelling, spacing, and punctuation. */
+export function hardPhraseMatchesTarget(target: string, guess: string): boolean {
+  const nt = normalizeHard(target);
+  const ng = normalizeHard(guess);
+  if (!nt || !ng) return false;
+  return ng.includes(nt);
+}
+
+export function hardTitleMatchesGuess(fullTitle: string, guess: string): boolean {
+  const trimmed = guess.trim();
+  if (!trimmed) return false;
+  if (isQualifierOnlyGuess(trimmed)) return false;
+
+  const coreTitle = stripTitleQualifiers(fullTitle);
+  const nc = normalizeHard(coreTitle);
+  const ng = normalizeHard(trimmed);
+  if (!nc || !ng) return false;
+
+  return ng.includes(nc) || nc === ng;
+}
+
+function lenientSimilarMatch(
+  expected: string,
+  actual: string,
+  minRatio = 0.65,
+  minLengthRatio = 0.55,
+): boolean {
+  const a = normalizeLenient(expected);
+  const b = normalizeLenient(actual);
+  if (!a || !b) return false;
+  if (a === b) return true;
+
+  const minLen = Math.min(a.length, b.length);
+  const maxLen = Math.max(a.length, b.length);
+  if (minLen < 3) return false;
+  if (minLen / maxLen < minLengthRatio) return false;
+
+  return levenshteinRatio(a, b) >= minRatio;
+}
+
+/** Lenient mode — typos and missing spaces are OK. */
+export function lenientPhraseMatchesTarget(target: string, guess: string): boolean {
+  const nt = normalizeLenient(target);
+  const ng = normalizeLenient(guess);
+  if (!nt || !ng) return false;
+  if (nt === ng) return true;
+  if (ng.includes(nt)) return true;
+  if (nt.startsWith(ng) && ng.length >= 3) return true;
+  return lenientSimilarMatch(nt, ng);
+}
+
+export function lenientTitleMatchesGuess(fullTitle: string, guess: string): boolean {
+  const trimmed = guess.trim();
+  if (!trimmed) return false;
+  if (isQualifierOnlyGuess(trimmed)) return false;
+
+  const coreTitle = stripTitleQualifiers(fullTitle);
+  const nc = normalizeLenient(coreTitle);
+  const ng = normalizeLenient(trimmed);
+  if (!nc || !ng) return false;
+  if (ng.includes(nc)) return true;
+  return lenientSimilarMatch(nc, ng);
+}
+
+/** Both artist + title typed as one mashed-together guess (lenient only). */
+export function lenientCombinedMatchesGuess(
+  artists: string[],
+  fullTitle: string,
+  guess: string,
+): boolean {
+  const ng = normalizeLenient(guess);
+  if (!ng) return false;
+
+  const titleCore = normalizeLenient(stripTitleQualifiers(fullTitle));
+  if (!titleCore) return false;
+
+  for (const artist of artists) {
+    const na = normalizeLenient(artist);
+    if (!na) continue;
+
+    for (const combo of [na + titleCore, titleCore + na]) {
+      if (lenientSimilarMatch(combo, ng)) return true;
+    }
+  }
+
   return false;
 }
 
