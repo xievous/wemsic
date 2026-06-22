@@ -20,6 +20,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
   LinearProgress,
   Stack,
@@ -161,64 +162,118 @@ const SPELLING_LENIENCY_OPTIONS: {
   value: TypingSpellingLeniency;
   title: string;
   desc: string;
+  recommended?: boolean;
 }[] = [
-  {
-    value: 'normal',
-    title: 'Normal',
-    desc: 'Recommended — minor typos OK, spaces flexible',
-  },
-  {
-    value: 'hard',
-    title: 'Harder',
-    desc: 'Exact spelling, spaces, and punctuation required',
-  },
   {
     value: 'lenient',
     title: 'Lenient',
-    desc: 'Forgives typos and missing spaces (e.g. rnubts for Run by BTS)',
+    desc: 'Forgives typos and missing spaces.',
+  },
+  {
+    value: 'normal',
+    title: 'Normal',
+    desc: 'Minor typos OK, spaces flexible.',
+    recommended: true,
+  },
+  {
+    value: 'hard',
+    title: 'Hard',
+    desc: 'Exact spelling, spaces, and punctuation.',
   },
 ];
 
-function LeniencyTile({
-  active,
-  onClick,
+function AdvancedSettingsSection({
   title,
-  desc,
+  description,
+  children,
 }: {
-  active: boolean;
-  onClick: () => void;
   title: string;
-  desc: string;
+  description?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <Box
-      role="button"
-      tabIndex={0}
-      onClick={onClick}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
-      sx={{
-        cursor: 'pointer',
-        borderRadius: '14px',
-        p: 1.5,
-        border: '2px solid',
-        borderColor: active ? 'primary.main' : 'rgba(20,33,63,0.1)',
-        bgcolor: active ? 'rgba(58,107,255,0.08)' : 'background.paper',
-        transition: 'all 160ms ease',
-        '&:hover': { borderColor: 'primary.main' },
-      }}
-    >
-      <Typography fontWeight={700} sx={{ mb: 0.25 }}>
+    <Box>
+      <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
         {title}
-        {title === 'Normal' && (
-          <Box component="span" sx={{ color: 'text.secondary', fontWeight: 600, ml: 0.75 }}>
-            (recommended)
-          </Box>
-        )}
       </Typography>
-      <Typography variant="body2" color="text.secondary">
-        {desc}
-      </Typography>
+      {description && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          {description}
+        </Typography>
+      )}
+      {children}
     </Box>
+  );
+}
+
+function LeniencySegment({
+  value,
+  onChange,
+}: {
+  value: TypingSpellingLeniency;
+  onChange: (value: TypingSpellingLeniency) => void;
+}) {
+  const activeOption =
+    SPELLING_LENIENCY_OPTIONS.find((o) => o.value === value) ??
+    SPELLING_LENIENCY_OPTIONS[1];
+
+  return (
+    <Stack spacing={1.25}>
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 0.75,
+          p: 0.5,
+          borderRadius: '14px',
+          bgcolor: 'rgba(20,33,63,0.04)',
+          border: '1px solid rgba(20,33,63,0.08)',
+        }}
+      >
+        {SPELLING_LENIENCY_OPTIONS.map((option) => {
+          const active = value === option.value;
+          return (
+            <Box
+              key={option.value}
+              role="button"
+              tabIndex={0}
+              aria-pressed={active}
+              onClick={() => onChange(option.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') onChange(option.value);
+              }}
+              sx={{
+                cursor: 'pointer',
+                borderRadius: '10px',
+                py: 1,
+                px: 0.75,
+                textAlign: 'center',
+                bgcolor: active ? 'background.paper' : 'transparent',
+                boxShadow: active ? '0 4px 14px -8px rgba(20,33,63,0.35)' : 'none',
+                border: '2px solid',
+                borderColor: active ? 'primary.main' : 'transparent',
+                transition: 'all 160ms ease',
+                '&:hover': {
+                  borderColor: active ? 'primary.main' : 'rgba(58,107,255,0.35)',
+                },
+              }}
+            >
+              <Typography
+                variant="body2"
+                fontWeight={700}
+                sx={{ color: active ? 'primary.main' : 'text.primary', lineHeight: 1.2 }}
+              >
+                {option.title}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Box>
+      <Typography variant="caption" color="text.secondary" sx={{ px: 0.25, lineHeight: 1.45 }}>
+        {activeOption.desc}
+        {activeOption.recommended && ' Recommended.'}
+      </Typography>
+    </Stack>
   );
 }
 
@@ -570,54 +625,48 @@ export function Lobby() {
             open={advancedSettingsOpen}
             onClose={() => setAdvancedSettingsOpen(false)}
             fullWidth
-            maxWidth="xs"
+            maxWidth="sm"
             PaperProps={{ sx: { borderRadius: '20px' } }}
           >
             <DialogTitle sx={{ pb: 1 }}>Advanced settings</DialogTitle>
-            <DialogContent>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Fine-tune how long the game runs and how much time players get each round.
-              </Typography>
-              <Stack direction="row" spacing={1.5}>
-                <NumberField
-                  label="Rounds"
-                  value={lobby.settings.roundCount}
-                  onChange={(v) => updateSettings({ roundCount: v })}
-                  min={5}
-                  max={30}
-                />
-                <NumberField
-                  label="Seconds per round"
-                  value={lobby.settings.roundDurationSeconds}
-                  onChange={(v) => updateSettings({ roundDurationSeconds: v })}
-                  min={10}
-                  max={60}
-                />
-              </Stack>
-
-              {lobby.settings.gameMode === 'typing' && (
-                <Box sx={{ mt: 3 }}>
-                  <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                    Spelling leniency
-                  </Typography>
-                  <Stack spacing={1}>
-                    {SPELLING_LENIENCY_OPTIONS.map((option) => (
-                      <LeniencyTile
-                        key={option.value}
-                        active={
-                          (lobby.settings.typingSpellingLeniency ?? 'normal') ===
-                          option.value
-                        }
-                        onClick={() =>
-                          updateSettings({ typingSpellingLeniency: option.value })
-                        }
-                        title={option.title}
-                        desc={option.desc}
-                      />
-                    ))}
+            <DialogContent sx={{ pt: 1 }}>
+              <Stack spacing={2.5} divider={<Divider flexItem sx={{ borderColor: 'rgba(20,33,63,0.08)' }} />}>
+                <AdvancedSettingsSection
+                  title="Round length"
+                  description="How many rounds to play and how long each round lasts."
+                >
+                  <Stack direction="row" spacing={1.5}>
+                    <NumberField
+                      label="Rounds"
+                      value={lobby.settings.roundCount}
+                      onChange={(v) => updateSettings({ roundCount: v })}
+                      min={5}
+                      max={30}
+                    />
+                    <NumberField
+                      label="Seconds per round"
+                      value={lobby.settings.roundDurationSeconds}
+                      onChange={(v) => updateSettings({ roundDurationSeconds: v })}
+                      min={10}
+                      max={60}
+                    />
                   </Stack>
-                </Box>
-              )}
+                </AdvancedSettingsSection>
+
+                {lobby.settings.gameMode === 'typing' && (
+                  <AdvancedSettingsSection
+                    title="Spelling leniency"
+                    description="How strictly typed answers are matched."
+                  >
+                    <LeniencySegment
+                      value={lobby.settings.typingSpellingLeniency ?? 'normal'}
+                      onChange={(typingSpellingLeniency) =>
+                        updateSettings({ typingSpellingLeniency })
+                      }
+                    />
+                  </AdvancedSettingsSection>
+                )}
+              </Stack>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2.5 }}>
               <Button onClick={() => setAdvancedSettingsOpen(false)} variant="contained">
