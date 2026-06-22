@@ -6,6 +6,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import {
   Alert,
@@ -15,6 +16,10 @@ import {
   CardContent,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   LinearProgress,
   Stack,
@@ -173,6 +178,7 @@ export function Lobby() {
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [message, setMessage] = useState<string | null>(null);
   const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
+  const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
 
   useEffect(() => {
     const s = loadSession();
@@ -338,45 +344,87 @@ export function Lobby() {
       )}
 
       {isHost && (
-        <Card sx={{ mb: 3 }}>
-          <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-            <Typography variant="h5" gutterBottom>
-              Game settings
-            </Typography>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
-              <ModeTile
-                active={lobby.settings.gameMode === 'speed_choice'}
-                onClick={() => updateSettings({ gameMode: 'speed_choice' })}
-                icon={<BoltRoundedIcon />}
-                title="Speed choice"
-                desc="Tap the right answer fastest"
-              />
-              <ModeTile
-                active={lobby.settings.gameMode === 'typing'}
-                onClick={() => updateSettings({ gameMode: 'typing' })}
-                icon={<KeyboardRoundedIcon />}
-                title="Typing"
-                desc="Type the artist and the song"
-              />
-            </Stack>
-            <Stack direction="row" spacing={1.5}>
-              <NumberField
-                label="Rounds"
-                value={lobby.settings.roundCount}
-                onChange={(v) => updateSettings({ roundCount: v })}
-                min={5}
-                max={30}
-              />
-              <NumberField
-                label="Seconds per round"
-                value={lobby.settings.roundDurationSeconds}
-                onChange={(v) => updateSettings({ roundDurationSeconds: v })}
-                min={10}
-                max={60}
-              />
-            </Stack>
-          </CardContent>
-        </Card>
+        <>
+          <Card sx={{ mb: 3 }}>
+            <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 2 }}
+              >
+                <Typography variant="h5">Game settings</Typography>
+                <Tooltip title="Advanced settings">
+                  <IconButton
+                    aria-label="Advanced settings"
+                    onClick={() => setAdvancedSettingsOpen(true)}
+                    sx={{
+                      bgcolor: 'rgba(58,107,255,0.08)',
+                      '&:hover': { bgcolor: 'rgba(58,107,255,0.14)' },
+                    }}
+                  >
+                    <SettingsRoundedIcon />
+                  </IconButton>
+                </Tooltip>
+              </Stack>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                <ModeTile
+                  active={lobby.settings.gameMode === 'speed_choice'}
+                  onClick={() => updateSettings({ gameMode: 'speed_choice' })}
+                  icon={<BoltRoundedIcon />}
+                  title="Speed choice"
+                  desc="Tap the right answer fastest"
+                />
+                <ModeTile
+                  active={lobby.settings.gameMode === 'typing'}
+                  onClick={() => updateSettings({ gameMode: 'typing' })}
+                  icon={<KeyboardRoundedIcon />}
+                  title="Typing"
+                  desc="Type the artist and the song"
+                />
+              </Stack>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                {lobby.settings.roundCount} rounds · {lobby.settings.roundDurationSeconds}s per round
+              </Typography>
+            </CardContent>
+          </Card>
+
+          <Dialog
+            open={advancedSettingsOpen}
+            onClose={() => setAdvancedSettingsOpen(false)}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{ sx: { borderRadius: '20px' } }}
+          >
+            <DialogTitle sx={{ pb: 1 }}>Advanced settings</DialogTitle>
+            <DialogContent>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Fine-tune how long the game runs and how much time players get each round.
+              </Typography>
+              <Stack direction="row" spacing={1.5}>
+                <NumberField
+                  label="Rounds"
+                  value={lobby.settings.roundCount}
+                  onChange={(v) => updateSettings({ roundCount: v })}
+                  min={5}
+                  max={30}
+                />
+                <NumberField
+                  label="Seconds per round"
+                  value={lobby.settings.roundDurationSeconds}
+                  onChange={(v) => updateSettings({ roundDurationSeconds: v })}
+                  min={10}
+                  max={60}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+              <Button onClick={() => setAdvancedSettingsOpen(false)} variant="contained">
+                Done
+              </Button>
+            </DialogActions>
+          </Dialog>
+        </>
       )}
 
       <Typography variant="h5" sx={{ mb: 1.5 }}>
