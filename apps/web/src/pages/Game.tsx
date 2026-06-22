@@ -337,9 +337,22 @@ export function Game() {
 
   function handleMcq(optionId: string) {
     if (mcqAnswered) return;
+    submitMcqAnswer(optionId);
     setMcqAnswered(true);
     setSelectedOption(optionId);
-    submitMcqAnswer(optionId);
+  }
+
+  function handleMcqPointerDown(e: React.PointerEvent, optionId: string) {
+    if (mcqAnswered || e.button !== 0) return;
+    e.preventDefault();
+    handleMcq(optionId);
+  }
+
+  function handleMcqKeyDown(e: React.KeyboardEvent, optionId: string) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    if (e.repeat) return;
+    handleMcq(optionId);
   }
 
   function handleTypingSubmit(e?: React.FormEvent) {
@@ -542,10 +555,8 @@ export function Game() {
                       key={opt.id}
                       role="button"
                       tabIndex={mcqAnswered ? -1 : 0}
-                      onClick={() => handleMcq(opt.id)}
-                      onKeyDown={(e) =>
-                        (e.key === 'Enter' || e.key === ' ') && handleMcq(opt.id)
-                      }
+                      onPointerDown={(e) => handleMcqPointerDown(e, opt.id)}
+                      onKeyDown={(e) => handleMcqKeyDown(e, opt.id)}
                       sx={{
                         position: 'relative',
                         cursor: mcqAnswered ? 'default' : 'pointer',
@@ -559,14 +570,12 @@ export function Game() {
                         background: c.bg,
                         boxShadow: dimmed ? 'none' : `0 6px 0 ${c.shadow}`,
                         opacity: dimmed ? 0.45 : 1,
-                        transform: isSelected ? 'translateY(2px)' : 'none',
-                        transition: 'transform 120ms ease, opacity 160ms ease, box-shadow 120ms ease',
-                        outline: isSelected ? '3px solid rgba(255,255,255,0.9)' : 'none',
+                        transition: 'opacity 160ms ease',
+                        outline: isSelected ? '3px solid rgba(255,255,255,0.95)' : 'none',
                         outlineOffset: isSelected ? '-3px' : 0,
-                        '&:hover': mcqAnswered
-                          ? undefined
-                          : { transform: 'translateY(-2px)', boxShadow: `0 9px 0 ${c.shadow}` },
-                        '&:active': mcqAnswered ? undefined : { transform: 'translateY(4px)', boxShadow: `0 2px 0 ${c.shadow}` },
+                        userSelect: 'none',
+                        touchAction: 'manipulation',
+                        WebkitTapHighlightColor: 'transparent',
                       }}
                     >
                       <Shape sx={{ fontSize: 26, flexShrink: 0, opacity: 0.95 }} />
