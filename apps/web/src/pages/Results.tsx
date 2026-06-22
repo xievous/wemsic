@@ -44,6 +44,11 @@ export function Results() {
   const leaderboard =
     gameEnd?.leaderboard ??
     lobby?.players
+      // In host mode the host is a presenter and never competes, so keep them
+      // off the final scoreboard.
+      .filter(
+        (p) => !(lobby.settings.roomType === 'host' && p.id === lobby.hostPlayerId),
+      )
       .map((p) => ({ playerId: p.id, displayName: p.displayName, score: p.score }))
       .sort((a, b) => b.score - a.score) ??
     [];

@@ -266,6 +266,14 @@ export function Game() {
   const isTyping = round?.gameMode === 'typing';
   const timerExpired = timeLeft <= 0 && roundEndsAt > 0;
 
+  // Host screen mode splits the experience: the host device is a "presenter"
+  // (big visuals + sound, no answering) and players use their phones as answer
+  // pads (no sound, no question/visuals). Online mode keeps everyone identical.
+  const roomType = lobby?.settings.roomType ?? 'online';
+  const amHost = lobby ? lobby.hostPlayerId === session?.playerId : false;
+  const isPresenter = roomType === 'host' && amHost;
+  const isPad = roomType === 'host' && !amHost;
+
   useEffect(() => {
     if (!session || session.roomCode !== code?.toUpperCase()) {
       navigate('/');
@@ -306,6 +314,9 @@ export function Game() {
   }, [roundEndsAt]);
 
   useEffect(() => {
+    // Player pads never play audio in host mode — the host screen is the only
+    // sound source.
+    if (isPad) return;
     if (!audioEnabled || previewUrl === undefined || roundIndex === undefined) {
       return;
     }
@@ -313,7 +324,7 @@ export function Game() {
     if (lastAudioKeyRef.current === key) return;
     lastAudioKeyRef.current = key;
     playPreview(previewUrl);
-  }, [audioEnabled, previewUrl, roundIndex, playPreview]);
+  }, [audioEnabled, previewUrl, roundIndex, playPreview, isPad]);
 
   // Keep the preview playing through reveal until the next round starts.
   // playPreview swaps tracks on round:start; only stop when fully idle.
@@ -371,7 +382,42 @@ export function Game() {
 
   let body: ReactNode;
 
-  if (reveal) {
+  if (reveal && isPad) {
+    const myScore = reveal.roundScores[session.playerId] ?? 0;
+    const scored = myScore > 0;
+    body = (
+      <Stack spacing={2.5} alignItems="center" sx={{ py: { xs: 4, sm: 8 } }}>
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: 420,
+            textAlign: 'center',
+            borderRadius: '28px',
+            p: { xs: 3, sm: 4 },
+            color: '#fff',
+            background: scored
+              ? 'linear-gradient(135deg, #0E7A5B 0%, #16C79A 100%)'
+              : 'linear-gradient(135deg, #0E1A3C 0%, #2A3F9E 100%)',
+            boxShadow: '0 30px 60px -30px rgba(14,26,60,0.75)',
+            animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1)`,
+          }}
+        >
+          <Typography variant="overline" sx={{ opacity: 0.8 }}>
+            {scored ? 'Nice one' : 'This round'}
+          </Typography>
+          <Typography variant="h3" sx={{ color: '#fff', my: 1 }}>
+            {scored ? `+${myScore}` : 'No points'}
+          </Typography>
+          <Typography sx={{ opacity: 0.9 }}>
+            {scored ? 'points' : 'Better luck next track'}
+          </Typography>
+        </Box>
+        <Typography color="text.secondary" sx={{ textAlign: 'center' }}>
+          Look at the big screen for the answer and the leaderboard.
+        </Typography>
+      </Stack>
+    );
+  } else if (reveal) {
     const myScore = reveal.roundScores[session.playerId] ?? 0;
     const scored = myScore > 0;
     body = (
@@ -429,23 +475,25 @@ export function Game() {
               </Typography>
             </Box>
           </Stack>
-          <Box
-            sx={{
-              mt: 2.5,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 2,
-              py: 1,
-              borderRadius: 999,
-              bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
-              animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
-            }}
-          >
-            <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
-              {scored ? `+${myScore} points` : 'No points this round'}
-            </Typography>
-          </Box>
+          {!isPresenter && (
+            <Box
+              sx={{
+                mt: 2.5,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 1,
+                borderRadius: 999,
+                bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
+                animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
+              }}
+            >
+              <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
+                {scored ? `+${myScore} points` : 'No points this round'}
+              </Typography>
+            </Box>
+          )}
         </Box>
 
         <Box
@@ -508,141 +556,292 @@ export function Game() {
       </Stack>
     );
   } else {
-    body = (
-      <Stack spacing={2.5} direction={{ xs: 'column', md: 'row' }} alignItems="flex-start">
-        <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-          <Stack spacing={2.5}>
-            <Stage
-              roundIndex={round.roundIndex}
-              totalRounds={round.totalRounds}
-              timeLeft={timeLeft}
-              progress={progress}
-              volume={volume}
-              onVolumeChange={setVolume}
-            />
-
-            {!audioEnabled && (
-              <Alert severity="warning">
-                Enable sound in the lobby so track previews play automatically.
-              </Alert>
-            )}
-
-            {mcqAnswered && !isTyping && (
-              <Alert severity="success">Answer locked in. Hold tight.</Alert>
-            )}
-
-            {isTyping && myStatus?.bothCorrect && (
-              <Alert severity="success">
-                Artist and song, both correct. Waiting on the rest.
-              </Alert>
-            )}
-
-            {round.gameMode === 'speed_choice' && round.options && (
-              <Box
-                sx={{
-                  display: 'grid',
-                  gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                  gap: 1.5,
-                }}
-              >
-                {round.options.map((opt, i) => {
-                  const c = TILE_COLORS[i % TILE_COLORS.length];
-                  const Shape = TILE_SHAPES[i % TILE_SHAPES.length];
-                  const isSelected = selectedOption === opt.id;
-                  const dimmed = mcqAnswered && !isSelected;
-                  return (
-                    <Box
-                      key={opt.id}
-                      role="button"
-                      tabIndex={mcqAnswered ? -1 : 0}
-                      onPointerDown={(e) => handleMcqPointerDown(e, opt.id)}
-                      onKeyDown={(e) => handleMcqKeyDown(e, opt.id)}
-                      sx={{
-                        position: 'relative',
-                        cursor: mcqAnswered ? 'default' : 'pointer',
-                        borderRadius: '18px',
-                        px: 2.5,
-                        py: { xs: 2.25, sm: 2.75 },
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 1.75,
-                        color: c.text,
-                        background: c.bg,
-                        boxShadow: dimmed ? 'none' : `0 6px 0 ${c.shadow}`,
-                        opacity: dimmed ? 0.45 : 1,
-                        transition: 'opacity 160ms ease',
-                        outline: isSelected ? '3px solid rgba(255,255,255,0.95)' : 'none',
-                        outlineOffset: isSelected ? '-3px' : 0,
-                        userSelect: 'none',
-                        touchAction: 'manipulation',
-                        WebkitTapHighlightColor: 'transparent',
-                      }}
-                    >
-                      <Shape sx={{ fontSize: 26, flexShrink: 0, opacity: 0.95 }} />
-                      <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
-                        {opt.label}
-                      </Typography>
-                    </Box>
-                  );
-                })}
-              </Box>
-            )}
-
-            {isTyping && (
-              <Box
-                component="form"
-                onSubmit={handleTypingSubmit}
-                sx={{ animation: shaking ? `${shake} 0.45s ease` : 'none' }}
-              >
-                <Stack spacing={1.5}>
-                  <TextField
-                    label="Your guess"
-                    placeholder="Artist, song, or both"
-                    value={guess}
-                    onChange={(e) => setGuess(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleTypingSubmit();
-                      }
-                    }}
-                    fullWidth
-                    autoFocus
-                    disabled={timerExpired}
-                    multiline
-                    minRows={1}
-                    maxRows={3}
-                    helperText={
-                      timerExpired
-                        ? 'Time is up'
-                        : 'Press Enter to send. Keep guessing until the clock runs out.'
-                    }
-                  />
-                  <Button
-                    type="submit"
-                    variant="contained"
-                    size="large"
-                    disabled={timerExpired || !guess.trim()}
-                    sx={{ alignSelf: 'flex-end' }}
-                  >
-                    Submit guess
-                  </Button>
-                </Stack>
-              </Box>
-            )}
-          </Stack>
-        </Box>
-
-        <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
-          <RoundPlayers
-            players={playerStatuses}
-            currentPlayerId={session.playerId}
-            gameMode={round.gameMode}
-          />
-        </Box>
-      </Stack>
+    const mcqInteractive = round.gameMode === 'speed_choice' && round.options && (
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+          gap: 1.5,
+        }}
+      >
+        {round.options.map((opt, i) => {
+          const c = TILE_COLORS[i % TILE_COLORS.length];
+          const Shape = TILE_SHAPES[i % TILE_SHAPES.length];
+          const isSelected = selectedOption === opt.id;
+          const dimmed = mcqAnswered && !isSelected;
+          return (
+            <Box
+              key={opt.id}
+              role="button"
+              tabIndex={mcqAnswered ? -1 : 0}
+              onPointerDown={(e) => handleMcqPointerDown(e, opt.id)}
+              onKeyDown={(e) => handleMcqKeyDown(e, opt.id)}
+              sx={{
+                position: 'relative',
+                cursor: mcqAnswered ? 'default' : 'pointer',
+                borderRadius: '18px',
+                px: 2.5,
+                py: { xs: 2.25, sm: 2.75 },
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.75,
+                color: c.text,
+                background: c.bg,
+                boxShadow: dimmed ? 'none' : `0 6px 0 ${c.shadow}`,
+                opacity: dimmed ? 0.45 : 1,
+                transition: 'opacity 160ms ease',
+                outline: isSelected ? '3px solid rgba(255,255,255,0.95)' : 'none',
+                outlineOffset: isSelected ? '-3px' : 0,
+                userSelect: 'none',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <Shape sx={{ fontSize: 26, flexShrink: 0, opacity: 0.95 }} />
+              <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
+                {opt.label}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Box>
     );
+
+    const typingInput = isTyping && (
+      <Box
+        component="form"
+        onSubmit={handleTypingSubmit}
+        sx={{ animation: shaking ? `${shake} 0.45s ease` : 'none' }}
+      >
+        <Stack spacing={1.5}>
+          <TextField
+            label="Your guess"
+            placeholder="Artist, song, or both"
+            value={guess}
+            onChange={(e) => setGuess(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleTypingSubmit();
+              }
+            }}
+            fullWidth
+            autoFocus
+            disabled={timerExpired}
+            multiline
+            minRows={1}
+            maxRows={3}
+            helperText={
+              timerExpired
+                ? 'Time is up'
+                : 'Press Enter to send. Keep guessing until the clock runs out.'
+            }
+          />
+          <Button
+            type="submit"
+            variant="contained"
+            size="large"
+            disabled={timerExpired || !guess.trim()}
+            sx={{ alignSelf: 'flex-end' }}
+          >
+            Submit guess
+          </Button>
+        </Stack>
+      </Box>
+    );
+
+    if (isPad) {
+      // Player phone = answer pad: no stage, no question visuals, just controls.
+      body = (
+        <Stack spacing={2.5}>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 2,
+            }}
+          >
+            <Typography variant="overline" color="text.secondary">
+              Round {round.roundIndex + 1} of {round.totalRounds}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Listen to the host screen
+            </Typography>
+          </Box>
+          <Box
+            sx={{
+              height: 8,
+              borderRadius: 999,
+              bgcolor: 'rgba(20,33,63,0.08)',
+              overflow: 'hidden',
+            }}
+          >
+            <Box
+              sx={{
+                height: '100%',
+                width: `${progress}%`,
+                borderRadius: 999,
+                background:
+                  timeLeft <= 5000
+                    ? 'linear-gradient(90deg, #FF7849, #FFB020)'
+                    : 'linear-gradient(90deg, #16C79A, #2DB7FF)',
+                transition: 'width 100ms linear',
+              }}
+            />
+          </Box>
+
+          {mcqAnswered && !isTyping && (
+            <Alert severity="success">Answer locked in. Hold tight.</Alert>
+          )}
+          {isTyping && myStatus?.bothCorrect && (
+            <Alert severity="success">
+              Artist and song, both correct. Waiting on the rest.
+            </Alert>
+          )}
+
+          {round.gameMode === 'speed_choice' && mcqInteractive}
+          {typingInput}
+        </Stack>
+      );
+    } else if (isPresenter) {
+      // Host shared screen: big question + sound, read-only answers, no input.
+      body = (
+        <Stack spacing={2.5} direction={{ xs: 'column', md: 'row' }} alignItems="flex-start">
+          <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+            <Stack spacing={2.5}>
+              <Stage
+                roundIndex={round.roundIndex}
+                totalRounds={round.totalRounds}
+                timeLeft={timeLeft}
+                progress={progress}
+                volume={volume}
+                onVolumeChange={setVolume}
+              />
+
+              {!audioEnabled && (
+                <Alert severity="warning">
+                  Enable sound so the song plays on this shared screen. Reopen the
+                  lobby tab if needed.
+                </Alert>
+              )}
+
+              {round.gameMode === 'speed_choice' && round.options && (
+                <Box
+                  sx={{
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
+                    gap: { xs: 1.5, sm: 2 },
+                  }}
+                >
+                  {round.options.map((opt, i) => {
+                    const c = TILE_COLORS[i % TILE_COLORS.length];
+                    const Shape = TILE_SHAPES[i % TILE_SHAPES.length];
+                    return (
+                      <Box
+                        key={opt.id}
+                        sx={{
+                          borderRadius: '18px',
+                          px: { xs: 2.5, sm: 3 },
+                          py: { xs: 2.75, sm: 3.5 },
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: 2,
+                          color: c.text,
+                          background: c.bg,
+                          boxShadow: `0 6px 0 ${c.shadow}`,
+                        }}
+                      >
+                        <Shape sx={{ fontSize: 34, flexShrink: 0, opacity: 0.95 }} />
+                        <Typography
+                          fontWeight={700}
+                          sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' }, lineHeight: 1.2 }}
+                        >
+                          {opt.label}
+                        </Typography>
+                      </Box>
+                    );
+                  })}
+                </Box>
+              )}
+
+              {isTyping && (
+                <Box
+                  sx={{
+                    textAlign: 'center',
+                    p: { xs: 3, sm: 4 },
+                    borderRadius: '24px',
+                    bgcolor: 'background.paper',
+                    border: '1px solid rgba(20,33,63,0.06)',
+                  }}
+                >
+                  <Typography variant="h5" gutterBottom>
+                    Name that track
+                  </Typography>
+                  <Typography color="text.secondary">
+                    Players are typing their guesses on their phones. Watch the
+                    board for who locks in the artist and song.
+                  </Typography>
+                </Box>
+              )}
+            </Stack>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
+            <RoundPlayers
+              players={playerStatuses}
+              currentPlayerId={session.playerId}
+              gameMode={round.gameMode}
+            />
+          </Box>
+        </Stack>
+      );
+    } else {
+      body = (
+        <Stack spacing={2.5} direction={{ xs: 'column', md: 'row' }} alignItems="flex-start">
+          <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
+            <Stack spacing={2.5}>
+              <Stage
+                roundIndex={round.roundIndex}
+                totalRounds={round.totalRounds}
+                timeLeft={timeLeft}
+                progress={progress}
+                volume={volume}
+                onVolumeChange={setVolume}
+              />
+
+              {!audioEnabled && (
+                <Alert severity="warning">
+                  Enable sound in the lobby so track previews play automatically.
+                </Alert>
+              )}
+
+              {mcqAnswered && !isTyping && (
+                <Alert severity="success">Answer locked in. Hold tight.</Alert>
+              )}
+
+              {isTyping && myStatus?.bothCorrect && (
+                <Alert severity="success">
+                  Artist and song, both correct. Waiting on the rest.
+                </Alert>
+              )}
+
+              {round.gameMode === 'speed_choice' && mcqInteractive}
+              {typingInput}
+            </Stack>
+          </Box>
+
+          <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+            <RoundPlayers
+              players={playerStatuses}
+              currentPlayerId={session.playerId}
+              gameMode={round.gameMode}
+            />
+          </Box>
+        </Stack>
+      );
+    }
   }
 
-  return <Layout maxWidth="md">{body}</Layout>;
+  return <Layout maxWidth={isPresenter ? 'lg' : 'md'}>{body}</Layout>;
 }

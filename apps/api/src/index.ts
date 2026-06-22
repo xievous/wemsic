@@ -76,10 +76,11 @@ fastify.get<{ Params: { code: string } }>('/rooms/:code', async (request) => {
 });
 
 async function createRoomWithHostHandler(request: {
-  body?: { displayName?: string };
+  body?: { displayName?: string; roomType?: string };
 }) {
   const displayName = request.body?.displayName?.trim() || 'Host';
-  const created = roomManager.createRoom(displayName);
+  const roomType = request.body?.roomType === 'host' ? 'host' : 'online';
+  const created = roomManager.createRoom(displayName, roomType);
   return {
     roomCode: created.roomCode,
     playerId: created.playerId,
@@ -87,15 +88,15 @@ async function createRoomWithHostHandler(request: {
   };
 }
 
-fastify.post<{ Body: { displayName: string } }>(
+fastify.post<{ Body: { displayName: string; roomType?: string } }>(
   '/rooms/create-with-host',
   createRoomWithHostHandler,
 );
 
-fastify.post<{ Params: { code: string }; Body: { displayName: string } }>(
-  '/rooms/:code/create-with-host',
-  createRoomWithHostHandler,
-);
+fastify.post<{
+  Params: { code: string };
+  Body: { displayName: string; roomType?: string };
+}>('/rooms/:code/create-with-host', createRoomWithHostHandler);
 
 fastify.get('/auth/spotify/login', async (request, reply) => {
   if (!config.spotifyConfigured()) {

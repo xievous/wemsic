@@ -1,5 +1,6 @@
 import { MIN_PLAYLIST_TRACKS } from '@wemsic/shared';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import CastForEducationRoundedIcon from '@mui/icons-material/CastForEducationRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
@@ -238,6 +239,11 @@ export function Lobby() {
 
   const me = lobby.players.find((p) => p.id === session.playerId);
   const isHost = me?.isHost ?? false;
+  const hostMode = lobby.settings.roomType === 'host';
+  // In host mode the host runs the shared screen (needs sound, never readies),
+  // while players answer on their phones (no sound needed, must ready up).
+  const needsSound = !hostMode || isHost;
+  const needsReady = !hostMode || !isHost;
   const countdownActive = countdownLeft !== null && countdownLeft > 0;
   const myImportProgress =
     importing &&
@@ -303,6 +309,23 @@ export function Lobby() {
           }}
         />
       </Box>
+
+      {hostMode && (
+        <Alert
+          severity="info"
+          icon={<CastForEducationRoundedIcon />}
+          sx={{
+            mb: 2,
+            bgcolor: 'rgba(58,107,255,0.08)',
+            color: 'text.primary',
+            '& .MuiAlert-icon': { color: 'primary.main' },
+          }}
+        >
+          {isHost
+            ? 'Host screen mode: this device is the shared screen. Keep it visible to everyone and turn on sound — it plays the music and shows each question and answers.'
+            : 'Host screen mode: watch the host\u2019s screen and listen there. Add a playlist if you like, then ready up — you\u2019ll just tap your answers on this phone.'}
+        </Alert>
+      )}
 
       {(message || socketError) && (
         <Alert
@@ -396,7 +419,7 @@ export function Lobby() {
                   </Typography>
                   {p.isHost && (
                     <Chip
-                      label="Host"
+                      label={hostMode ? 'Host · screen' : 'Host'}
                       size="small"
                       sx={{ height: 20, bgcolor: 'rgba(58,107,255,0.12)', color: 'primary.main', fontWeight: 700 }}
                     />
@@ -479,29 +502,40 @@ export function Lobby() {
               />
             )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
-              <Button
-                variant={soundOn ? 'outlined' : 'contained'}
-                color={soundOn ? 'success' : 'secondary'}
-                startIcon={soundOn ? <CheckCircleRoundedIcon /> : <VolumeUpRoundedIcon />}
-                onClick={enableAudio}
-                disabled={soundOn}
-                sx={soundOn ? { '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } } : undefined}
-              >
-                {soundOn ? 'Sound ready' : 'Enable sound'}
-              </Button>
-              <Button
-                variant={me?.isReady ? 'outlined' : 'contained'}
-                color="success"
-                onClick={() => setReady(!me?.isReady)}
-                sx={{ ml: { sm: 'auto' } }}
-              >
-                {me?.isReady ? "I'm not ready" : "I'm ready"}
-              </Button>
+              {needsSound && (
+                <Button
+                  variant={soundOn ? 'outlined' : 'contained'}
+                  color={soundOn ? 'success' : 'secondary'}
+                  startIcon={soundOn ? <CheckCircleRoundedIcon /> : <VolumeUpRoundedIcon />}
+                  onClick={enableAudio}
+                  disabled={soundOn}
+                  sx={soundOn ? { '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } } : undefined}
+                >
+                  {soundOn ? 'Sound ready' : 'Enable sound'}
+                </Button>
+              )}
+              {needsReady && (
+                <Button
+                  variant={me?.isReady ? 'outlined' : 'contained'}
+                  color="success"
+                  onClick={() => setReady(!me?.isReady)}
+                  sx={{ ml: { sm: 'auto' } }}
+                >
+                  {me?.isReady ? "I'm not ready" : "I'm ready"}
+                </Button>
+              )}
             </Stack>
           </Stack>
-          {!soundOn && (
+          {needsSound && !soundOn && (
             <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-              Turn on sound here so track previews play the moment the game starts.
+              {hostMode
+                ? 'Turn on sound here so the song plays on this shared screen the moment the game starts.'
+                : 'Turn on sound here so track previews play the moment the game starts.'}
+            </Typography>
+          )}
+          {hostMode && !isHost && (
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+              No need to turn on sound — the music plays on the host&apos;s screen.
             </Typography>
           )}
         </CardContent>

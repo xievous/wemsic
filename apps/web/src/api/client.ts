@@ -1,11 +1,14 @@
-import type { LobbyState } from '@wemsic/shared';
+import type { LobbyState, RoomType } from '@wemsic/shared';
 import { API_URL } from '../config';
 
-export async function createRoomWithHost(displayName: string) {
+export async function createRoomWithHost(
+  displayName: string,
+  roomType: RoomType = 'online',
+) {
   const res = await fetch(`${API_URL}/rooms/create-with-host`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify({ displayName, roomType }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Failed to create room');

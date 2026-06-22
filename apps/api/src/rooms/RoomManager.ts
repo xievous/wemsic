@@ -13,6 +13,7 @@ import type {
   Player,
   RoomPhase,
   RoomSettings,
+  RoomType,
   TypingGuessResult,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
@@ -55,7 +56,10 @@ export class RoomManager {
     this.broadcast = broadcast;
   }
 
-  createRoom(hostDisplayName: string): {
+  createRoom(
+    hostDisplayName: string,
+    roomType: RoomType = 'online',
+  ): {
     roomCode: string;
     playerId: string;
     hostPlayerId: string;
@@ -74,6 +78,7 @@ export class RoomManager {
         gameMode: 'speed_choice',
         roundCount: DEFAULT_ROUND_COUNT,
         roundDurationSeconds: DEFAULT_SPEED_CHOICE_SECONDS,
+        roomType,
       },
       players: new Map(),
       engine: null,
@@ -234,15 +239,33 @@ export class RoomManager {
     return true;
   }
 
+  /**
+   * In host mode the host runs the shared screen as a presenter: they don't
+   * answer, score, or appear on the leaderboard. In online mode everyone
+   * (including the host) competes.
+   */
+  private isPresenter(room: Room, playerId: string): boolean {
+    return room.settings.roomType === 'host' && playerId === room.hostPlayerId;
+  }
+
+  private competingPlayerEntries(room: Room): [string, RoomPlayer][] {
+    return [...room.players.entries()].filter(
+      ([id]) => !this.isPresenter(room, id),
+    );
+  }
+
   canStart(room: Room): boolean {
     if (room.players.size < 1) return false;
-    // At least one playlist must exist in the room...
+    // At least one playlist must exist in the room (the presenter may add one too)...
     const hasPlaylist = [...room.players.values()].some(
       (p) => p.tracks.length >= MIN_PLAYLIST_TRACKS,
     );
     if (!hasPlaylist) return false;
-    // ...and every player (with or without their own playlist) is ready.
-    return [...room.players.values()].every((p) => p.isReady);
+    // ...there must be at least one competing player...
+    const competitors = this.competingPlayerEntries(room).map(([, p]) => p);
+    if (competitors.length < 1) return false;
+    // ...and every competing player is ready (the host presenter is exempt).
+    return competitors.every((p) => p.isReady);
   }
 
   toggleStartCountdown(
@@ -309,9 +332,12 @@ export class RoomManager {
     room.skippedTracksCount = 0;
     room.phase = 'playing';
 
-    const playerIds = [...room.players.keys()];
+    // The presenter (host in host mode) contributes tracks but does not compete,
+    // so they're excluded from the engine's player set entirely.
+    const competing = this.competingPlayerEntries(room);
+    const playerIds = competing.map(([id]) => id);
     const displayNames = new Map(
-      [...room.players.entries()].map(([id, p]) => [id, p.displayName]),
+      competing.map(([id, p]) => [id, p.displayName]),
     );
 
     const engine = new GameEngine(
@@ -335,7 +361,7 @@ export class RoomManager {
 
           this.broadcast(room.code, 'round:reveal', {
             ...payload,
-            leaderboard: [...room.players.entries()]
+            leaderboard: this.competingPlayerEntries(room)
               .map(([playerId, p]) => ({
                 playerId,
                 displayName: p.displayName,
@@ -349,7 +375,7 @@ export class RoomManager {
           room.engine?.destroy();
           room.engine = null;
           this.broadcast(room.code, 'game:end', {
-            leaderboard: [...room.players.entries()]
+            leaderboard: this.competingPlayerEntries(room)
               .map(([playerId, p]) => ({
                 playerId,
                 displayName: p.displayName,

@@ -1,5 +1,14 @@
 export type GameMode = 'speed_choice' | 'typing';
 
+/**
+ * How a room is played.
+ * - `online`: every player answers on their own device and hears the preview there.
+ * - `host`: a shared-screen party mode. The host device is a presenter (sound +
+ *   big question visuals) and does not compete; players answer on their phones
+ *   without audio.
+ */
+export type RoomType = 'online' | 'host';
+
 export type RoomPhase = 'lobby' | 'playing' | 'finished';
 
 export interface NormalizedTrack {
@@ -28,6 +37,8 @@ export interface RoomSettings {
   gameMode: GameMode;
   roundCount: number;
   roundDurationSeconds: number;
+  /** Chosen at room creation and immutable afterwards. */
+  roomType: RoomType;
 }
 
 export interface LobbyState {
