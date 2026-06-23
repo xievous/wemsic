@@ -3,46 +3,50 @@ import type { NormalizedTrack } from '@wemsic/shared';
 export class TrackPool {
   private buckets = new Map<string, NormalizedTrack[]>();
   private usedIds = new Set<string>();
+  /** Rounds credited to each contributor (not inferred from used track ids). */
+  private playedCount = new Map<string, number>();
 
   constructor(tracks: NormalizedTrack[]) {
-    const deduped = new Map<string, NormalizedTrack>();
+    // Dedupe within each player's contribution only so overlapping tracks
+    // across playlists still count toward every contributor's rotation.
+    const byPlayer = new Map<string, Map<string, NormalizedTrack>>();
     for (const t of tracks) {
-      if (!deduped.has(t.spotifyTrackId)) {
-        deduped.set(t.spotifyTrackId, t);
+      let playerTracks = byPlayer.get(t.contributedBy);
+      if (!playerTracks) {
+        playerTracks = new Map();
+        byPlayer.set(t.contributedBy, playerTracks);
+      }
+      if (!playerTracks.has(t.spotifyTrackId)) {
+        playerTracks.set(t.spotifyTrackId, t);
       }
     }
-    for (const track of deduped.values()) {
-      const bucket = this.buckets.get(track.contributedBy) ?? [];
-      bucket.push(track);
-      this.buckets.set(track.contributedBy, bucket);
-    }
-    for (const bucket of this.buckets.values()) {
+    for (const [playerId, playerTracks] of byPlayer) {
+      const bucket = [...playerTracks.values()];
       shuffle(bucket);
+      this.buckets.set(playerId, bucket);
     }
   }
 
   pickNext(): NormalizedTrack | null {
-    const candidates: Array<{ playerId: string; ratio: number }> = [];
+    const candidates: Array<{ playerId: string; picks: number }> = [];
 
     for (const [playerId, bucket] of this.buckets) {
       const available = bucket.filter((t) => !this.usedIds.has(t.spotifyTrackId));
       if (available.length === 0) continue;
-      const usedFromPlayer = bucket.filter((t) =>
-        this.usedIds.has(t.spotifyTrackId),
-      ).length;
-      candidates.push({ playerId, ratio: usedFromPlayer / bucket.length });
+      candidates.push({ playerId, picks: this.playedCount.get(playerId) ?? 0 });
     }
 
     if (candidates.length === 0) return null;
 
-    const minRatio = Math.min(...candidates.map((c) => c.ratio));
-    const tied = candidates.filter((c) => c.ratio === minRatio);
+    const minPicks = Math.min(...candidates.map((c) => c.picks));
+    const tied = candidates.filter((c) => c.picks === minPicks);
     const playerId = tied[Math.floor(Math.random() * tied.length)]!.playerId;
 
     const bucket = this.buckets.get(playerId)!;
     const available = bucket.filter((t) => !this.usedIds.has(t.spotifyTrackId));
     const track = available[Math.floor(Math.random() * available.length)]!;
     this.usedIds.add(track.spotifyTrackId);
+    this.playedCount.set(playerId, (this.playedCount.get(playerId) ?? 0) + 1);
     return track;
   }
 
