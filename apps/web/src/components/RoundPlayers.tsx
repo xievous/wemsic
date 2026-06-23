@@ -1,5 +1,4 @@
-import { memo } from 'react';
-import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
+import { memo, useRef } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
 import type { GameMode, RoundPlayerStatus } from '@wemsic/shared';
 import { PlayerAvatar } from './PlayerAvatar';
@@ -23,7 +22,7 @@ function StatusPill({ on, label }: { on: boolean; label: string }) {
         letterSpacing: '0.02em',
         color: on ? 'success.contrastText' : 'text.secondary',
         bgcolor: on ? 'success.main' : 'rgba(20,33,63,0.06)',
-        transition: 'all 160ms ease',
+        transition: 'background-color 160ms ease, color 160ms ease',
       }}
     >
       {label}
@@ -36,13 +35,22 @@ export const RoundPlayers = memo(function RoundPlayers({
   currentPlayerId,
   gameMode,
   showOthersGuesses = false,
+  roundIndex,
 }: {
   players: RoundPlayerStatus[];
   currentPlayerId: string;
   gameMode?: GameMode;
   showOthersGuesses?: boolean;
+  roundIndex?: number;
 }) {
   const isTyping = gameMode === 'typing';
+  const stickyProgressRef = useRef(new Map<string, { artistCorrect: boolean; titleCorrect: boolean }>());
+  const lastRoundRef = useRef<number | undefined>(undefined);
+
+  if (roundIndex !== undefined && roundIndex !== lastRoundRef.current) {
+    stickyProgressRef.current.clear();
+    lastRoundRef.current = roundIndex;
+  }
 
   return (
     <Box
@@ -62,13 +70,20 @@ export const RoundPlayers = memo(function RoundPlayers({
           const isMe = p.playerId === currentPlayerId;
           const showWrongGuess = showOthersGuesses && isTyping && !!p.guessText;
           const showGuessedRight = showOthersGuesses && isTyping && !!p.guessedRight;
-          const showOwnTypingProgress = isTyping && !showOthersGuesses && isMe;
+
+          const sticky = stickyProgressRef.current.get(p.playerId) ?? {
+            artistCorrect: false,
+            titleCorrect: false,
+          };
+          const artistCorrect = sticky.artistCorrect || !!p.artistCorrect;
+          const titleCorrect = sticky.titleCorrect || !!p.titleCorrect;
+          stickyProgressRef.current.set(p.playerId, { artistCorrect, titleCorrect });
+
+          const bothCorrect = artistCorrect && titleCorrect;
           const done = isTyping
             ? showOthersGuesses
-              ? !!(p.done || p.guessedRight)
-              : isMe
-                ? p.bothCorrect
-                : false
+              ? bothCorrect || (!!p.guessedRight && !showWrongGuess)
+              : bothCorrect
             : p.done;
 
           let secondary: string;
@@ -77,7 +92,7 @@ export const RoundPlayers = memo(function RoundPlayers({
           } else if (showGuessedRight) {
             secondary = 'Guessed right';
           } else if (isTyping) {
-            secondary = showOwnTypingProgress ? typingSecondary(p) : 'Guessing';
+            secondary = !showOthersGuesses || isMe ? typingSecondary({ ...p, artistCorrect, titleCorrect, bothCorrect }) : 'Guessing';
           } else if (showOthersGuesses && p.guessText) {
             secondary = p.guessText;
           } else {
@@ -103,7 +118,7 @@ export const RoundPlayers = memo(function RoundPlayers({
                 transition: 'background-color 200ms ease',
               }}
             >
-              <PlayerAvatar id={p.playerId} name={p.displayName} size={36} done={done} />
+              <PlayerAvatar id={p.playerId} name={p.displayName} size={36} done={isTyping ? bothCorrect : done} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography
                   variant="body2"
@@ -125,13 +140,11 @@ export const RoundPlayers = memo(function RoundPlayers({
                   {secondary}
                 </Typography>
               </Box>
-              {showOwnTypingProgress ? (
+              {isTyping ? (
                 <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
-                  <StatusPill on={!!p.artistCorrect} label="Artist" />
-                  <StatusPill on={!!p.titleCorrect} label="Song" />
+                  <StatusPill on={artistCorrect} label="Artist" />
+                  <StatusPill on={titleCorrect} label="Song" />
                 </Stack>
-              ) : (isTyping && showOthersGuesses && p.done) || (!isTyping && done) ? (
-                <CheckRoundedIcon sx={{ color: 'success.main' }} />
               ) : null}
             </Stack>
           );

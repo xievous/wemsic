@@ -857,6 +857,7 @@ export function Game() {
               currentPlayerId={session.playerId}
               gameMode={round.gameMode}
               showOthersGuesses={showOthersGuesses}
+              roundIndex={round.roundIndex}
             />
           </Box>
         </Stack>
@@ -902,6 +903,7 @@ export function Game() {
               currentPlayerId={session.playerId}
               gameMode={round.gameMode}
               showOthersGuesses={showOthersGuesses}
+              roundIndex={round.roundIndex}
             />
           </Box>
         </Stack>
