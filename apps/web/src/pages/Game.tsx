@@ -23,6 +23,7 @@ import VolumeOffRoundedIcon from '@mui/icons-material/VolumeOffRounded';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '../audio/AudioProvider';
+import { BouncingBars } from '../components/BouncingBars';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { RoundPlayers } from '../components/RoundPlayers';
@@ -36,11 +37,6 @@ const shake = keyframes`
   40% { transform: translateX(8px); }
   60% { transform: translateX(-6px); }
   80% { transform: translateX(6px); }
-`;
-
-const bounce = keyframes`
-  0%, 100% { transform: scaleY(0.3); }
-  50% { transform: scaleY(1); }
 `;
 
 const popIn = keyframes`
@@ -58,26 +54,37 @@ const TILE_SHAPES = [
   FavoriteRoundedIcon,
 ];
 
-function Equalizer({ playing }: { playing: boolean }) {
+function PresenterWaitingStage() {
   return (
-    <Stack direction="row" spacing={0.6} alignItems="flex-end" sx={{ height: 40 }} aria-hidden>
-      {[0, 0.15, 0.3, 0.45, 0.2, 0.35].map((d, i) => (
-        <Box
-          key={i}
+    <Box
+      sx={{
+        position: 'relative',
+        overflow: 'hidden',
+        borderRadius: '32px',
+        p: { xs: 3.5, sm: 5 },
+        color: '#fff',
+        background: 'linear-gradient(135deg, #0E1A3C 0%, #1A2A6B 55%, #2A3F9E 100%)',
+        boxShadow: '0 30px 60px -30px rgba(14,26,60,0.75)',
+      }}
+    >
+      <Stack spacing={3} alignItems="center" sx={{ py: { xs: 2, sm: 3 } }}>
+        <Typography variant="overline" sx={{ opacity: 0.75, letterSpacing: '0.12em' }}>
+          Between rounds
+        </Typography>
+        <Typography
+          variant="h4"
           sx={{
-            width: 6,
-            height: 40,
-            borderRadius: 999,
-            transformOrigin: 'bottom',
-            background: 'rgba(255,255,255,0.9)',
-            animation: playing ? `${bounce} 0.9s ease-in-out infinite` : 'none',
-            animationDelay: `${d}s`,
-            transform: playing ? undefined : 'scaleY(0.4)',
-            '@media (prefers-reduced-motion: reduce)': { animation: 'none', transform: 'scaleY(0.5)' },
+            fontFamily: '"Fredoka", sans-serif',
+            fontWeight: 700,
+            textAlign: 'center',
+            color: '#fff',
           }}
-        />
-      ))}
-    </Stack>
+        >
+          Cueing up the next track…
+        </Typography>
+        <BouncingBars variant="stageLarge" justify="center" />
+      </Stack>
+    </Box>
   );
 }
 
@@ -147,6 +154,7 @@ function Stage({
   progress,
   volume,
   onVolumeChange,
+  presenter = false,
 }: {
   roundIndex: number;
   totalRounds: number;
@@ -154,6 +162,7 @@ function Stage({
   progress: number;
   volume: number;
   onVolumeChange: (value: number) => void;
+  presenter?: boolean;
 }) {
   const seconds = (timeLeft / 1000).toFixed(1);
   const low = timeLeft <= 5000;
@@ -162,8 +171,8 @@ function Stage({
       sx={{
         position: 'relative',
         overflow: 'hidden',
-        borderRadius: '28px',
-        p: { xs: 2.5, sm: 3.5 },
+        borderRadius: presenter ? '32px' : '28px',
+        p: presenter ? { xs: 3, sm: 4.5 } : { xs: 2.5, sm: 3.5 },
         color: '#fff',
         background: 'linear-gradient(135deg, #0E1A3C 0%, #1A2A6B 55%, #2A3F9E 100%)',
         boxShadow: '0 30px 60px -30px rgba(14,26,60,0.75)',
@@ -187,7 +196,9 @@ function Stage({
               fontFamily: '"Fredoka", sans-serif',
               fontWeight: 700,
               lineHeight: 1,
-              fontSize: { xs: '2.6rem', sm: '3.2rem' },
+              fontSize: presenter
+                ? { xs: '3rem', sm: '3.8rem' }
+                : { xs: '2.6rem', sm: '3.2rem' },
               color: low ? '#FFB020' : '#fff',
               transition: 'color 200ms ease',
             }}
@@ -200,13 +211,13 @@ function Stage({
         </Box>
       </Stack>
 
-      <Box sx={{ mt: 2.5, mb: 1.5 }}>
-        <Equalizer playing={!low || timeLeft > 0} />
+      <Box sx={{ mt: presenter ? 3.5 : 2.5, mb: presenter ? 2 : 1.5 }}>
+        <BouncingBars variant={presenter ? 'stageLarge' : 'stage'} />
       </Box>
 
       <Box
         sx={{
-          height: 10,
+          height: presenter ? 12 : 10,
           borderRadius: 999,
           bgcolor: 'rgba(255,255,255,0.18)',
           overflow: 'hidden',
@@ -549,7 +560,9 @@ export function Game() {
       </Stack>
     );
   } else if (!round) {
-    body = (
+    body = isPresenter ? (
+      <PresenterWaitingStage />
+    ) : (
       <Stack alignItems="center" spacing={2} sx={{ py: 10 }}>
         <CircularProgress />
         <Typography color="text.secondary">Cueing up the next track...</Typography>
@@ -717,6 +730,7 @@ export function Game() {
                 progress={progress}
                 volume={volume}
                 onVolumeChange={setVolume}
+                presenter
               />
 
               {!audioEnabled && (

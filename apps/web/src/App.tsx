@@ -2,6 +2,7 @@ import { CssBaseline, ThemeProvider } from '@mui/material';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { AudioProvider } from './audio/AudioProvider';
 import { SocketProvider } from './socket/SocketContext';
+import { AnimationStyles } from './styles/animations';
 import { theme } from './theme';
 import { CreateRoom } from './pages/CreateRoom';
 import { Game } from './pages/Game';
@@ -14,6 +15,7 @@ export default function App() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <AnimationStyles />
       <AudioProvider>
         <SocketProvider>
           <BrowserRouter>

@@ -2,15 +2,11 @@ import { Box, Container, Stack } from '@mui/material';
 import { keyframes } from '@mui/system';
 import { Link as RouterLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { BouncingBars } from './BouncingBars';
 
 const drift = keyframes`
   0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
   50% { transform: translate3d(4%, -3%, 0) scale(1.12); }
-`;
-
-const bounce = keyframes`
-  0%, 100% { transform: scaleY(0.4); }
-  50% { transform: scaleY(1); }
 `;
 
 function Blob({
@@ -70,29 +66,7 @@ function Wordmark() {
         sx={{ height: 24 }}
         aria-hidden
       >
-        {[
-          { c: '#3A6BFF', d: 0 },
-          { c: '#00BFD8', d: 0.2 },
-          { c: '#16C79A', d: 0.4 },
-          { c: '#6C5CE7', d: 0.6 },
-        ].map((bar) => (
-          <Box
-            key={bar.c}
-            sx={{
-              width: 5,
-              height: 22,
-              borderRadius: 999,
-              transformOrigin: 'bottom',
-              background: bar.c,
-              animation: `${bounce} 1.1s ease-in-out infinite`,
-              animationDelay: `${bar.d}s`,
-              '@media (prefers-reduced-motion: reduce)': {
-                animation: 'none',
-                transform: 'scaleY(0.7)',
-              },
-            }}
-          />
-        ))}
+        <BouncingBars variant="wordmark" />
       </Stack>
       <Box
         component="span"
