@@ -295,6 +295,7 @@ export function Game() {
 
   const isTyping = round?.gameMode === 'typing';
   const timerExpired = timeLeft <= 0 && roundEndsAt > 0;
+  const showOthersGuesses = lobby?.settings.showOthersGuesses ?? false;
 
   // Host screen mode splits the experience: the host device is a "presenter"
   // (big visuals + sound, no answering) and players use their phones as answer
@@ -433,6 +434,9 @@ export function Game() {
     revealEndsAt > 0 ? Math.min(100, (revealTimeLeft / revealDurationMs) * 100) : 0;
 
   const myStatus = playerStatuses.find((p) => p.playerId === session.playerId);
+  const myBothCorrect = showOthersGuesses
+    ? lastTypingResult?.bothCorrect
+    : myStatus?.bothCorrect;
 
   let body: ReactNode;
 
@@ -752,7 +756,7 @@ export function Game() {
           {mcqAnswered && !isTyping && (
             <Alert severity="success">Answer locked in. Hold tight.</Alert>
           )}
-          {isTyping && myStatus?.bothCorrect && (
+          {isTyping && myBothCorrect && (
             <Alert severity="success">
               Artist and song, both correct. Waiting on the rest.
             </Alert>
@@ -838,8 +842,9 @@ export function Game() {
                     Name that track
                   </Typography>
                   <Typography color="text.secondary">
-                    Players are typing their guesses on their phones. Watch the
-                    board for who locks in the artist and song.
+                    {showOthersGuesses
+                      ? 'Players are typing on their phones. Wrong guesses appear on the board as clues.'
+                      : 'Players are typing their guesses on their phones.'}
                   </Typography>
                 </Box>
               )}
@@ -851,6 +856,7 @@ export function Game() {
               players={playerStatuses}
               currentPlayerId={session.playerId}
               gameMode={round.gameMode}
+              showOthersGuesses={showOthersGuesses}
             />
           </Box>
         </Stack>
@@ -879,7 +885,7 @@ export function Game() {
                 <Alert severity="success">Answer locked in. Hold tight.</Alert>
               )}
 
-              {isTyping && myStatus?.bothCorrect && (
+              {isTyping && myBothCorrect && (
                 <Alert severity="success">
                   Artist and song, both correct. Waiting on the rest.
                 </Alert>
@@ -895,6 +901,7 @@ export function Game() {
               players={playerStatuses}
               currentPlayerId={session.playerId}
               gameMode={round.gameMode}
+              showOthersGuesses={showOthersGuesses}
             />
           </Box>
         </Stack>

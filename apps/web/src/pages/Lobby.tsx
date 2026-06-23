@@ -206,6 +206,72 @@ function AdvancedSettingsSection({
   );
 }
 
+const GUESS_VISIBILITY_OPTIONS = [
+  { value: false, title: 'Hidden' },
+  { value: true, title: 'Visible' },
+] as const;
+
+function GuessVisibilitySegment({
+  value,
+  onChange,
+}: {
+  value: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(2, 1fr)',
+        gap: 0.75,
+        p: 0.5,
+        borderRadius: '14px',
+        bgcolor: 'rgba(20,33,63,0.04)',
+        border: '1px solid rgba(20,33,63,0.08)',
+      }}
+    >
+      {GUESS_VISIBILITY_OPTIONS.map((option) => {
+        const active = value === option.value;
+        return (
+          <Box
+            key={String(option.value)}
+            role="button"
+            tabIndex={0}
+            aria-pressed={active}
+            onClick={() => onChange(option.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') onChange(option.value);
+            }}
+            sx={{
+              cursor: 'pointer',
+              borderRadius: '10px',
+              py: 1,
+              px: 0.75,
+              textAlign: 'center',
+              bgcolor: active ? 'background.paper' : 'transparent',
+              boxShadow: active ? '0 4px 14px -8px rgba(20,33,63,0.35)' : 'none',
+              border: '2px solid',
+              borderColor: active ? 'primary.main' : 'transparent',
+              transition: 'all 160ms ease',
+              '&:hover': {
+                borderColor: active ? 'primary.main' : 'rgba(58,107,255,0.35)',
+              },
+            }}
+          >
+            <Typography
+              variant="body2"
+              fontWeight={700}
+              sx={{ color: active ? 'primary.main' : 'text.primary', lineHeight: 1.2 }}
+            >
+              {option.title}
+            </Typography>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
+
 function LeniencySegment({
   value,
   onChange,
@@ -617,6 +683,8 @@ export function Lobby() {
                     spelling
                   </>
                 )}
+                {' · '}
+                {lobby.settings.showOthersGuesses ? 'guesses visible' : 'guesses hidden'}
               </Typography>
             </CardContent>
           </Card>
@@ -651,6 +719,20 @@ export function Lobby() {
                       max={60}
                     />
                   </Stack>
+                </AdvancedSettingsSection>
+
+                <AdvancedSettingsSection
+                  title="Other players' guesses"
+                  description={
+                    lobby.settings.gameMode === 'speed_choice'
+                      ? 'When visible, everyone sees which answer each player picked.'
+                      : 'When visible, wrong guesses appear as clues. Correct guesses only show as “Guessed right”.'
+                  }
+                >
+                  <GuessVisibilitySegment
+                    value={lobby.settings.showOthersGuesses ?? false}
+                    onChange={(showOthersGuesses) => updateSettings({ showOthersGuesses })}
+                  />
                 </AdvancedSettingsSection>
 
                 {lobby.settings.gameMode === 'typing' && (

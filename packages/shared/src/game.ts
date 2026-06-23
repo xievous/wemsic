@@ -42,6 +42,8 @@ export interface RoomSettings {
   roundDurationSeconds: number;
   /** Typing mode only — how forgiving answer matching is. */
   typingSpellingLeniency: TypingSpellingLeniency;
+  /** When true, other players' live guesses appear during rounds. */
+  showOthersGuesses: boolean;
   /** Chosen at room creation and immutable afterwards. */
   roomType: RoomType;
 }
@@ -71,6 +73,10 @@ export interface RoundPlayerStatus {
   artistCorrect?: boolean;
   titleCorrect?: boolean;
   bothCorrect?: boolean;
+  /** Incorrect guess text only — shown when showOthersGuesses is enabled */
+  guessText?: string;
+  /** Typing + visible guesses: player matched artist and/or title */
+  guessedRight?: boolean;
 }
 
 export interface RoundProgressPayload {

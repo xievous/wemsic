@@ -48,6 +48,8 @@ interface ActiveRound {
   answers: Map<string, PlayerAnswer>;
   mcqDoneIds: Set<string>;
   typingProgress: Map<string, TypingPlayerProgress>;
+  /** Latest fully incorrect guess per player (visible-guesses typing mode) */
+  typingVisibleGuesses: Map<string, string>;
 }
 
 function emptyTypingProgress(): TypingPlayerProgress {
@@ -81,6 +83,7 @@ export class GameEngine {
     private roundDurationMs: number,
     private playerIds: string[],
     private typingSpellingLeniency: TypingSpellingLeniency,
+    private showOthersGuesses: boolean,
     callbacks: {
       onRoundStart: (payload: RoundStartPayload) => void;
       onRoundProgress: (payload: RoundProgressPayload) => void;
@@ -132,6 +135,7 @@ export class GameEngine {
     if (!trimmed) return fail();
 
     const round = this.activeRound;
+
     const { matchedArtist, matchedTitle } = evaluateTypingSubmission(
       round.track.artists,
       round.track.title,
@@ -142,6 +146,10 @@ export class GameEngine {
     const incorrect = !matchedArtist && !matchedTitle;
     if (incorrect) {
       const prog = this.getTypingProgress(playerId);
+      if (this.showOthersGuesses) {
+        round.typingVisibleGuesses.set(playerId, trimmed);
+        this.emitProgress();
+      }
       return {
         incorrect: true,
         matchedArtist: false,
@@ -169,6 +177,10 @@ export class GameEngine {
     }
 
     round.typingProgress.set(playerId, prog);
+
+    if (this.showOthersGuesses) {
+      round.typingVisibleGuesses.delete(playerId);
+    }
 
     const bothCorrect = prog.artistCorrect && prog.titleCorrect;
     if (bothCorrect && !hadBoth) {
@@ -326,6 +338,19 @@ export class GameEngine {
       };
 
       if (this.gameMode === 'typing' && round) {
+        if (this.showOthersGuesses) {
+          const wrongGuess = round.typingVisibleGuesses.get(playerId);
+          const prog = round.typingProgress.get(playerId) ?? emptyTypingProgress();
+          const hasCorrect = prog.artistCorrect || prog.titleCorrect;
+          const bothCorrect = prog.artistCorrect && prog.titleCorrect;
+          return {
+            ...base,
+            done: bothCorrect,
+            guessText: wrongGuess,
+            guessedRight: hasCorrect && !wrongGuess,
+          };
+        }
+
         const p = round.typingProgress.get(playerId) ?? emptyTypingProgress();
         const bothCorrect = p.artistCorrect && p.titleCorrect;
         return {
@@ -338,6 +363,13 @@ export class GameEngine {
       }
 
       const done = round?.mcqDoneIds.has(playerId) ?? false;
+      if (this.showOthersGuesses && done && round) {
+        const entry = round.answers.get(playerId);
+        const optionId = (entry?.answer as { optionId?: string })?.optionId;
+        const option = round.options.find((o) => o.id === optionId);
+        return { ...base, done, guessText: option?.label };
+      }
+
       return { ...base, done };
     });
   }
@@ -397,6 +429,7 @@ export class GameEngine {
       answers: new Map(),
       mcqDoneIds: new Set(),
       typingProgress: new Map(),
+      typingVisibleGuesses: new Map(),
     };
 
     const payload: RoundStartPayload = {

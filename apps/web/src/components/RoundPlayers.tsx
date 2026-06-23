@@ -35,10 +35,12 @@ export const RoundPlayers = memo(function RoundPlayers({
   players,
   currentPlayerId,
   gameMode,
+  showOthersGuesses = false,
 }: {
   players: RoundPlayerStatus[];
   currentPlayerId: string;
   gameMode?: GameMode;
+  showOthersGuesses?: boolean;
 }) {
   const isTyping = gameMode === 'typing';
 
@@ -57,8 +59,37 @@ export const RoundPlayers = memo(function RoundPlayers({
       </Typography>
       <Stack spacing={1} sx={{ mt: 1 }}>
         {players.map((p) => {
-          const done = isTyping ? p.bothCorrect : p.done;
           const isMe = p.playerId === currentPlayerId;
+          const showWrongGuess = showOthersGuesses && isTyping && !!p.guessText;
+          const showGuessedRight = showOthersGuesses && isTyping && !!p.guessedRight;
+          const showOwnTypingProgress = isTyping && !showOthersGuesses && isMe;
+          const done = isTyping
+            ? showOthersGuesses
+              ? !!(p.done || p.guessedRight)
+              : isMe
+                ? p.bothCorrect
+                : false
+            : p.done;
+
+          let secondary: string;
+          if (showWrongGuess) {
+            secondary = p.guessText!;
+          } else if (showGuessedRight) {
+            secondary = 'Guessed right';
+          } else if (isTyping) {
+            secondary = showOwnTypingProgress ? typingSecondary(p) : 'Guessing';
+          } else if (showOthersGuesses && p.guessText) {
+            secondary = p.guessText;
+          } else {
+            secondary = done ? 'Locked in' : 'Choosing';
+          }
+
+          const successTone = showGuessedRight && showOthersGuesses && isTyping
+            ? 'success.main'
+            : done && (!showOthersGuesses || !isTyping || showGuessedRight)
+              ? 'success.main'
+              : 'text.secondary';
+
           return (
             <Stack
               key={p.playerId}
@@ -85,25 +116,23 @@ export const RoundPlayers = memo(function RoundPlayers({
                     <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>
                   )}
                 </Typography>
-                {!isTyping && (
-                  <Typography variant="caption" color={done ? 'success.main' : 'text.secondary'}>
-                    {done ? 'Locked in' : 'Choosing'}
-                  </Typography>
-                )}
-                {isTyping && (
-                  <Typography variant="caption" color={done ? 'success.main' : 'text.secondary'}>
-                    {typingSecondary(p)}
-                  </Typography>
-                )}
+                <Typography
+                  variant="caption"
+                  color={successTone}
+                  noWrap
+                  sx={{ display: 'block' }}
+                >
+                  {secondary}
+                </Typography>
               </Box>
-              {isTyping ? (
+              {showOwnTypingProgress ? (
                 <Stack direction="row" spacing={0.5} sx={{ flexShrink: 0 }}>
                   <StatusPill on={!!p.artistCorrect} label="Artist" />
                   <StatusPill on={!!p.titleCorrect} label="Song" />
                 </Stack>
-              ) : (
-                done && <CheckRoundedIcon sx={{ color: 'success.main' }} />
-              )}
+              ) : (isTyping && showOthersGuesses && p.done) || (!isTyping && done) ? (
+                <CheckRoundedIcon sx={{ color: 'success.main' }} />
+              ) : null}
             </Stack>
           );
         })}
@@ -114,7 +143,9 @@ export const RoundPlayers = memo(function RoundPlayers({
           color="text.secondary"
           sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4 }}
         >
-          The clock speeds up once someone lands both. Round ends when everyone has the full answer.
+          {showOthersGuesses
+            ? 'Wrong guesses appear here as clues. Correct guesses only show as “Guessed right”.'
+            : 'The clock speeds up once someone lands both. Round ends when everyone has the full answer.'}
         </Typography>
       )}
     </Box>

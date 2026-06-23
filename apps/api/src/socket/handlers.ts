@@ -34,6 +34,7 @@ export function registerSocketHandlers(
         roundCount?: number;
         roundDurationSeconds?: number;
         typingSpellingLeniency?: 'normal' | 'hard' | 'lenient';
+        showOthersGuesses?: boolean;
       }) => {
         if (!roomCode || !playerId) return;
         roomManager.updateSettings(roomCode, playerId, payload);

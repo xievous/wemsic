@@ -81,6 +81,7 @@ export class RoomManager {
         roundCount: DEFAULT_ROUND_COUNT,
         roundDurationSeconds: DEFAULT_SPEED_CHOICE_SECONDS,
         typingSpellingLeniency: DEFAULT_TYPING_SPELLING_LENIENCY,
+        showOthersGuesses: false,
         roomType,
       },
       players: new Map(),
@@ -243,6 +244,9 @@ export class RoomManager {
         room.settings.typingSpellingLeniency = settings.typingSpellingLeniency;
       }
     }
+    if (settings.showOthersGuesses !== undefined) {
+      room.settings.showOthersGuesses = settings.showOthersGuesses;
+    }
 
     this.emitLobby(room);
     return true;
@@ -356,6 +360,7 @@ export class RoomManager {
       room.settings.roundDurationSeconds * 1000,
       playerIds,
       room.settings.typingSpellingLeniency ?? DEFAULT_TYPING_SPELLING_LENIENCY,
+      room.settings.showOthersGuesses ?? false,
       {
         onRoundStart: (payload) => {
           this.broadcast(room.code, 'round:start', payload);
@@ -493,6 +498,7 @@ export class RoomManager {
         ...room.settings,
         typingSpellingLeniency:
           room.settings.typingSpellingLeniency ?? DEFAULT_TYPING_SPELLING_LENIENCY,
+        showOthersGuesses: room.settings.showOthersGuesses ?? false,
       },
       players,
       canStart: this.canStart(room),
