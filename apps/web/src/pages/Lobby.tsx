@@ -34,6 +34,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { importMusic } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
+import { CopyRoomCodeButton } from '../components/CopyRoomCodeButton';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { clearSession, loadSession, type Session } from '../hooks/useSession';
@@ -508,16 +509,19 @@ export function Lobby() {
                 <Typography variant="overline" sx={{ opacity: 0.85 }}>
                   Room code
                 </Typography>
-                <Typography
-                  variant="h2"
-                  sx={{
-                    letterSpacing: '0.18em',
-                    fontSize: { xs: '2rem', sm: '2.35rem' },
-                    lineHeight: 1,
-                  }}
-                >
-                  {code}
-                </Typography>
+                <Stack direction="row" alignItems="center" spacing={0.25}>
+                  <Typography
+                    variant="h2"
+                    sx={{
+                      letterSpacing: '0.18em',
+                      fontSize: { xs: '2rem', sm: '2.35rem' },
+                      lineHeight: 1,
+                    }}
+                  >
+                    {code}
+                  </Typography>
+                  <CopyRoomCodeButton code={code} />
+                </Stack>
               </Stack>
 
               <Stack alignItems="center" spacing={1} sx={{ pl: { sm: 3 }, pt: { xs: 0.5, sm: 0 } }}>
@@ -550,16 +554,19 @@ export function Lobby() {
               <Typography variant="overline" sx={{ opacity: 0.85 }}>
                 Room code
               </Typography>
-              <Typography
-                variant="h2"
-                sx={{
-                  letterSpacing: '0.18em',
-                  fontSize: { xs: '2rem', sm: '2.35rem' },
-                  lineHeight: 1,
-                }}
-              >
-                {code}
-              </Typography>
+              <Stack direction="row" alignItems="center" spacing={0.25}>
+                <Typography
+                  variant="h2"
+                  sx={{
+                    letterSpacing: '0.18em',
+                    fontSize: { xs: '2rem', sm: '2.35rem' },
+                    lineHeight: 1,
+                  }}
+                >
+                  {code}
+                </Typography>
+                <CopyRoomCodeButton code={code} />
+              </Stack>
             </Stack>
           )}
         </Box>
@@ -583,12 +590,15 @@ export function Lobby() {
             <Typography variant="overline" sx={{ opacity: 0.85 }}>
               Room code
             </Typography>
-            <Typography
-              variant="h2"
-              sx={{ letterSpacing: '0.18em', fontSize: { xs: '2.4rem', sm: '3rem' } }}
-            >
-              {code}
-            </Typography>
+            <Stack direction="row" alignItems="center" spacing={0.25}>
+              <Typography
+                variant="h2"
+                sx={{ letterSpacing: '0.18em', fontSize: { xs: '2.4rem', sm: '3rem' } }}
+              >
+                {code}
+              </Typography>
+              <CopyRoomCodeButton code={code} />
+            </Stack>
           </Box>
           <Chip
             label={connected ? 'Connected' : 'Connecting...'}
