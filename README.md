@@ -1,6 +1,6 @@
 # Wemsic
 
-Real-time multiplayer music quiz for friends. Paste a Spotify playlist, race to name the track, and trash-talk the leaderboard.
+Real-time multiplayer music quiz for friends. Paste a Spotify playlist and race to name the track.
 
 Each player adds a public Spotify playlist or album link. Wemsic mixes tracks fairly across the room, plays ~30s audio previews, and runs **speed-choice** or **typing** rounds until someone crowns themselves the music nerd.
 
