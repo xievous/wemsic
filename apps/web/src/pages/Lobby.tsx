@@ -723,13 +723,6 @@ export function Lobby() {
                     />
                   )}
                 </Stack>
-                <Typography variant="caption" color="text.secondary">
-                  {p.playlistName
-                    ? `${p.playlistName} · ${p.trackCount} tracks`
-                    : p.trackCount > 0
-                      ? `${p.trackCount} tracks`
-                      : 'No playlist yet'}
-                </Typography>
               </Box>
               {isHost && p.id !== session.playerId && (
                 <Tooltip title={`Remove ${p.displayName}`}>

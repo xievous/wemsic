@@ -37,6 +37,8 @@ interface AudioContextValue {
   enableAudio: () => void;
   /** Play a preview url on the shared, already-unlocked element. */
   playPreview: (url?: string | null) => void;
+  /** Play a short, satisfying "correct guess" click/ding sound effect. */
+  playCorrectChime: () => void;
   /** Stop playback. */
   stop: () => void;
   /** Current playback volume, 0 to 1. Persists across rounds and replays. */
@@ -56,10 +58,18 @@ function resolveSrc(el: HTMLAudioElement, url: string): void {
   }
 }
 
+type WindowWithWebkitAudio = Window &
+  typeof globalThis & { webkitAudioContext?: typeof AudioContext };
+
 export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const pendingPreviewRef = useRef<string | null>(null);
   const unlockedRef = useRef(false);
+  // A dedicated Web Audio context for synthesized UI sound effects. Kept
+  // separate from the <audio> preview element so effects never interrupt the
+  // track preview. Created lazily on first use so we don't spin one up before
+  // the player has interacted with the page.
+  const effectCtxRef = useRef<AudioContext | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [volume, setVolumeState] = useState<number>(loadStoredVolume);
   // Mirror volume in a ref so the play callbacks can read the current value
@@ -147,8 +157,68 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     audioRef.current?.pause();
   }, []);
 
+  const playCorrectChime = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const vol = Math.min(1, Math.max(0, volumeRef.current));
+    if (vol <= 0) return;
+
+    let ctx = effectCtxRef.current;
+    if (!ctx) {
+      const AudioCtor =
+        window.AudioContext ?? (window as WindowWithWebkitAudio).webkitAudioContext;
+      if (!AudioCtor) return;
+      ctx = new AudioCtor();
+      effectCtxRef.current = ctx;
+    }
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+
+    const now = ctx.currentTime;
+    const master = ctx.createGain();
+    // Scale the effect to the player's volume but keep it subtle so it never
+    // overpowers the music preview.
+    master.gain.value = vol * 0.6;
+    master.connect(ctx.destination);
+
+    // Sharp, clicky transient gives the satisfying "tactile" attack.
+    const click = ctx.createOscillator();
+    click.type = 'square';
+    click.frequency.setValueAtTime(2600, now);
+    const clickGain = ctx.createGain();
+    clickGain.gain.setValueAtTime(0.0001, now);
+    clickGain.gain.exponentialRampToValueAtTime(0.5, now + 0.004);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.05);
+    click.connect(clickGain).connect(master);
+    click.start(now);
+    click.stop(now + 0.06);
+
+    // Bright two-tone "ding" that rings out after the click.
+    [880, 1320].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, now + 0.012);
+      const gain = ctx.createGain();
+      const peak = i === 0 ? 0.32 : 0.14;
+      gain.gain.setValueAtTime(0.0001, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(peak, now + 0.035);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.42);
+      osc.connect(gain).connect(master);
+      osc.start(now + 0.012);
+      osc.stop(now + 0.45);
+    });
+  }, []);
+
   return (
-    <Ctx.Provider value={{ enabled, enableAudio, playPreview, stop, volume, setVolume }}>
+    <Ctx.Provider
+      value={{
+        enabled,
+        enableAudio,
+        playPreview,
+        playCorrectChime,
+        stop,
+        volume,
+        setVolume,
+      }}
+    >
       <audio ref={audioRef} preload="auto" style={{ display: 'none' }} />
       {children}
     </Ctx.Provider>

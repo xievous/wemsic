@@ -31,19 +31,52 @@ import { useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { TILE_COLORS } from '../theme';
 
-const shake = keyframes`
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-8px); }
-  40% { transform: translateX(8px); }
-  60% { transform: translateX(-6px); }
-  80% { transform: translateX(6px); }
-`;
-
 const popIn = keyframes`
   0% { transform: scale(0.8); opacity: 0; }
   60% { transform: scale(1.05); }
   100% { transform: scale(1); opacity: 1; }
 `;
+
+function playTypingWrongShake(el: Element) {
+  return el.animate(
+    [
+      { transform: 'translateX(0)' },
+      { transform: 'translateX(-8px)' },
+      { transform: 'translateX(8px)' },
+      { transform: 'translateX(-6px)' },
+      { transform: 'translateX(6px)' },
+      { transform: 'translateX(0)' },
+    ],
+    { duration: 450, easing: 'ease' },
+  );
+}
+
+function playTypingCorrectDing(el: Element) {
+  return el.animate(
+    [
+      {
+        transform: 'translateY(0)',
+        boxShadow: '0 0 0 0 rgba(46, 204, 113, 0)',
+      },
+      {
+        transform: 'translateY(10px)',
+        boxShadow:
+          '0 0 0 4px rgba(46, 204, 113, 0.45), 0 0 28px 10px rgba(46, 204, 113, 0.5)',
+      },
+      {
+        transform: 'translateY(-7px)',
+        boxShadow:
+          '0 0 0 4px rgba(46, 204, 113, 0.3), 0 0 24px 8px rgba(46, 204, 113, 0.4)',
+      },
+      { transform: 'translateY(3px)' },
+      {
+        transform: 'translateY(0)',
+        boxShadow: '0 0 0 0 rgba(46, 204, 113, 0)',
+      },
+    ],
+    { duration: 650, easing: 'ease', fill: 'none' },
+  );
+}
 
 const TILE_SHAPES = [
   ChangeHistoryRoundedIcon,
@@ -255,13 +288,16 @@ export function Game() {
     gameEnd,
   } = useSocket();
 
-  const { enabled: audioEnabled, playPreview, stop, volume, setVolume } = useAudio();
+  const { enabled: audioEnabled, playPreview, playCorrectChime, stop, volume, setVolume } =
+    useAudio();
   const lastAudioKeyRef = useRef<string | null>(null);
   const [mcqAnswered, setMcqAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
   const [guess, setGuess] = useState('');
-  const [shaking, setShaking] = useState(false);
+  const typingChatRef = useRef<HTMLDivElement>(null);
+  const typingChatAtSubmitRef = useRef<HTMLDivElement | null>(null);
+  const typingAnimRef = useRef<Animation | null>(null);
   const lastResultTs = useRef(0);
 
   const session = useSession();
@@ -313,7 +349,7 @@ export function Game() {
     setMcqAnswered(false);
     setSelectedOption(null);
     setGuess('');
-    setShaking(false);
+    typingAnimRef.current?.cancel();
   }, [roundIndex]);
 
   useEffect(() => {
@@ -348,14 +384,23 @@ export function Game() {
   useEffect(() => () => stop(), [stop]);
 
   useEffect(() => {
-    if (!lastTypingResult?.incorrect) return;
+    if (!lastTypingResult) return;
     const ts = Date.now();
     if (ts - lastResultTs.current < 50) return;
     lastResultTs.current = ts;
-    setShaking(true);
-    const id = setTimeout(() => setShaking(false), 450);
-    return () => clearTimeout(id);
-  }, [lastTypingResult]);
+
+    const el = typingChatRef.current ?? typingChatAtSubmitRef.current;
+    if (!el) return;
+
+    typingAnimRef.current?.cancel();
+    if (lastTypingResult.incorrect) {
+      typingAnimRef.current = playTypingWrongShake(el);
+      return;
+    }
+
+    playCorrectChime();
+    typingAnimRef.current = playTypingCorrectDing(el);
+  }, [lastTypingResult, playCorrectChime]);
 
   function handleMcq(optionId: string) {
     if (mcqAnswered) return;
@@ -380,6 +425,7 @@ export function Game() {
   function handleTypingSubmit(e?: React.FormEvent) {
     e?.preventDefault();
     if (timerExpired || !guess.trim()) return;
+    typingChatAtSubmitRef.current = typingChatRef.current;
     submitTypingGuess(guess.trim());
     setGuess('');
   }
@@ -621,35 +667,31 @@ export function Game() {
     );
 
     const typingInput = isTyping && (
-      <Box
-        component="form"
-        onSubmit={handleTypingSubmit}
-        sx={{ animation: shaking ? `${shake} 0.45s ease` : 'none' }}
-      >
+      <Box component="form" onSubmit={handleTypingSubmit}>
         <Stack spacing={1.5}>
-          <TextField
-            label="Your guess"
-            placeholder="Artist, song, or both"
-            value={guess}
-            onChange={(e) => setGuess(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleTypingSubmit();
-              }
-            }}
-            fullWidth
-            autoFocus
-            disabled={timerExpired}
-            multiline
-            minRows={1}
-            maxRows={3}
-            helperText={
-              timerExpired
-                ? 'Time is up'
-                : 'Press Enter to send. Keep guessing until the clock runs out.'
-            }
-          />
+          <Box
+            ref={typingChatRef}
+            sx={{ borderRadius: 3, overflow: 'visible' }}
+          >
+            <TextField
+              label="Your guess"
+              placeholder="Artist, song, or both"
+              value={guess}
+              onChange={(e) => setGuess(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleTypingSubmit();
+                }
+              }}
+              fullWidth
+              autoFocus
+              disabled={timerExpired}
+              multiline
+              minRows={1}
+              maxRows={3}
+            />
+          </Box>
           <Button
             type="submit"
             variant="contained"
