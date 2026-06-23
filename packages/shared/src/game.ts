@@ -98,6 +98,9 @@ export interface RoundRevealPayload {
   albumArtUrl: string | null;
   roundScores: Record<string, number>;
   leaderboard: LeaderboardEntry[];
+  /** Unix ms when the next round begins */
+  nextRoundStartsAt: number;
+  betweenRoundsDelayMs: number;
 }
 
 export interface LeaderboardEntry {

@@ -27,6 +27,7 @@ import { BouncingBars } from '../components/BouncingBars';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { RoundPlayers } from '../components/RoundPlayers';
+import { RoundProgressBar } from '../components/RoundProgressBar';
 import { useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { TILE_COLORS } from '../theme';
@@ -248,26 +249,7 @@ function Stage({
         <BouncingBars variant={presenter ? 'stageLarge' : 'stage'} />
       </Box>
 
-      <Box
-        sx={{
-          height: presenter ? 12 : 10,
-          borderRadius: 999,
-          bgcolor: 'rgba(255,255,255,0.18)',
-          overflow: 'hidden',
-        }}
-      >
-        <Box
-          sx={{
-            height: '100%',
-            width: `${progress}%`,
-            borderRadius: 999,
-            background: low
-              ? 'linear-gradient(90deg, #FF7849, #FFB020)'
-              : 'linear-gradient(90deg, #16C79A, #2DB7FF)',
-            transition: 'width 100ms linear',
-          }}
-        />
-      </Box>
+      <RoundProgressBar progress={progress} low={low} size={presenter ? 'large' : 'default'} />
     </Box>
   );
 }
@@ -294,6 +276,7 @@ export function Game() {
   const [mcqAnswered, setMcqAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [revealTimeLeft, setRevealTimeLeft] = useState(0);
   const [guess, setGuess] = useState('');
   const typingChatRef = useRef<HTMLDivElement>(null);
   const typingChatAtSubmitRef = useRef<HTMLDivElement | null>(null);
@@ -359,6 +342,17 @@ export function Game() {
     const id = setInterval(tick, 100);
     return () => clearInterval(id);
   }, [roundEndsAt]);
+
+  const revealEndsAt = reveal?.nextRoundStartsAt ?? 0;
+  const revealDurationMs = reveal?.betweenRoundsDelayMs ?? 1;
+
+  useEffect(() => {
+    if (!revealEndsAt) return;
+    const tick = () => setRevealTimeLeft(Math.max(0, revealEndsAt - Date.now()));
+    tick();
+    const id = setInterval(tick, 100);
+    return () => clearInterval(id);
+  }, [revealEndsAt]);
 
   useEffect(() => {
     // Player pads never play audio in host mode — the host screen is the only
@@ -434,6 +428,9 @@ export function Game() {
 
   const progress =
     roundEndsAt > 0 ? Math.min(100, (timeLeft / roundDurationMs) * 100) : 0;
+
+  const revealProgress =
+    revealEndsAt > 0 ? Math.min(100, (revealTimeLeft / revealDurationMs) * 100) : 0;
 
   const myStatus = playerStatuses.find((p) => p.playerId === session.playerId);
 
@@ -532,6 +529,12 @@ export function Game() {
               </Typography>
             </Box>
           </Stack>
+          <Box sx={{ mt: 2.5 }}>
+            <RoundProgressBar
+              progress={revealProgress}
+              size={isPresenter ? 'large' : 'default'}
+            />
+          </Box>
           {!isPresenter && (
             <Box
               sx={{

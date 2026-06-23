@@ -475,6 +475,8 @@ export class GameEngine {
       albumArtUrl: round.track.albumArtUrl,
       roundScores,
       leaderboard: this.getLeaderboardWithNames(),
+      nextRoundStartsAt: Date.now() + BETWEEN_ROUNDS_DELAY_MS,
+      betweenRoundsDelayMs: BETWEEN_ROUNDS_DELAY_MS,
     };
 
     this.onRoundReveal(payload);
