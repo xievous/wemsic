@@ -140,17 +140,32 @@ async function ytmSearchPost(body: Record<string, unknown>): Promise<Record<stri
 function findPlaylistShelf(data: Record<string, unknown>): {
   contents: YtmListItem[];
 } | null {
-  const contents = data.contents as Record<string, unknown> | undefined;
-  const twoColumn = contents?.twoColumnBrowseResultsRenderer as
-    | Record<string, unknown>
-    | undefined;
-  const secondary = twoColumn?.secondaryContents as Record<string, unknown> | undefined;
-  const sectionList = secondary?.sectionListRenderer as Record<string, unknown> | undefined;
-  const sections = sectionList?.contents as Array<Record<string, unknown>> | undefined;
-  const shelf = sections?.[0]?.musicPlaylistShelfRenderer as
-    | { contents?: YtmListItem[] }
-    | undefined;
-  return shelf?.contents ? { contents: shelf.contents } : null;
+  return findShelfInNode(data);
+}
+
+function findShelfInNode(node: unknown): { contents: YtmListItem[] } | null {
+  if (!node || typeof node !== 'object') return null;
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findShelfInNode(item);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const obj = node as Record<string, unknown>;
+  const shelf = obj.musicPlaylistShelfRenderer as { contents?: YtmListItem[] } | undefined;
+  if (shelf?.contents?.length) {
+    return { contents: shelf.contents };
+  }
+
+  for (const value of Object.values(obj)) {
+    const found = findShelfInNode(value);
+    if (found) return found;
+  }
+
+  return null;
 }
 
 function findPlaylistHeader(data: Record<string, unknown>): {
@@ -158,26 +173,45 @@ function findPlaylistHeader(data: Record<string, unknown>): {
   subtitle?: { runs?: YtmTextRun[] };
   secondSubtitle?: { runs?: YtmTextRun[] };
   description?: { runs?: YtmTextRun[] };
+  straplineText?: { runs?: YtmTextRun[] };
 } | null {
-  const contents = data.contents as Record<string, unknown> | undefined;
-  const twoColumn = contents?.twoColumnBrowseResultsRenderer as
-    | Record<string, unknown>
-    | undefined;
-  const tabs = twoColumn?.tabs as Array<Record<string, unknown>> | undefined;
-  const tabContent = tabs?.[0]?.tabRenderer as Record<string, unknown> | undefined;
-  const sectionList = tabContent?.content as Record<string, unknown> | undefined;
-  const sections = sectionList?.sectionListRenderer as Record<string, unknown> | undefined;
-  const headerSection = (sections?.contents as Array<Record<string, unknown>> | undefined)?.[0];
-  return (
-    (headerSection?.musicResponsiveHeaderRenderer as
-      | {
-          title?: { runs?: YtmTextRun[] };
-          subtitle?: { runs?: YtmTextRun[] };
-          secondSubtitle?: { runs?: YtmTextRun[] };
-          description?: { runs?: YtmTextRun[] };
-        }
-      | undefined) ?? null
-  );
+  return findHeaderInNode(data);
+}
+
+function findHeaderInNode(node: unknown): {
+  title?: { runs?: YtmTextRun[] };
+  subtitle?: { runs?: YtmTextRun[] };
+  secondSubtitle?: { runs?: YtmTextRun[] };
+  description?: { runs?: YtmTextRun[] };
+  straplineText?: { runs?: YtmTextRun[] };
+} | null {
+  if (!node || typeof node !== 'object') return null;
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const found = findHeaderInNode(item);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  const obj = node as Record<string, unknown>;
+  if (obj.musicResponsiveHeaderRenderer && typeof obj.musicResponsiveHeaderRenderer === 'object') {
+    return obj.musicResponsiveHeaderRenderer as {
+      title?: { runs?: YtmTextRun[] };
+      subtitle?: { runs?: YtmTextRun[] };
+      secondSubtitle?: { runs?: YtmTextRun[] };
+      description?: { runs?: YtmTextRun[] };
+      straplineText?: { runs?: YtmTextRun[] };
+    };
+  }
+
+  for (const value of Object.values(obj)) {
+    const found = findHeaderInNode(value);
+    if (found) return found;
+  }
+
+  return null;
 }
 
 function findPlaylistTitle(data: Record<string, unknown>): string | null {
@@ -185,22 +219,116 @@ function findPlaylistTitle(data: Record<string, unknown>): string | null {
   return textFromRuns(header?.title?.runs) || null;
 }
 
-function findPlaylistTrackCount(data: Record<string, unknown>): number | null {
-  const header = findPlaylistHeader(data);
-  if (!header) return null;
-
-  const texts = [
-    textFromRuns(header.secondSubtitle?.runs),
-    textFromRuns(header.subtitle?.runs),
-    textFromRuns(header.description?.runs),
+function parseTrackCountFromText(text: string): number | undefined {
+  if (!text.trim()) return undefined;
+  const patterns = [
+    /(\d[\d,]*)\s+songs?/i,
+    /(\d[\d,]*)\s+tracks?/i,
+    /(\d[\d,]*)\s+videos?/i,
   ];
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) return Number.parseInt(match[1].replace(/,/g, ''), 10);
+  }
+  return undefined;
+}
 
-  for (const text of texts) {
-    const count = parseTrackCountFromSubtitle(text);
-    if (count != null) return count;
+function parseTrackCountFromSubtitle(subtitle: string): number | undefined {
+  return parseTrackCountFromText(subtitle);
+}
+
+function findPlaylistTrackCountInTree(node: unknown, depth = 0): number | null {
+  if (depth > 12 || node == null) return null;
+
+  if (typeof node === 'string') {
+    const count = parseTrackCountFromText(node);
+    return count ?? null;
+  }
+
+  if (Array.isArray(node)) {
+    for (const item of node) {
+      const count = findPlaylistTrackCountInTree(item, depth + 1);
+      if (count != null) return count;
+    }
+    return null;
+  }
+
+  if (typeof node === 'object') {
+    const obj = node as Record<string, unknown>;
+    if (obj.runs) {
+      const count = parseTrackCountFromText(textFromRuns(obj.runs as YtmTextRun[]));
+      if (count != null) return count;
+    }
+    if (typeof obj.text === 'string') {
+      const count = parseTrackCountFromText(obj.text);
+      if (count != null) return count;
+    }
+    for (const value of Object.values(obj)) {
+      const count = findPlaylistTrackCountInTree(value, depth + 1);
+      if (count != null) return count;
+    }
   }
 
   return null;
+}
+
+function findPlaylistTrackCount(data: Record<string, unknown>): number | null {
+  const header = findPlaylistHeader(data);
+  if (header) {
+    const texts = [
+      textFromRuns(header.secondSubtitle?.runs),
+      textFromRuns(header.subtitle?.runs),
+      textFromRuns(header.description?.runs),
+      textFromRuns(header.straplineText?.runs),
+    ];
+    for (const text of texts) {
+      const count = parseTrackCountFromText(text);
+      if (count != null) return count;
+    }
+  }
+
+  return findPlaylistTrackCountInTree(data);
+}
+
+async function countPlaylistTracksFromShelfData(
+  initialData: Record<string, unknown>,
+): Promise<number | null> {
+  try {
+    const shelf = findPlaylistShelf(initialData);
+    if (!shelf) return null;
+
+    const seen = new Set<string>();
+    let items = shelf.contents;
+    let continuation = continuationToken(items);
+
+    while (true) {
+      for (const item of items) {
+        if (item.continuationItemRenderer) continue;
+        const renderer = item.musicResponsiveListItemRenderer;
+        if (!renderer) continue;
+        const videoId = videoIdFromRenderer(renderer);
+        const columns = renderer.flexColumns ?? [];
+        const title = textFromRuns(
+          columns[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs,
+        );
+        const key = videoId ?? title;
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+      }
+
+      if (!continuation) break;
+
+      await delay(50);
+      const nextPage = await ytmPost({ continuation });
+      items = parseContinuationItems(nextPage);
+      continuation = continuationToken(items);
+      if (items.length === 0) break;
+    }
+
+    return seen.size > 0 ? seen.size : null;
+  } catch {
+    return null;
+  }
 }
 
 function videoIdFromRenderer(
@@ -400,16 +528,13 @@ export interface YtmPlaylistSearchHit {
   url: string;
 }
 
-function parseTrackCountFromSubtitle(subtitle: string): number | undefined {
-  const match = subtitle.match(/(\d[\d,]*)\s+songs?/i);
-  if (!match?.[1]) return undefined;
-  return Number.parseInt(match[1].replace(/,/g, ''), 10);
-}
-
 function parseAuthorFromSubtitle(subtitle: string): string | undefined {
   const parts = subtitle.split('•').map((part) => part.trim());
   const authorPart = parts.find(
-    (part) => part && !/\d[\d,]*\s+songs?/i.test(part) && !/^playlist$/i.test(part),
+    (part) =>
+      part &&
+      !/\d[\d,]*\s+(songs?|tracks?|videos?)/i.test(part) &&
+      !/^playlist$/i.test(part),
   );
   return authorPart || undefined;
 }
@@ -419,6 +544,7 @@ function hitFromBrowseId(
   title: string,
   subtitle: string,
   thumbnailUrl?: string,
+  extraCountText = '',
 ): YtmPlaylistSearchHit | null {
   if (!browseId.startsWith('VL') || !title) return null;
   const playlistId = browseId.slice(2);
@@ -426,7 +552,10 @@ function hitFromBrowseId(
     id: playlistId,
     name: title,
     author: parseAuthorFromSubtitle(subtitle),
-    trackCount: parseTrackCountFromSubtitle(subtitle),
+    trackCount:
+      parseTrackCountFromText(subtitle) ??
+      parseTrackCountFromText(extraCountText) ??
+      undefined,
     thumbnailUrl,
     url: `https://music.youtube.com/playlist?list=${playlistId}`,
   };
@@ -474,6 +603,9 @@ function parsePlaylistFromListItem(item: YtmListItem): YtmPlaylistSearchHit | nu
   const subtitle = textFromRuns(
     columns[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs,
   );
+  const countHint = textFromRuns(
+    columns[2]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs,
+  );
   const browseId =
     renderer.navigationEndpoint?.browseEndpoint?.browseId ??
     columns[0]?.musicResponsiveListItemFlexColumnRenderer?.navigationEndpoint?.browseEndpoint
@@ -487,6 +619,7 @@ function parsePlaylistFromListItem(item: YtmListItem): YtmPlaylistSearchHit | nu
     bestThumbnail(
       renderer.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails,
     ) ?? undefined,
+    countHint,
   );
 }
 
@@ -562,9 +695,13 @@ export async function fetchYouTubeMusicPlaylistMeta(
 ): Promise<{ name: string | null; trackCount: number | null }> {
   try {
     const data = await ytmPost({ browseId: `VL${playlistId}` });
+    let trackCount = findPlaylistTrackCount(data);
+    if (trackCount == null) {
+      trackCount = await countPlaylistTracksFromShelfData(data);
+    }
     return {
       name: findPlaylistTitle(data),
-      trackCount: findPlaylistTrackCount(data),
+      trackCount,
     };
   } catch {
     return { name: null, trackCount: null };

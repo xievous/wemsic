@@ -407,7 +407,7 @@ export class GameEngine {
         previewUrl = await resolvePreviewUrl(track.artists[0] ?? '', track.title);
       }
       if (previewUrl) break;
-      this.pool.releaseTrack(track.spotifyTrackId);
+      this.pool.markUnplayable(track.spotifyTrackId);
       track = null;
       attempts++;
     }

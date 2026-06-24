@@ -50,9 +50,12 @@ export class TrackPool {
     return track;
   }
 
-  /** Return a picked track to the pool when it has no playable preview. */
-  releaseTrack(trackId: string): void {
-    if (!this.usedIds.delete(trackId)) return;
+  /**
+   * Permanently exclude a track with no preview from future picks while
+   * undoing the rotation credit so other contributors stay fairly balanced.
+   */
+  markUnplayable(trackId: string): void {
+    if (!this.usedIds.has(trackId)) return;
     for (const [playerId, bucket] of this.buckets) {
       if (!bucket.some((t) => t.spotifyTrackId === trackId)) continue;
       const count = this.playedCount.get(playerId) ?? 0;
