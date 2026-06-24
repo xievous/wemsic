@@ -6,6 +6,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
+import QueueMusicRoundedIcon from '@mui/icons-material/QueueMusicRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import {
@@ -29,13 +30,14 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import type { PlaylistImportProgressPayload, TypingSpellingLeniency } from '@wemsic/shared';
+import type { CatalogSearchResult, PlaylistImportProgressPayload, TypingSpellingLeniency } from '@wemsic/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { importMusic } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
 import { CopyRoomCodeButton } from '../components/CopyRoomCodeButton';
 import { Layout } from '../components/Layout';
+import { PlaylistPickerDialog } from '../components/PlaylistPickerDialog';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { clearSession, loadSession, type Session } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
@@ -367,6 +369,7 @@ export function Lobby() {
   const [message, setMessage] = useState<string | null>(null);
   const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const joinUrl = useMemo(
     () => (code ? `${window.location.origin}/join/${code.toUpperCase()}` : ''),
     [code],
@@ -460,6 +463,24 @@ export function Lobby() {
         : '';
       setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
       setPlaylistUrl('');
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImporting(false);
+      clearPlaylistImportProgress();
+    }
+  }
+
+  async function handlePickerSelect(item: CatalogSearchResult) {
+    if (!item.url) return;
+    setImporting(true);
+    clearPlaylistImportProgress();
+    try {
+      const res = await importMusic(code!, session!.playerId, item.url);
+      const truncatedNote = res.truncated
+        ? ' (some tracks could not be loaded)'
+        : '';
+      setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Import failed');
     } finally {
@@ -885,6 +906,14 @@ export function Lobby() {
               />
             )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+              <Button
+                variant="outlined"
+                startIcon={<QueueMusicRoundedIcon />}
+                onClick={() => setPickerOpen(true)}
+                disabled={importing}
+              >
+                Choose playlist
+              </Button>
               {needsSound && (
                 <Button
                   variant={soundOn ? 'outlined' : 'contained'}
@@ -923,6 +952,13 @@ export function Lobby() {
           )}
         </CardContent>
       </Card>
+
+      <PlaylistPickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onSelect={(item) => void handlePickerSelect(item)}
+        disabled={importing}
+      />
 
       {countdownActive && (
         <Alert

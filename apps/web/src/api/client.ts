@@ -1,4 +1,5 @@
-import type { LobbyState, RoomType } from '@wemsic/shared';
+import type { LobbyState, PresetCatalogResponse, RoomType } from '@wemsic/shared';
+import type { CatalogSearchResult } from '@wemsic/shared';
 import { API_URL } from '../config';
 
 export async function createRoomWithHost(
@@ -76,6 +77,22 @@ export async function importPlaylist(
 
 export function spotifyLoginUrl(playerId: string, roomCode: string) {
   return `${API_URL}/auth/spotify/login?playerId=${encodeURIComponent(playerId)}&roomCode=${encodeURIComponent(roomCode)}`;
+}
+
+export async function fetchPresetPlaylists() {
+  const res = await fetch(`${API_URL}/catalog/presets`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Failed to load presets');
+  return data as PresetCatalogResponse;
+}
+
+export async function searchCatalog(query: string) {
+  const res = await fetch(
+    `${API_URL}/catalog/search?q=${encodeURIComponent(query)}`,
+  );
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? 'Search failed');
+  return data as { results: CatalogSearchResult[] };
 }
 
 export async function reconnect(roomCode: string, playerId: string) {

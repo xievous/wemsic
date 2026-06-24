@@ -220,21 +220,28 @@ function previewMapFromEmbedTracks(trackList: EmbedTrack[] | undefined): Map<str
 }
 
 async function pathfinderQuery<T>(accessToken: string, payload: object): Promise<T | null> {
-  const res = await fetch(PATHFINDER_URL, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-      'User-Agent': USER_AGENT,
-      Referer: 'https://open.spotify.com/',
-      Origin: 'https://open.spotify.com',
-    },
-    body: JSON.stringify(payload),
-  });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const res = await fetch(PATHFINDER_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+        Referer: 'https://open.spotify.com/',
+        Origin: 'https://open.spotify.com',
+      },
+      body: JSON.stringify(payload),
+    });
 
-  if (res.status === 429 || !res.ok) return null;
-  return res.json() as Promise<T>;
+    if (res.status === 429) {
+      await delay(PATHFINDER_PAGE_DELAY_MS * (attempt + 2));
+      continue;
+    }
+    if (!res.ok) return null;
+    return res.json() as Promise<T>;
+  }
+  return null;
 }
 
 function pathfinderTrackToNormalized(
@@ -448,45 +455,62 @@ async function fetchAllSpclientPlaylistUris(
   let total = Infinity;
 
   while (from < total) {
-    const res = await fetch(
-      `https://spclient.wg.spotify.com/playlist/v2/playlist/${playlistId}?format=json&from=${from}&length=${SPCLIENT_PAGE_SIZE}`,
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: 'application/json',
-          'User-Agent': USER_AGENT,
+    let pageUris: string[] = [];
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const res = await fetch(
+        `https://spclient.wg.spotify.com/playlist/v2/playlist/${playlistId}?format=json&from=${from}&length=${SPCLIENT_PAGE_SIZE}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: 'application/json',
+            'User-Agent': USER_AGENT,
+          },
         },
-      },
-    );
+      );
 
-    if (res.status === 429 || !res.ok) return uris.length > 0 ? { uris, total: uris.length } : null;
+      if (res.status === 429) {
+        await delay(PATHFINDER_PAGE_DELAY_MS * (attempt + 2));
+        continue;
+      }
+      if (!res.ok) {
+        return uris.length > 0 ? { uris, total: uris.length } : null;
+      }
 
-    const data = (await res.json()) as {
-      length?: number;
-      contents?: {
-        truncated?: boolean;
-        items?: Array<{ uri?: string }>;
+      const data = (await res.json()) as {
+        length?: number;
+        contents?: {
+          truncated?: boolean;
+          items?: Array<{ uri?: string }>;
+        };
       };
-    };
 
-    total = data.length ?? total;
-    const pageUris =
-      data.contents?.items
-        ?.map((item) => item.uri)
-        .filter((uri): uri is string => !!uri && uri.startsWith('spotify:track:')) ?? [];
+      total = data.length ?? total;
+      pageUris =
+        data.contents?.items
+          ?.map((item) => item.uri)
+          .filter((uri): uri is string => !!uri && uri.startsWith('spotify:track:')) ?? [];
 
-    uris.push(...pageUris);
+      uris.push(...pageUris);
 
-    reportProgress(onProgress, {
-      phase: 'loading',
-      loaded: uris.length,
-      total: Number.isFinite(total) ? total : null,
-      label: 'Reading playlist…',
-    });
+      reportProgress(onProgress, {
+        phase: 'loading',
+        loaded: uris.length,
+        total: Number.isFinite(total) ? total : null,
+        label: 'Reading playlist…',
+      });
 
-    if (pageUris.length === 0) break;
-    from += pageUris.length;
-    if (from >= total || data.contents?.truncated === false) break;
+      if (pageUris.length === 0) {
+        from = total;
+        break;
+      }
+      from += pageUris.length;
+      if (from >= total || data.contents?.truncated === false) {
+        from = total;
+      }
+      break;
+    }
+
+    if (from >= total) break;
   }
 
   return { uris, total: Number.isFinite(total) ? total : uris.length };
@@ -557,6 +581,48 @@ async function hydrateMissingTracks(
   }
 
   return hydrated;
+}
+
+async function backfillPlaylistTracksFromSpclient(
+  playlistId: string,
+  accessToken: string,
+  playerId: string,
+  fallbackArt: string | null,
+  tracks: NormalizedTrack[],
+  expectedTrackCount: number,
+  onProgress?: ScrapeProgressCallback,
+): Promise<{ tracks: NormalizedTrack[]; expectedTrackCount: number }> {
+  if (tracks.length >= expectedTrackCount) {
+    return { tracks, expectedTrackCount };
+  }
+
+  const seen = new Set(tracks.map((t) => t.spotifyTrackId));
+  const spclient = await fetchAllSpclientPlaylistUris(playlistId, accessToken, onProgress);
+  if (!spclient || spclient.uris.length <= tracks.length) {
+    return { tracks, expectedTrackCount: Math.max(expectedTrackCount, spclient?.total ?? tracks.length) };
+  }
+
+  const uniqueUris = [...new Set(spclient.uris)];
+  const expected = Math.max(expectedTrackCount, uniqueUris.length);
+  const missingIds = uniqueUris
+    .map((uri) => trackIdFromUri(uri))
+    .filter((trackId): trackId is string => !!trackId && !seen.has(trackId));
+
+  if (missingIds.length === 0) {
+    return { tracks, expectedTrackCount: expected };
+  }
+
+  const extra = await hydrateMissingTracks(
+    missingIds,
+    playerId,
+    fallbackArt,
+    seen,
+    onProgress,
+    tracks.length,
+    expected,
+  );
+
+  return { tracks: [...tracks, ...extra], expectedTrackCount: expected };
 }
 
 function shuffleTracks<T>(arr: T[]): void {
@@ -672,6 +738,19 @@ export async function scrapeSpotifyFromLink(
     if (pathfinderResult) {
       tracks = pathfinderResult.tracks;
       expectedTrackCount = pathfinderResult.totalCount;
+      if (parsed.kind === 'playlist' && accessToken && tracks.length < expectedTrackCount) {
+        const backfilled = await backfillPlaylistTracksFromSpclient(
+          parsed.id,
+          accessToken,
+          playerId,
+          fallbackArt,
+          tracks,
+          expectedTrackCount,
+          onProgress,
+        );
+        tracks = backfilled.tracks;
+        expectedTrackCount = backfilled.expectedTrackCount;
+      }
     }
   }
 

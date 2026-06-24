@@ -50,6 +50,17 @@ export class TrackPool {
     return track;
   }
 
+  /** Return a picked track to the pool when it has no playable preview. */
+  releaseTrack(trackId: string): void {
+    if (!this.usedIds.delete(trackId)) return;
+    for (const [playerId, bucket] of this.buckets) {
+      if (!bucket.some((t) => t.spotifyTrackId === trackId)) continue;
+      const count = this.playedCount.get(playerId) ?? 0;
+      if (count > 0) this.playedCount.set(playerId, count - 1);
+      break;
+    }
+  }
+
   getAllTracks(): NormalizedTrack[] {
     return [...this.buckets.values()].flat();
   }

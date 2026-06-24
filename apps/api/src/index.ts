@@ -16,6 +16,8 @@ import {
   storePkceSession,
 } from './spotify/client.js';
 import { ScrapeError, parseMusicLink, playlistSourceKey, scrapeMusicFromLink } from './music/scraper.js';
+import { getPresetCatalog } from './catalog/presets.js';
+import { searchCatalog } from './catalog/search.js';
 import {
   generateCodeChallenge,
   generateCodeVerifier,
@@ -167,6 +169,21 @@ fastify.get<{ Querystring: { playerId: string } }>(
     }
   },
 );
+
+fastify.get('/catalog/presets', async () => getPresetCatalog());
+
+fastify.get<{ Querystring: { q?: string } }>('/catalog/search', async (request, reply) => {
+  const q = request.query.q?.trim();
+  if (!q) {
+    return reply.status(400).send({ error: 'Missing search query' });
+  }
+  if (q.length > 64) {
+    return reply.status(400).send({ error: 'Query too long' });
+  }
+
+  const results = await searchCatalog(q);
+  return { results };
+});
 
 fastify.post<{
   Params: { code: string };

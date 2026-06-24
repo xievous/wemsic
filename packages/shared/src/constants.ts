@@ -1,4 +1,6 @@
 export const MIN_PLAYLIST_TRACKS = 10;
+/** Minimum tracks for preset catalog curation and search ranking (not room start validation). */
+export const PRESET_MIN_TRACKS = 50;
 export const DEFAULT_ROUND_COUNT = 10;
 export const DEFAULT_SPEED_CHOICE_SECONDS = 15;
 export const DEFAULT_TYPING_SECONDS = 30;

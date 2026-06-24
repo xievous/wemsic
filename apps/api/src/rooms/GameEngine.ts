@@ -397,12 +397,18 @@ export class GameEngine {
     let track: NormalizedTrack | null = null;
     let previewUrl: string | null = null;
     let attempts = 0;
+    const maxAttempts = Math.max(50, this.pool.getAllTracks().length);
 
-    while (attempts < 30) {
+    while (attempts < maxAttempts) {
       track = this.pool.pickNext();
       if (!track) break;
-      previewUrl = await resolvePreviewUrl(track.artists[0] ?? '', track.title);
+      previewUrl = track.previewUrl ?? null;
+      if (!previewUrl) {
+        previewUrl = await resolvePreviewUrl(track.artists[0] ?? '', track.title);
+      }
       if (previewUrl) break;
+      this.pool.releaseTrack(track.spotifyTrackId);
+      track = null;
       attempts++;
     }
 
