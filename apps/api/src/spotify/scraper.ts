@@ -613,7 +613,7 @@ async function fetchTracksFromEmbedFallback(
   return { tracks, expectedTrackCount };
 }
 
-export async function scrapeMusicFromLink(
+export async function scrapeSpotifyFromLink(
   input: string,
   playerId: string,
   onProgress?: ScrapeProgressCallback,

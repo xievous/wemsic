@@ -15,7 +15,7 @@ import {
   SpotifyError,
   storePkceSession,
 } from './spotify/client.js';
-import { ScrapeError, scrapeMusicFromLink } from './spotify/scraper.js';
+import { ScrapeError, parseMusicLink, playlistSourceKey, scrapeMusicFromLink } from './music/scraper.js';
 import {
   generateCodeChallenge,
   generateCodeVerifier,
@@ -190,11 +190,11 @@ fastify.post<{
         });
       },
     );
-    const parsed = source.match(/album\/([a-zA-Z0-9]{22})/i);
+    const parsedLink = parseMusicLink(source);
     roomManager.setPlaylist(
       request.params.code,
       playerId,
-      parsed ? `album:${parsed[1]}` : source.slice(0, 32),
+      parsedLink ? playlistSourceKey(parsedLink, source) : source.slice(0, 64),
       sourceName,
       tracks,
     );

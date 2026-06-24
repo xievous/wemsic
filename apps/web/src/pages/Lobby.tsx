@@ -842,15 +842,15 @@ export function Lobby() {
             Your music
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-            Paste a public Spotify playlist or album link (at least {MIN_PLAYLIST_TRACKS}{' '}
-            tracks). Everyone can add their own — songs are mixed fairly across players
-            during the game. Swap yours any time by pasting a new link.
+            Paste a public Spotify, Apple Music, or YouTube Music playlist or album link (at least{' '}
+            {MIN_PLAYLIST_TRACKS} tracks). Everyone can add their own — songs are mixed fairly
+            across players during the game. Swap yours any time by pasting a new link.
           </Typography>
           <Stack spacing={1.5}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
               <TextField
-                label="Spotify playlist or album link"
-                placeholder="https://open.spotify.com/playlist/…"
+                label="Playlist or album link"
+                placeholder="Spotify, Apple Music, or YouTube Music URL…"
                 fullWidth
                 size="small"
                 value={playlistUrl}
