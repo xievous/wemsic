@@ -15,7 +15,16 @@ export interface ParsedMusicLink {
 const APPLE_PATH =
   /music\.apple\.com\/(?:[a-z]{2}\/)?(?<kind>playlist|album)\/[^/?#]+\/(?<id>[^/?#]+)/i;
 
-const YOUTUBE_LIST = /(?:music\.youtube\.com|youtube\.com|youtu\.be)[^?#]*(?:\?[^#]*?|&)(?:list=)(?<id>[a-zA-Z0-9_-]+)/i;
+const YOUTUBE_LIST =
+  /(?:music\.youtube\.com|youtube\.com|youtu\.be)[^?#]*(?:\?[^#]*?|&)(?:list=)(?<id>[a-zA-Z0-9_-]+)/i;
+
+const YTM_BROWSE = /music\.youtube\.com\/browse\/(?<browseId>VL[a-zA-Z0-9_-]+)/i;
+
+export function toYouTubeBrowseId(id: string): string {
+  const trimmed = id.trim();
+  if (trimmed.startsWith('VL')) return trimmed;
+  return `VL${trimmed}`;
+}
 
 export function parseMusicLink(input: string): ParsedMusicLink | null {
   const trimmed = input.trim();
@@ -33,6 +42,12 @@ export function parseMusicLink(input: string): ParsedMusicLink | null {
     if (kind === 'album' && !/^\d+$/.test(id)) return null;
     if (kind === 'playlist' && !id.startsWith('pl.')) return null;
     return { provider: 'apple', kind, id, storefront: storefront ?? 'us' };
+  }
+
+  const ytmBrowse = trimmed.match(YTM_BROWSE);
+  if (ytmBrowse?.groups?.browseId) {
+    const browseId = ytmBrowse.groups.browseId;
+    return { provider: 'youtube', kind: 'playlist', id: browseId.slice(2) };
   }
 
   const youtube = trimmed.match(YOUTUBE_LIST);

@@ -55,11 +55,12 @@ export async function importMusic(
   roomCode: string,
   playerId: string,
   urlOrId: string,
+  ytmBrowseId?: string,
 ) {
   const res = await fetch(`${API_URL}/rooms/${roomCode}/playlists`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ playerId, url: urlOrId }),
+    body: JSON.stringify({ playerId, url: urlOrId, ytmBrowseId }),
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error ?? 'Import failed');

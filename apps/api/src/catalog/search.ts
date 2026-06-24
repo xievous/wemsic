@@ -48,6 +48,7 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
         name: hit.name,
         description: hit.author ? `By ${hit.author}` : undefined,
         url: hit.url,
+        ytmBrowseId: hit.browseId,
         trackCount: hit.trackCount,
         source: 'youtube' as const,
         thumbnailUrl: hit.thumbnailUrl,

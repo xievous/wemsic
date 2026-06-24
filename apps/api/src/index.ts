@@ -15,7 +15,7 @@ import {
   SpotifyError,
   storePkceSession,
 } from './spotify/client.js';
-import { ScrapeError, parseMusicLink, playlistSourceKey, scrapeMusicFromLink } from './music/scraper.js';
+import { ScrapeError, parseMusicLink, playlistSourceKey, scrapeMusicFromLink, toYouTubeBrowseId } from './music/scraper.js';
 import { getPresetCatalog } from './catalog/presets.js';
 import { searchCatalog } from './catalog/search.js';
 import {
@@ -187,10 +187,15 @@ fastify.get<{ Querystring: { q?: string } }>('/catalog/search', async (request, 
 
 fastify.post<{
   Params: { code: string };
-  Body: { playerId: string; playlistId?: string; url?: string };
+  Body: { playerId: string; playlistId?: string; url?: string; ytmBrowseId?: string };
 }>('/rooms/:code/playlists', async (request, reply) => {
-  const { playerId, playlistId, url } = request.body ?? {};
-  const source = url ?? playlistId;
+  const { playerId, playlistId, url, ytmBrowseId } = request.body ?? {};
+  const source =
+    url ??
+    playlistId ??
+    (ytmBrowseId
+      ? `https://music.youtube.com/browse/${toYouTubeBrowseId(ytmBrowseId)}`
+      : undefined);
   if (!playerId || !source) {
     return reply.status(400).send({ error: 'Missing fields' });
   }
@@ -208,13 +213,16 @@ fastify.post<{
       },
     );
     const parsedLink = parseMusicLink(source);
-    roomManager.setPlaylist(
+    const saved = roomManager.setPlaylist(
       request.params.code,
       playerId,
       parsedLink ? playlistSourceKey(parsedLink, source) : source.slice(0, 64),
       sourceName,
       tracks,
     );
+    if (!saved) {
+      return reply.status(404).send({ error: 'Player not found in this room. Try rejoining.' });
+    }
     return {
       trackCount: tracks.length,
       playlistName: sourceName,

@@ -38,16 +38,16 @@ function PlaylistRow({
   disabled,
 }: {
   item: CatalogSearchResult;
-  onSelect: (item: CatalogSearchResult) => void;
+  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
   disabled?: boolean;
 }) {
   return (
     <Box
       role="button"
       tabIndex={disabled ? -1 : 0}
-      onClick={() => !disabled && onSelect(item)}
+      onClick={() => !disabled && void onSelect(item)}
       onKeyDown={(e) => {
-        if (!disabled && (e.key === 'Enter' || e.key === ' ')) onSelect(item);
+        if (!disabled && (e.key === 'Enter' || e.key === ' ')) void onSelect(item);
       }}
       sx={{
         display: 'flex',
@@ -128,7 +128,7 @@ function PresetCard({
   disabled,
 }: {
   preset: PresetPlaylist;
-  onSelect: (item: CatalogSearchResult) => void;
+  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
   disabled?: boolean;
 }) {
   const item: CatalogSearchResult = {
@@ -144,9 +144,9 @@ function PresetCard({
     <Box
       role="button"
       tabIndex={disabled ? -1 : 0}
-      onClick={() => !disabled && onSelect(item)}
+      onClick={() => !disabled && void onSelect(item)}
       onKeyDown={(e) => {
-        if (!disabled && (e.key === 'Enter' || e.key === ' ')) onSelect(item);
+        if (!disabled && (e.key === 'Enter' || e.key === ' ')) void onSelect(item);
       }}
       sx={{
         p: 1.75,
@@ -189,7 +189,7 @@ export function PlaylistPickerDialog({
 }: {
   open: boolean;
   onClose: () => void;
-  onSelect: (item: CatalogSearchResult) => void;
+  onSelect: (item: CatalogSearchResult) => Promise<void>;
   disabled?: boolean;
 }) {
   const [query, setQuery] = useState('');
@@ -199,6 +199,8 @@ export function PlaylistPickerDialog({
   const [searchResults, setSearchResults] = useState<CatalogSearchResult[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+  const [importingSelection, setImportingSelection] = useState(false);
+  const [pickerError, setPickerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -206,6 +208,7 @@ export function PlaylistPickerDialog({
     setDebouncedQuery('');
     setSearchResults([]);
     setSearchError(null);
+    setPickerError(null);
   }, [open]);
 
   useEffect(() => {
@@ -245,18 +248,28 @@ export function PlaylistPickerDialog({
     void runSearch(debouncedQuery);
   }, [debouncedQuery, runSearch]);
 
-  const handleSelect = (item: CatalogSearchResult) => {
-    if (!item.url) return;
-    onSelect(item);
-    onClose();
+  const handleSelect = async (item: CatalogSearchResult) => {
+    if (!item.url || importingSelection) return;
+    setImportingSelection(true);
+    setPickerError(null);
+    try {
+      await onSelect(item);
+      onClose();
+    } catch (e) {
+      setPickerError(e instanceof Error ? e.message : 'Import failed');
+    } finally {
+      setImportingSelection(false);
+    }
   };
+
+  const pickerBusy = disabled || importingSelection;
 
   const showSearch = debouncedQuery.length > 0;
 
   return (
     <Dialog
       open={open}
-      onClose={disabled ? undefined : onClose}
+      onClose={pickerBusy ? undefined : onClose}
       fullWidth
       maxWidth="sm"
       PaperProps={{ sx: { borderRadius: '20px' } }}
@@ -274,7 +287,7 @@ export function PlaylistPickerDialog({
           placeholder="Search themed playlists — eurovision, disney, 90s…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          disabled={disabled}
+          disabled={pickerBusy}
           sx={{ mb: 2.5 }}
           slotProps={{
             input: {
@@ -299,6 +312,11 @@ export function PlaylistPickerDialog({
                 Pick a playlist to import — track counts shown for each result.
               </Typography>
             )}
+            {pickerError && (
+              <Typography variant="body2" color="error">
+                {pickerError}
+              </Typography>
+            )}
             {searchError && (
               <Typography variant="body2" color="error">
                 {searchError}
@@ -315,7 +333,7 @@ export function PlaylistPickerDialog({
                 key={item.id}
                 item={item}
                 onSelect={handleSelect}
-                disabled={disabled || !item.url}
+                disabled={pickerBusy || !item.url}
               />
             ))}
           </Stack>
@@ -345,7 +363,7 @@ export function PlaylistPickerDialog({
                         key={preset.id}
                         preset={preset}
                         onSelect={handleSelect}
-                        disabled={disabled}
+                        disabled={pickerBusy}
                       />
                     ))}
                   </Box>

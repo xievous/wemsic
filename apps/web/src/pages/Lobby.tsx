@@ -472,17 +472,24 @@ export function Lobby() {
   }
 
   async function handlePickerSelect(item: CatalogSearchResult) {
-    if (!item.url) return;
+    if (!item.url) throw new Error('This playlist cannot be imported.');
     setImporting(true);
     clearPlaylistImportProgress();
     try {
-      const res = await importMusic(code!, session!.playerId, item.url);
+      const res = await importMusic(
+        code!,
+        session!.playerId,
+        item.url,
+        item.ytmBrowseId,
+      );
       const truncatedNote = res.truncated
         ? ' (some tracks could not be loaded)'
         : '';
       setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
     } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Import failed');
+      const msg = e instanceof Error ? e.message : 'Import failed';
+      setMessage(msg);
+      throw e instanceof Error ? e : new Error(msg);
     } finally {
       setImporting(false);
       clearPlaylistImportProgress();
@@ -956,7 +963,7 @@ export function Lobby() {
       <PlaylistPickerDialog
         open={pickerOpen}
         onClose={() => setPickerOpen(false)}
-        onSelect={(item) => void handlePickerSelect(item)}
+        onSelect={handlePickerSelect}
         disabled={importing}
       />
 

@@ -194,14 +194,15 @@ export class RoomManager {
     playlistId: string,
     playlistName: string,
     tracks: NormalizedTrack[],
-  ): void {
+  ): boolean {
     const player = this.getPlayer(roomCode, playerId);
-    if (!player) return;
+    if (!player) return false;
     player.playlistId = playlistId;
     player.playlistName = playlistName;
     player.tracks = tracks.map((t) => ({ ...t, contributedBy: playerId }));
     player.isReady = false;
     this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
+    return true;
   }
 
   setReady(roomCode: string, playerId: string, ready: boolean): void {

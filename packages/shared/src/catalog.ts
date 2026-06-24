@@ -24,6 +24,8 @@ export interface CatalogSearchResult {
   name: string;
   description?: string;
   url?: string;
+  /** Full YTM browse id (VL…) — used when list= URLs are unreliable. */
+  ytmBrowseId?: string;
   trackCount?: number;
   source: CatalogSource;
   thumbnailUrl?: string;

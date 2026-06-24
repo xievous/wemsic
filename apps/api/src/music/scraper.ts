@@ -1,6 +1,6 @@
 import type { NormalizedTrack } from '@wemsic/shared';
 import { scrapeAppleMusicFromLink } from '../apple/scraper.js';
-import { parseMusicLink } from './parseLink.js';
+import { parseMusicLink, toYouTubeBrowseId } from './parseLink.js';
 import {
   ScrapeError,
   scrapeSpotifyFromLink,
@@ -9,7 +9,7 @@ import {
 import { scrapeYouTubeMusicFromLink } from '../youtube/scraper.js';
 
 export { ScrapeError, type ScrapeProgress, type ScrapeProgressCallback } from '../spotify/scraper.js';
-export { parseMusicLink, playlistSourceKey } from './parseLink.js';
+export { parseMusicLink, playlistSourceKey, toYouTubeBrowseId } from './parseLink.js';
 
 export async function scrapeMusicFromLink(
   input: string,

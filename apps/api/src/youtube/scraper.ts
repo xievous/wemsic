@@ -1,4 +1,5 @@
 import type { NormalizedTrack } from '@wemsic/shared';
+import { toYouTubeBrowseId } from '../music/parseLink.js';
 import {
   ScrapeError,
   type ScrapeProgressCallback,
@@ -10,6 +11,12 @@ const YTM_SEARCH = 'https://music.youtube.com/youtubei/v1/search?prettyPrint=fal
 
 /** Filter search to playlists only. */
 const YTM_PARAMS_PLAYLISTS = 'EgIQAw%3D%3D';
+
+const YTM_IMPORT_MAX_TRACKS = 200;
+const SEARCH_MAX_RESULTS = 20;
+const SEARCH_MAX_PAGES = 3;
+const ENRICH_BATCH_SIZE = 4;
+const COUNT_SHELF_MAX_PAGES = 2;
 
 const YTM_CLIENT = {
   clientName: 'WEB_REMIX',
@@ -300,6 +307,7 @@ async function countPlaylistTracksFromShelfData(
     const seen = new Set<string>();
     let items = shelf.contents;
     let continuation = continuationToken(items);
+    let pages = 0;
 
     while (true) {
       for (const item of items) {
@@ -316,12 +324,13 @@ async function countPlaylistTracksFromShelfData(
         seen.add(key);
       }
 
-      if (!continuation) break;
+      if (!continuation || pages >= COUNT_SHELF_MAX_PAGES) break;
 
       await delay(50);
       const nextPage = await ytmPost({ continuation });
       items = parseContinuationItems(nextPage);
       continuation = continuationToken(items);
+      pages++;
       if (items.length === 0) break;
     }
 
@@ -459,7 +468,7 @@ export async function scrapeYouTubeMusicFromLink(
 
   let data: Record<string, unknown>;
   try {
-    data = await ytmPost({ browseId: `VL${playlistId}` });
+    data = await ytmPost({ browseId: toYouTubeBrowseId(playlistId) });
   } catch {
     throw new ScrapeError(
       'Could not open that YouTube Music playlist. Check that the link is public.',
@@ -486,6 +495,7 @@ export async function scrapeYouTubeMusicFromLink(
       if (!track || seen.has(track.spotifyTrackId)) continue;
       seen.add(track.spotifyTrackId);
       tracks.push(track);
+      if (tracks.length >= YTM_IMPORT_MAX_TRACKS) break;
     }
 
     onProgress?.({
@@ -495,7 +505,7 @@ export async function scrapeYouTubeMusicFromLink(
       label: 'Loading tracks…',
     });
 
-    if (!continuation) break;
+    if (tracks.length >= YTM_IMPORT_MAX_TRACKS || !continuation) break;
 
     await delay(100);
     const nextPage = await ytmPost({ continuation });
@@ -516,11 +526,13 @@ export async function scrapeYouTubeMusicFromLink(
   });
 
   shuffleTracks(tracks);
-  return { tracks, sourceName };
+  const truncated = tracks.length >= YTM_IMPORT_MAX_TRACKS;
+  return { tracks, sourceName, truncated: truncated || undefined };
 }
 
 export interface YtmPlaylistSearchHit {
   id: string;
+  browseId: string;
   name: string;
   author?: string;
   trackCount?: number;
@@ -550,6 +562,7 @@ function hitFromBrowseId(
   const playlistId = browseId.slice(2);
   return {
     id: playlistId,
+    browseId,
     name: title,
     author: parseAuthorFromSubtitle(subtitle),
     trackCount:
@@ -557,7 +570,7 @@ function hitFromBrowseId(
       parseTrackCountFromText(extraCountText) ??
       undefined,
     thumbnailUrl,
-    url: `https://music.youtube.com/playlist?list=${playlistId}`,
+    url: `https://music.youtube.com/browse/${browseId}`,
   };
 }
 
@@ -659,9 +672,24 @@ function dedupePlaylistHits(hits: YtmPlaylistSearchHit[]): YtmPlaylistSearchHit[
   return result;
 }
 
-const SEARCH_MAX_RESULTS = 20;
-const SEARCH_MAX_PAGES = 3;
-const ENRICH_BATCH_SIZE = 4;
+function shelfHasImportableTracks(shelf: { contents: YtmListItem[] }): boolean {
+  return shelf.contents.some(
+    (item) =>
+      item.musicResponsiveListItemRenderer &&
+      !item.continuationItemRenderer &&
+      videoIdFromRenderer(item.musicResponsiveListItemRenderer),
+  );
+}
+
+export async function isYouTubeMusicPlaylistImportable(browseId: string): Promise<boolean> {
+  try {
+    const data = await ytmPost({ browseId: toYouTubeBrowseId(browseId) });
+    const shelf = findPlaylistShelf(data);
+    return shelf ? shelfHasImportableTracks(shelf) : false;
+  } catch {
+    return false;
+  }
+}
 
 async function searchPlaylistsForQuery(query: string): Promise<YtmPlaylistSearchHit[]> {
   const hits: YtmPlaylistSearchHit[] = [];
@@ -692,9 +720,10 @@ async function searchPlaylistsForQuery(query: string): Promise<YtmPlaylistSearch
 
 export async function fetchYouTubeMusicPlaylistMeta(
   playlistId: string,
-): Promise<{ name: string | null; trackCount: number | null }> {
+): Promise<{ name: string | null; trackCount: number | null; browseId: string }> {
+  const browseId = toYouTubeBrowseId(playlistId);
   try {
-    const data = await ytmPost({ browseId: `VL${playlistId}` });
+    const data = await ytmPost({ browseId });
     let trackCount = findPlaylistTrackCount(data);
     if (trackCount == null) {
       trackCount = await countPlaylistTracksFromShelfData(data);
@@ -702,9 +731,10 @@ export async function fetchYouTubeMusicPlaylistMeta(
     return {
       name: findPlaylistTitle(data),
       trackCount,
+      browseId,
     };
   } catch {
-    return { name: null, trackCount: null };
+    return { name: null, trackCount: null, browseId };
   }
 }
 
@@ -752,5 +782,22 @@ export async function searchYouTubeMusicPlaylists(
   const deduped = dedupePlaylistHits(all).slice(0, SEARCH_MAX_RESULTS);
   if (deduped.length === 0) return [];
 
-  return enrichPlaylistTrackCounts(deduped);
+  const enriched = await enrichPlaylistTrackCounts(deduped);
+
+  const importable: YtmPlaylistSearchHit[] = [];
+  for (let i = 0; i < enriched.length; i += ENRICH_BATCH_SIZE) {
+    const batch = enriched.slice(i, i + ENRICH_BATCH_SIZE);
+    const checks = await Promise.all(
+      batch.map(async (hit) => ({
+        hit,
+        ok: await isYouTubeMusicPlaylistImportable(hit.browseId),
+      })),
+    );
+    for (const { hit, ok } of checks) {
+      if (ok) importable.push(hit);
+    }
+    if (i + ENRICH_BATCH_SIZE < enriched.length) await delay(60);
+  }
+
+  return importable;
 }
