@@ -165,6 +165,17 @@ async function fetchEmbedPage(
   return { entity, accessToken };
 }
 
+/** Anonymous partner token from the public embed player (search + import). */
+export async function getAnonymousSpotifyAccessToken(): Promise<string | null> {
+  try {
+    const html = await fetchEmbedHtml('playlist', '37i9dQZF1DXcBWIGoYBM5M');
+    const pageProps = parseEmbedNextData(html).props?.pageProps;
+    return pageProps?.state?.settings?.session?.accessToken ?? null;
+  } catch {
+    return null;
+  }
+}
+
 function trackIdFromUri(uri: string): string | null {
   const match = uri.match(/spotify:track:([a-zA-Z0-9]+)/);
   return match?.[1] ?? null;

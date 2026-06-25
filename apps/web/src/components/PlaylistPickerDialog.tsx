@@ -24,7 +24,31 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 function sourceLabel(source: CatalogSearchResult['source']): string {
-  return source === 'preset' ? 'Preset' : 'YouTube Music';
+  switch (source) {
+    case 'preset':
+      return 'Preset';
+    case 'spotify':
+      return 'Spotify';
+    case 'apple':
+      return 'Apple Music';
+    case 'youtube':
+      return 'YouTube Music';
+  }
+}
+
+function sourceChipColor(
+  source: CatalogSearchResult['source'],
+): 'primary' | 'secondary' | 'success' | 'default' {
+  switch (source) {
+    case 'preset':
+      return 'primary';
+    case 'spotify':
+      return 'success';
+    case 'apple':
+      return 'default';
+    case 'youtube':
+      return 'secondary';
+  }
 }
 
 function formatTrackCount(count: number | undefined): string {
@@ -106,7 +130,7 @@ function PlaylistRow({
           <Chip
             label={sourceLabel(item.source)}
             size="small"
-            color={item.source === 'preset' ? 'primary' : 'secondary'}
+            color={sourceChipColor(item.source)}
             variant="outlined"
             sx={{ height: 22, fontSize: '0.7rem' }}
           />
@@ -284,7 +308,7 @@ export function PlaylistPickerDialog({
         <TextField
           fullWidth
           size="small"
-          placeholder="Search themed playlists — eurovision, disney, 90s…"
+          placeholder="Search playlists — eurovision, disney, 90s…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={pickerBusy}

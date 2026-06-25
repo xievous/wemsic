@@ -96,6 +96,8 @@ async function getAppleToken(): Promise<string> {
   return fetchAppleWebToken();
 }
 
+export { getAppleToken };
+
 function appleArtworkUrl(template: string | undefined, size = 300): string | null {
   if (!template) return null;
   return template.replace('{w}', String(size)).replace('{h}', String(size));

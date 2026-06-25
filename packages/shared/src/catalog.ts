@@ -1,6 +1,6 @@
 export type PresetCategory = 'trending' | 'genre' | 'theme';
 
-export type CatalogSource = 'preset' | 'youtube';
+export type CatalogSource = 'preset' | 'spotify' | 'apple' | 'youtube';
 
 export interface PresetPlaylist {
   id: string;

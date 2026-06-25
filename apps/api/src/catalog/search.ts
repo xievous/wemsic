@@ -1,10 +1,11 @@
 import type { CatalogSearchResult } from '@wemsic/shared';
 import { PRESET_MIN_TRACKS } from '@wemsic/shared';
+import { searchAppleMusicPlaylists } from '../apple/search.js';
 import { matchPresets } from './presets.js';
-import {
-  enrichPlaylistTrackCounts,
-  searchYouTubeMusicPlaylists,
-} from '../youtube/scraper.js';
+import { searchSpotifyPlaylists } from '../spotify/search.js';
+import { searchYouTubeMusicPlaylists } from '../youtube/scraper.js';
+
+const SEARCH_MAX_COMBINED = 24;
 
 function presetToResult(preset: ReturnType<typeof matchPresets>[number]): CatalogSearchResult {
   return {
@@ -15,6 +16,10 @@ function presetToResult(preset: ReturnType<typeof matchPresets>[number]): Catalo
     trackCount: preset.estimatedTracks,
     source: 'preset',
   };
+}
+
+function spotifyPlaylistId(url: string): string | null {
+  return url.match(/playlist\/([a-zA-Z0-9]+)/)?.[1] ?? null;
 }
 
 function rankResults(results: CatalogSearchResult[]): CatalogSearchResult[] {
@@ -31,17 +36,40 @@ function rankResults(results: CatalogSearchResult[]): CatalogSearchResult[] {
   });
 }
 
+function dedupeCombinedResults(results: CatalogSearchResult[]): CatalogSearchResult[] {
+  const seen = new Set<string>();
+  const deduped: CatalogSearchResult[] = [];
+  for (const result of results) {
+    const key = `${result.source}:${result.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(result);
+    if (deduped.length >= SEARCH_MAX_COMBINED) break;
+  }
+  return deduped;
+}
+
 export async function searchCatalog(query: string): Promise<CatalogSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
 
   const presetMatches = matchPresets(trimmed).map(presetToResult);
   const presetIds = new Set(presetMatches.map((p) => p.id));
+  const presetSpotifyIds = new Set(
+    presetMatches
+      .map((p) => (p.url ? spotifyPlaylistId(p.url) : null))
+      .filter((id): id is string => !!id),
+  );
+
+  const [ytmResult, spotifyResult, appleResult] = await Promise.allSettled([
+    searchYouTubeMusicPlaylists(trimmed),
+    searchSpotifyPlaylists(trimmed),
+    searchAppleMusicPlaylists(trimmed),
+  ]);
 
   let ytmHits: CatalogSearchResult[] = [];
-  try {
-    const playlists = await searchYouTubeMusicPlaylists(trimmed);
-    ytmHits = playlists
+  if (ytmResult.status === 'fulfilled') {
+    ytmHits = ytmResult.value
       .filter((hit) => !presetIds.has(hit.id))
       .map((hit) => ({
         id: `ytm:${hit.id}`,
@@ -53,9 +81,36 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
         source: 'youtube' as const,
         thumbnailUrl: hit.thumbnailUrl,
       }));
-  } catch {
-    // YTM search is best-effort; presets still surface.
   }
 
-  return rankResults([...presetMatches, ...ytmHits]);
+  let spotifyHits: CatalogSearchResult[] = [];
+  if (spotifyResult.status === 'fulfilled') {
+    spotifyHits = spotifyResult.value
+      .filter((hit) => !presetSpotifyIds.has(hit.id))
+      .map((hit) => ({
+        id: `spotify:${hit.id}`,
+        name: hit.name,
+        description: hit.owner ? `By ${hit.owner}` : undefined,
+        url: hit.url,
+        trackCount: hit.trackCount,
+        source: 'spotify' as const,
+        thumbnailUrl: hit.thumbnailUrl,
+      }));
+  }
+
+  let appleHits: CatalogSearchResult[] = [];
+  if (appleResult.status === 'fulfilled') {
+    appleHits = appleResult.value.map((hit) => ({
+      id: `apple:${hit.id}`,
+      name: hit.name,
+      description: hit.curator ? `By ${hit.curator}` : undefined,
+      url: hit.url,
+      source: 'apple' as const,
+      thumbnailUrl: hit.thumbnailUrl,
+    }));
+  }
+
+  return rankResults(
+    dedupeCombinedResults([...presetMatches, ...spotifyHits, ...appleHits, ...ytmHits]),
+  );
 }
