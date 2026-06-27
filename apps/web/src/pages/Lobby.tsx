@@ -562,12 +562,12 @@ export function Lobby() {
                     border: '1px solid rgba(255,255,255,0.18)',
                     '& svg': {
                       display: 'block',
-                      width: { xs: 88, sm: 96 },
+                      width: { xs: 110, sm: 120 },
                       height: 'auto',
                     },
                   }}
                 >
-                  <QRCode value={joinUrl} size={96} bgColor="transparent" fgColor="#FFFFFF" />
+                  <QRCode value={joinUrl} size={120} bgColor="transparent" fgColor="#FFFFFF" />
                 </Box>
                 <Typography
                   variant="overline"
