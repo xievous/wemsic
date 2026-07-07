@@ -8,6 +8,7 @@ import {
   Slider,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { keyframes } from '@mui/system';
@@ -122,6 +123,64 @@ function PresenterWaitingStage() {
   );
 }
 
+function EnableSoundButton({ onClick, sx }: { onClick: () => void; sx?: object }) {
+  return (
+    <Tooltip title="Enable sound">
+      <IconButton
+        aria-label="Enable sound"
+        onClick={onClick}
+        sx={{
+          color: 'rgba(255,255,255,0.7)',
+          p: 0.5,
+          '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.1)' },
+          ...sx,
+        }}
+      >
+        <VolumeOffRoundedIcon />
+      </IconButton>
+    </Tooltip>
+  );
+}
+
+function FloatingEnableSound({ onEnable }: { onEnable: () => void }) {
+  return (
+    <Box
+      sx={{
+        position: 'fixed',
+        bottom: { xs: 16, sm: 24 },
+        right: { xs: 16, sm: 24 },
+        zIndex: 10,
+      }}
+    >
+      <Button
+        size="small"
+        variant="outlined"
+        startIcon={<VolumeUpRoundedIcon sx={{ fontSize: 18 }} />}
+        onClick={onEnable}
+        sx={{
+          borderRadius: 999,
+          px: 1.75,
+          py: 0.5,
+          fontSize: '0.8125rem',
+          fontWeight: 600,
+          bgcolor: 'rgba(255,255,255,0.92)',
+          backdropFilter: 'blur(8px)',
+          borderColor: 'rgba(20,33,63,0.12)',
+          color: 'text.secondary',
+          boxShadow: '0 4px 20px -8px rgba(14,26,60,0.2)',
+          '&:hover': {
+            bgcolor: 'background.paper',
+            borderColor: 'primary.main',
+            color: 'primary.main',
+          },
+        }}
+      >
+        Enable sound
+      </Button>
+    </Box>
+  );
+}
+
 function VolumeControl({
   volume,
   onChange,
@@ -188,6 +247,8 @@ function Stage({
   progress,
   volume,
   onVolumeChange,
+  audioEnabled,
+  onEnableAudio,
   presenter = false,
 }: {
   roundIndex: number;
@@ -196,6 +257,8 @@ function Stage({
   progress: number;
   volume: number;
   onVolumeChange: (value: number) => void;
+  audioEnabled: boolean;
+  onEnableAudio: () => void;
   presenter?: boolean;
 }) {
   const seconds = (timeLeft / 1000).toFixed(1);
@@ -218,7 +281,11 @@ function Stage({
             Round {roundIndex + 1} of {totalRounds}
           </Typography>
           <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, ml: -0.5 }}>
-            <VolumeControl volume={volume} onChange={onVolumeChange} />
+            {audioEnabled ? (
+              <VolumeControl volume={volume} onChange={onVolumeChange} />
+            ) : (
+              <EnableSoundButton onClick={onEnableAudio} />
+            )}
             <Typography variant="h5" sx={{ color: '#fff' }}>
               Now playing
             </Typography>
@@ -270,8 +337,15 @@ export function Game() {
     gameEnd,
   } = useSocket();
 
-  const { enabled: audioEnabled, playPreview, playCorrectChime, stop, volume, setVolume } =
-    useAudio();
+  const {
+    enabled: audioEnabled,
+    enableAudio,
+    playPreview,
+    playCorrectChime,
+    stop,
+    volume,
+    setVolume,
+  } = useAudio();
   const lastAudioKeyRef = useRef<string | null>(null);
   const [mcqAnswered, setMcqAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
@@ -779,15 +853,10 @@ export function Game() {
                 progress={progress}
                 volume={volume}
                 onVolumeChange={setVolume}
+                audioEnabled={audioEnabled}
+                onEnableAudio={enableAudio}
                 presenter
               />
-
-              {!audioEnabled && (
-                <Alert severity="warning">
-                  Enable sound so the song plays on this shared screen. Reopen the
-                  lobby tab if needed.
-                </Alert>
-              )}
 
               {round.gameMode === 'speed_choice' && round.options && (
                 <Box
@@ -874,13 +943,9 @@ export function Game() {
                 progress={progress}
                 volume={volume}
                 onVolumeChange={setVolume}
+                audioEnabled={audioEnabled}
+                onEnableAudio={enableAudio}
               />
-
-              {!audioEnabled && (
-                <Alert severity="warning">
-                  Enable sound in the lobby so track previews play automatically.
-                </Alert>
-              )}
 
               {mcqAnswered && !isTyping && (
                 <Alert severity="success">Answer locked in. Hold tight.</Alert>
@@ -911,5 +976,12 @@ export function Game() {
     }
   }
 
-  return <Layout maxWidth={isPresenter ? 'lg' : 'md'}>{body}</Layout>;
+  const showFloatingEnableSound = !audioEnabled && !isPad && (!round || Boolean(reveal));
+
+  return (
+    <Layout maxWidth={isPresenter ? 'lg' : 'md'}>
+      {body}
+      {showFloatingEnableSound && <FloatingEnableSound onEnable={enableAudio} />}
+    </Layout>
+  );
 }
