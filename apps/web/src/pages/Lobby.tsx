@@ -33,9 +33,10 @@ import { useEffect, useMemo, useState } from 'react';
 import type { CatalogSearchResult, PlaylistImportProgressPayload, TypingSpellingLeniency } from '@wemsic/shared';
 import { useNavigate, useParams } from 'react-router-dom';
 import QRCode from 'react-qr-code';
-import { importMusic } from '../api/client';
+import { importMusic, removePlaylist } from '../api/client';
 import { useAudio } from '../audio/AudioProvider';
 import { CopyRoomCodeButton } from '../components/CopyRoomCodeButton';
+import { MyPlaylistsStrip } from '../components/MyPlaylistsStrip';
 import { Layout } from '../components/Layout';
 import { PlaylistPickerDialog } from '../components/PlaylistPickerDialog';
 import { PlayerAvatar } from '../components/PlayerAvatar';
@@ -370,6 +371,7 @@ export function Lobby() {
   const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
   const [advancedSettingsOpen, setAdvancedSettingsOpen] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [removingPlaylistId, setRemovingPlaylistId] = useState<string | null>(null);
   const joinUrl = useMemo(
     () => (code ? `${window.location.origin}/join/${code.toUpperCase()}` : ''),
     [code],
@@ -461,7 +463,9 @@ export function Lobby() {
       const truncatedNote = res.truncated
         ? ' (some tracks could not be loaded)'
         : '';
-      setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
+      setMessage(
+        `Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote} · ${res.totalTrackCount} total`,
+      );
       setPlaylistUrl('');
     } catch (e) {
       setMessage(e instanceof Error ? e.message : 'Import failed');
@@ -485,7 +489,9 @@ export function Lobby() {
       const truncatedNote = res.truncated
         ? ' (some tracks could not be loaded)'
         : '';
-      setMessage(`Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote}`);
+      setMessage(
+        `Added ${res.trackCount} tracks from ${res.playlistName}${truncatedNote} · ${res.totalTrackCount} total`,
+      );
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Import failed';
       setMessage(msg);
@@ -493,6 +499,18 @@ export function Lobby() {
     } finally {
       setImporting(false);
       clearPlaylistImportProgress();
+    }
+  }
+
+  async function handleRemovePlaylist(playlistId: string) {
+    setRemovingPlaylistId(playlistId);
+    try {
+      await removePlaylist(code!, session!.playerId, playlistId);
+      setMessage(null);
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Could not remove playlist');
+    } finally {
+      setRemovingPlaylistId(null);
     }
   }
 
@@ -871,8 +889,8 @@ export function Lobby() {
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Paste a public Spotify, Apple Music, or YouTube Music playlist or album link (at least{' '}
-            {MIN_PLAYLIST_TRACKS} tracks). Everyone can add their own — songs are mixed fairly
-            across players during the game. Swap yours any time by pasting a new link.
+            {MIN_PLAYLIST_TRACKS} tracks). Add as many as you like — songs are mixed fairly across
+            players during the game.
           </Typography>
           <Stack spacing={1.5}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
@@ -903,13 +921,12 @@ export function Lobby() {
               </Button>
             </Stack>
             {myImportProgress && <ImportProgressBar progress={myImportProgress} />}
-            {me?.playlistName && (
-              <Chip
-                icon={<CheckCircleRoundedIcon />}
-                label={`Your playlist: ${me.playlistName} (${me.trackCount} tracks)`}
-                color="success"
-                variant="outlined"
-                sx={{ alignSelf: 'flex-start' }}
+            {me && me.playlists.length > 0 && (
+              <MyPlaylistsStrip
+                playlists={me.playlists}
+                removingId={removingPlaylistId}
+                onRemove={(id) => void handleRemovePlaylist(id)}
+                disabled={importing || removingPlaylistId !== null}
               />
             )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
@@ -919,7 +936,7 @@ export function Lobby() {
                 onClick={() => setPickerOpen(true)}
                 disabled={importing}
               >
-                Choose playlist
+                Add playlist
               </Button>
               {needsSound && (
                 <Button

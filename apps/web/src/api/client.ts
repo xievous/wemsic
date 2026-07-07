@@ -64,7 +64,32 @@ export async function importMusic(
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error ?? 'Import failed');
-  return data as { trackCount: number; playlistName: string; truncated?: boolean };
+  return data as {
+    playlistId: string;
+    trackCount: number;
+    totalTrackCount: number;
+    playlistName: string;
+    thumbnailUrl: string | null;
+    truncated?: boolean;
+  };
+}
+
+export async function removePlaylist(
+  roomCode: string,
+  playerId: string,
+  playlistId: string,
+) {
+  const res = await fetch(
+    `${API_URL}/rooms/${roomCode}/playlists/${encodeURIComponent(playlistId)}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ playerId }),
+    },
+  );
+  const data = await res.json();
+  if (!res.ok || data.error) throw new Error(data.error ?? 'Failed to remove playlist');
+  return data as { ok: true };
 }
 
 /** @deprecated use importMusic */

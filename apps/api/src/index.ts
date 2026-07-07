@@ -202,7 +202,7 @@ fastify.post<{
 
   try {
     const roomCode = request.params.code.toUpperCase();
-    const { tracks, sourceName, truncated } = await scrapeMusicFromLink(
+    const { tracks, sourceName, thumbnailUrl, truncated } = await scrapeMusicFromLink(
       source,
       playerId,
       (progress) => {
@@ -213,19 +213,26 @@ fastify.post<{
       },
     );
     const parsedLink = parseMusicLink(source);
-    const saved = roomManager.setPlaylist(
+    const playlistId = parsedLink ? playlistSourceKey(parsedLink, source) : source.slice(0, 64);
+    const saved = roomManager.addPlaylist(
       request.params.code,
       playerId,
-      parsedLink ? playlistSourceKey(parsedLink, source) : source.slice(0, 64),
+      playlistId,
       sourceName,
+      thumbnailUrl ?? null,
       tracks,
     );
     if (!saved) {
       return reply.status(404).send({ error: 'Player not found in this room. Try rejoining.' });
     }
+    const lobby = roomManager.getLobbyState(roomCode);
+    const player = lobby?.players.find((p) => p.id === playerId);
     return {
+      playlistId,
       trackCount: tracks.length,
+      totalTrackCount: player?.trackCount ?? tracks.length,
       playlistName: sourceName,
+      thumbnailUrl: thumbnailUrl ?? tracks[0]?.albumArtUrl ?? null,
       truncated: truncated ?? false,
     };
   } catch (e) {
@@ -237,6 +244,26 @@ fastify.post<{
           : String(e);
     return reply.status(400).send({ error: message });
   }
+});
+
+fastify.delete<{
+  Params: { code: string; playlistId: string };
+  Body: { playerId: string };
+}>('/rooms/:code/playlists/:playlistId', async (request, reply) => {
+  const { playerId } = request.body ?? {};
+  if (!playerId) {
+    return reply.status(400).send({ error: 'Missing playerId' });
+  }
+
+  const removed = roomManager.removePlaylist(
+    request.params.code,
+    playerId,
+    decodeURIComponent(request.params.playlistId),
+  );
+  if (!removed) {
+    return reply.status(404).send({ error: 'Playlist not found' });
+  }
+  return { ok: true };
 });
 
 fastify.post<{ Body: { roomCode: string; playerId: string } }>(

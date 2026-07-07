@@ -225,7 +225,12 @@ export async function scrapeAppleMusicFromLink(
   id: string,
   playerId: string,
   onProgress?: ScrapeProgressCallback,
-): Promise<{ tracks: NormalizedTrack[]; sourceName: string; truncated?: boolean }> {
+): Promise<{
+  tracks: NormalizedTrack[];
+  sourceName: string;
+  thumbnailUrl?: string | null;
+  truncated?: boolean;
+}> {
   onProgress?.({
     phase: 'opening',
     loaded: 0,
@@ -273,5 +278,5 @@ export async function scrapeAppleMusicFromLink(
   shuffleTracks(tracks);
 
   const truncated = tracks.length < totalCount;
-  return { tracks, sourceName, truncated: truncated || undefined };
+  return { tracks, sourceName, thumbnailUrl: fallbackArt, truncated: truncated || undefined };
 }

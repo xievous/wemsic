@@ -454,11 +454,53 @@ function shuffleTracks<T>(arr: T[]): void {
   }
 }
 
+function findPlaylistThumbnail(data: Record<string, unknown>): string | null {
+  function walk(node: unknown, depth = 0): string | null {
+    if (depth > 12 || node == null || typeof node !== 'object') return null;
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        const found = walk(item, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    const obj = node as Record<string, unknown>;
+    if (obj.musicResponsiveHeaderRenderer && typeof obj.musicResponsiveHeaderRenderer === 'object') {
+      const header = obj.musicResponsiveHeaderRenderer as {
+        thumbnail?: {
+          musicThumbnailRenderer?: {
+            thumbnail?: { thumbnails?: Array<{ url?: string; width?: number }> };
+          };
+        };
+      };
+      const thumb = bestThumbnail(
+        header.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails,
+      );
+      if (thumb) return thumb;
+    }
+
+    for (const value of Object.values(obj)) {
+      const found = walk(value, depth + 1);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  return walk(data);
+}
+
 export async function scrapeYouTubeMusicFromLink(
   playlistId: string,
   playerId: string,
   onProgress?: ScrapeProgressCallback,
-): Promise<{ tracks: NormalizedTrack[]; sourceName: string; truncated?: boolean }> {
+): Promise<{
+  tracks: NormalizedTrack[];
+  sourceName: string;
+  thumbnailUrl?: string | null;
+  truncated?: boolean;
+}> {
   onProgress?.({
     phase: 'opening',
     loaded: 0,
@@ -476,6 +518,7 @@ export async function scrapeYouTubeMusicFromLink(
   }
 
   const sourceName = findPlaylistTitle(data) ?? 'YouTube Music import';
+  const thumbnailUrl = findPlaylistThumbnail(data);
   const shelf = findPlaylistShelf(data);
   if (!shelf) {
     throw new ScrapeError(
@@ -527,7 +570,12 @@ export async function scrapeYouTubeMusicFromLink(
 
   shuffleTracks(tracks);
   const truncated = tracks.length >= YTM_IMPORT_MAX_TRACKS;
-  return { tracks, sourceName, truncated: truncated || undefined };
+  return {
+    tracks,
+    sourceName,
+    thumbnailUrl: thumbnailUrl ?? tracks[0]?.albumArtUrl ?? null,
+    truncated: truncated || undefined,
+  };
 }
 
 export interface YtmPlaylistSearchHit {

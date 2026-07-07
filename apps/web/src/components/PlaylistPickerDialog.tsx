@@ -301,7 +301,7 @@ export function PlaylistPickerDialog({
       <DialogTitle sx={{ pb: 1 }}>
         <Stack direction="row" spacing={1} alignItems="center">
           <LibraryMusicRoundedIcon color="primary" />
-          <span>Choose playlist</span>
+          <span>Add playlist</span>
         </Stack>
       </DialogTitle>
       <DialogContent sx={{ pt: 1, pb: 3 }}>

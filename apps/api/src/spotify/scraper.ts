@@ -694,7 +694,12 @@ export async function scrapeSpotifyFromLink(
   input: string,
   playerId: string,
   onProgress?: ScrapeProgressCallback,
-): Promise<{ tracks: NormalizedTrack[]; sourceName: string; truncated?: boolean }> {
+): Promise<{
+  tracks: NormalizedTrack[];
+  sourceName: string;
+  thumbnailUrl?: string | null;
+  truncated?: boolean;
+}> {
   reportProgress(onProgress, {
     phase: 'opening',
     loaded: 0,
@@ -793,5 +798,5 @@ export async function scrapeSpotifyFromLink(
 
   const truncated = tracks.length < expectedTrackCount;
 
-  return { tracks, sourceName, truncated: truncated || undefined };
+  return { tracks, sourceName, thumbnailUrl: fallbackArt, truncated: truncated || undefined };
 }

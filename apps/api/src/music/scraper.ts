@@ -15,7 +15,12 @@ export async function scrapeMusicFromLink(
   input: string,
   playerId: string,
   onProgress?: ScrapeProgressCallback,
-): Promise<{ tracks: NormalizedTrack[]; sourceName: string; truncated?: boolean }> {
+): Promise<{
+  tracks: NormalizedTrack[];
+  sourceName: string;
+  thumbnailUrl?: string | null;
+  truncated?: boolean;
+}> {
   const parsed = parseMusicLink(input);
   if (!parsed) {
     throw new ScrapeError(

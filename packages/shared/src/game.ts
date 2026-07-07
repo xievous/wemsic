@@ -24,14 +24,21 @@ export interface NormalizedTrack {
   previewUrl?: string | null;
 }
 
+export interface PlayerPlaylist {
+  id: string;
+  name: string;
+  trackCount: number;
+  thumbnailUrl: string | null;
+}
+
 export interface Player {
   id: string;
   displayName: string;
   isHost: boolean;
   isReady: boolean;
   spotifyConnected: boolean;
-  playlistId: string | null;
-  playlistName: string | null;
+  playlists: PlayerPlaylist[];
+  /** Total tracks contributed across all of this player's playlists. */
   trackCount: number;
   score: number;
 }

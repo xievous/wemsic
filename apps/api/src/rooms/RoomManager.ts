@@ -23,15 +23,20 @@ import { clearSpotifyTokens, getSpotifyTokens } from '../spotify/client.js';
 import { generateRoomCode } from '../utils/roomCode.js';
 import { GameEngine } from './GameEngine.js';
 
+interface PlayerPlaylistEntry {
+  id: string;
+  name: string;
+  thumbnailUrl: string | null;
+  tracks: NormalizedTrack[];
+}
+
 interface RoomPlayer {
   id: string;
   displayName: string;
   isHost: boolean;
   isReady: boolean;
   spotifyConnected: boolean;
-  playlistId: string | null;
-  playlistName: string | null;
-  tracks: NormalizedTrack[];
+  playlists: PlayerPlaylistEntry[];
   score: number;
 }
 
@@ -188,18 +193,46 @@ export class RoomManager {
     this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
   }
 
-  setPlaylist(
+  addPlaylist(
     roomCode: string,
     playerId: string,
     playlistId: string,
     playlistName: string,
+    thumbnailUrl: string | null,
     tracks: NormalizedTrack[],
   ): boolean {
     const player = this.getPlayer(roomCode, playerId);
     if (!player) return false;
-    player.playlistId = playlistId;
-    player.playlistName = playlistName;
-    player.tracks = tracks.map((t) => ({ ...t, contributedBy: playerId }));
+
+    const normalizedTracks = tracks.map((t) => ({ ...t, contributedBy: playerId }));
+    const thumb = thumbnailUrl ?? normalizedTracks[0]?.albumArtUrl ?? null;
+    const entry: PlayerPlaylistEntry = {
+      id: playlistId,
+      name: playlistName,
+      thumbnailUrl: thumb,
+      tracks: normalizedTracks,
+    };
+
+    const existingIdx = player.playlists.findIndex((p) => p.id === playlistId);
+    if (existingIdx >= 0) {
+      player.playlists[existingIdx] = entry;
+    } else {
+      player.playlists.push(entry);
+    }
+
+    player.isReady = false;
+    this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
+    return true;
+  }
+
+  removePlaylist(roomCode: string, playerId: string, playlistId: string): boolean {
+    const player = this.getPlayer(roomCode, playerId);
+    if (!player) return false;
+
+    const before = player.playlists.length;
+    player.playlists = player.playlists.filter((p) => p.id !== playlistId);
+    if (player.playlists.length === before) return false;
+
     player.isReady = false;
     this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
     return true;
@@ -272,7 +305,7 @@ export class RoomManager {
     if (room.players.size < 1) return false;
     // At least one playlist must exist in the room (the presenter may add one too)...
     const hasPlaylist = [...room.players.values()].some(
-      (p) => p.tracks.length >= MIN_PLAYLIST_TRACKS,
+      (p) => this.playerTrackCount(p) >= MIN_PLAYLIST_TRACKS,
     );
     if (!hasPlaylist) return false;
     // ...there must be at least one competing player...
@@ -334,8 +367,8 @@ export class RoomManager {
 
     const allTracks: NormalizedTrack[] = [];
     for (const p of room.players.values()) {
-      if (p.tracks.length >= MIN_PLAYLIST_TRACKS) {
-        allTracks.push(...p.tracks);
+      if (this.playerTrackCount(p) >= MIN_PLAYLIST_TRACKS) {
+        allTracks.push(...this.playerAllTracks(p));
       }
     }
 
@@ -464,6 +497,14 @@ export class RoomManager {
     return this.rooms.get(roomCode.toUpperCase())?.players.get(playerId);
   }
 
+  private playerTrackCount(player: RoomPlayer): number {
+    return player.playlists.reduce((sum, pl) => sum + pl.tracks.length, 0);
+  }
+
+  private playerAllTracks(player: RoomPlayer): NormalizedTrack[] {
+    return player.playlists.flatMap((pl) => pl.tracks);
+  }
+
   private newPlayer(id: string, displayName: string, isHost: boolean): RoomPlayer {
     return {
       id,
@@ -471,9 +512,7 @@ export class RoomManager {
       isHost,
       isReady: false,
       spotifyConnected: false,
-      playlistId: null,
-      playlistName: null,
-      tracks: [],
+      playlists: [],
       score: 0,
     };
   }
@@ -485,9 +524,13 @@ export class RoomManager {
       isHost: p.id === room.hostPlayerId,
       isReady: p.isReady,
       spotifyConnected: p.spotifyConnected || this.isSpotifyConnected(p.id),
-      playlistId: p.playlistId,
-      playlistName: p.playlistName,
-      trackCount: p.tracks.length,
+      playlists: p.playlists.map((pl) => ({
+        id: pl.id,
+        name: pl.name,
+        trackCount: pl.tracks.length,
+        thumbnailUrl: pl.thumbnailUrl,
+      })),
+      trackCount: this.playerTrackCount(p),
       score: p.score,
     }));
 
