@@ -1,32 +1,51 @@
-import type { CatalogSearchResult, PresetCatalogResponse, PresetPlaylist } from '@wemsic/shared';
+import type {
+  CatalogSearchResult,
+  PresetCatalogResponse,
+  PresetCategory,
+  PresetPlaylist,
+} from '@wemsic/shared';
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import LibraryMusicRoundedIcon from '@mui/icons-material/LibraryMusicRounded';
 import MusicNoteRoundedIcon from '@mui/icons-material/MusicNoteRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
+import TheatersRoundedIcon from '@mui/icons-material/TheatersRounded';
+import TrendingUpRoundedIcon from '@mui/icons-material/TrendingUpRounded';
 import {
   Box,
   Chip,
   CircularProgress,
   Dialog,
-  DialogContent,
-  DialogTitle,
+  IconButton,
   InputAdornment,
   Stack,
   TextField,
   Typography,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fetchPresetPlaylists, searchCatalog } from '../api/client';
 
-const CATEGORY_LABELS: Record<string, string> = {
+type CategoryFilter = 'all' | PresetCategory;
+
+const CATEGORY_LABELS: Record<PresetCategory, string> = {
   trending: 'Trending',
   genre: 'Genres',
   theme: 'Themes',
 };
 
+const CATEGORY_ACCENTS: Record<PresetCategory, { from: string; to: string }> = {
+  trending: { from: '#3A6BFF', to: '#6C5CE7' },
+  genre: { from: '#00BFD8', to: '#16C79A' },
+  theme: { from: '#6C5CE7', to: '#2DB7FF' },
+};
+
 function sourceLabel(source: CatalogSearchResult['source']): string {
   switch (source) {
     case 'preset':
-      return 'Preset';
+      return 'Curated';
     case 'spotify':
       return 'Spotify';
     case 'apple':
@@ -36,126 +55,13 @@ function sourceLabel(source: CatalogSearchResult['source']): string {
   }
 }
 
-function sourceChipColor(
-  source: CatalogSearchResult['source'],
-): 'primary' | 'secondary' | 'success' | 'default' {
-  switch (source) {
-    case 'preset':
-      return 'primary';
-    case 'spotify':
-      return 'success';
-    case 'apple':
-      return 'default';
-    case 'youtube':
-      return 'secondary';
-  }
-}
-
 function formatTrackCount(count: number | undefined): string {
-  if (count == null) return 'Track count unknown';
+  if (count == null) return 'Unknown length';
   return `${count.toLocaleString()} track${count === 1 ? '' : 's'}`;
 }
 
-function PlaylistRow({
-  item,
-  onSelect,
-  disabled,
-}: {
-  item: CatalogSearchResult;
-  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
-  disabled?: boolean;
-}) {
-  return (
-    <Box
-      role="button"
-      tabIndex={disabled ? -1 : 0}
-      onClick={() => !disabled && void onSelect(item)}
-      onKeyDown={(e) => {
-        if (!disabled && (e.key === 'Enter' || e.key === ' ')) void onSelect(item);
-      }}
-      sx={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 1.5,
-        p: 1.5,
-        borderRadius: '14px',
-        border: '1px solid rgba(20,33,63,0.08)',
-        bgcolor: 'background.paper',
-        cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-        transition: 'all 140ms ease',
-        '&:hover': disabled
-          ? undefined
-          : {
-              borderColor: 'primary.main',
-              bgcolor: 'rgba(58,107,255,0.04)',
-              transform: 'translateY(-1px)',
-            },
-      }}
-    >
-      <Box
-        sx={{
-          width: 48,
-          height: 48,
-          borderRadius: '10px',
-          flexShrink: 0,
-          bgcolor: 'rgba(58,107,255,0.08)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          overflow: 'hidden',
-        }}
-      >
-        {item.thumbnailUrl ? (
-          <Box
-            component="img"
-            src={item.thumbnailUrl}
-            alt=""
-            sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
-          />
-        ) : (
-          <MusicNoteRoundedIcon color="primary" />
-        )}
-      </Box>
-      <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography fontWeight={600} noWrap>
-          {item.name}
-        </Typography>
-        {item.description && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-            {item.description}
-          </Typography>
-        )}
-        <Stack direction="row" spacing={0.75} sx={{ mt: 0.5 }} flexWrap="wrap" useFlexGap>
-          <Chip
-            label={sourceLabel(item.source)}
-            size="small"
-            color={sourceChipColor(item.source)}
-            variant="outlined"
-            sx={{ height: 22, fontSize: '0.7rem' }}
-          />
-          <Chip
-            label={formatTrackCount(item.trackCount)}
-            size="small"
-            variant="outlined"
-            sx={{ height: 22, fontSize: '0.7rem' }}
-          />
-        </Stack>
-      </Box>
-    </Box>
-  );
-}
-
-function PresetCard({
-  preset,
-  onSelect,
-  disabled,
-}: {
-  preset: PresetPlaylist;
-  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
-  disabled?: boolean;
-}) {
-  const item: CatalogSearchResult = {
+function presetToResult(preset: PresetPlaylist): CatalogSearchResult {
+  return {
     id: preset.id,
     name: preset.name,
     description: preset.description,
@@ -163,6 +69,35 @@ function PresetCard({
     trackCount: preset.estimatedTracks,
     source: 'preset',
   };
+}
+
+function CategoryIcon({ category }: { category: PresetCategory }) {
+  const sx = { fontSize: 20, opacity: 0.9 };
+  switch (category) {
+    case 'trending':
+      return <TrendingUpRoundedIcon sx={sx} />;
+    case 'genre':
+      return <GraphicEqRoundedIcon sx={sx} />;
+    case 'theme':
+      return <TheatersRoundedIcon sx={sx} />;
+  }
+}
+
+function PlaylistPickCard({
+  item,
+  onSelect,
+  disabled,
+  variant = 'grid',
+  category,
+}: {
+  item: CatalogSearchResult;
+  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
+  disabled?: boolean;
+  variant?: 'featured' | 'grid' | 'search';
+  category?: PresetCategory;
+}) {
+  const accent = category ? CATEGORY_ACCENTS[category] : null;
+  const isFeatured = variant === 'featured';
 
   return (
     <Box
@@ -173,34 +108,197 @@ function PresetCard({
         if (!disabled && (e.key === 'Enter' || e.key === ' ')) void onSelect(item);
       }}
       sx={{
-        p: 1.75,
-        borderRadius: '16px',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        minHeight: isFeatured ? 148 : variant === 'search' ? 132 : 128,
+        p: isFeatured ? 2 : 1.75,
+        borderRadius: isFeatured ? '20px' : '18px',
         border: '1px solid rgba(20,33,63,0.08)',
         bgcolor: 'background.paper',
         cursor: disabled ? 'default' : 'pointer',
-        opacity: disabled ? 0.6 : 1,
-        transition: 'all 140ms ease',
+        opacity: disabled ? 0.55 : 1,
+        overflow: 'hidden',
+        transition: 'transform 160ms cubic-bezier(0.16,1,0.3,1), box-shadow 160ms ease, border-color 160ms ease',
+        boxShadow: isFeatured
+          ? '0 16px 36px -22px rgba(58,107,255,0.45)'
+          : '0 10px 28px -20px rgba(20,33,63,0.18)',
         '&:hover': disabled
           ? undefined
           : {
-              borderColor: 'primary.main',
-              bgcolor: 'rgba(58,107,255,0.04)',
-              transform: 'translateY(-2px)',
+              transform: 'translateY(-3px)',
+              borderColor: 'rgba(58,107,255,0.35)',
+              boxShadow: isFeatured
+                ? '0 22px 44px -18px rgba(58,107,255,0.5)'
+                : '0 18px 36px -16px rgba(20,33,63,0.24)',
             },
+        '&::before': accent
+          ? {
+              content: '""',
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(135deg, ${accent.from}18 0%, ${accent.to}10 55%, transparent 100%)`,
+              pointerEvents: 'none',
+            }
+          : undefined,
       }}
     >
-      <Typography fontWeight={700} gutterBottom>
-        {preset.name}
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-        {preset.description}
-      </Typography>
-      <Chip
-        label={formatTrackCount(preset.estimatedTracks)}
-        size="small"
-        variant="outlined"
-        sx={{ height: 22, fontSize: '0.7rem' }}
-      />
+      <Box sx={{ position: 'relative', zIndex: 1 }}>
+        <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ mb: 1 }}>
+          <Box
+            sx={{
+              width: isFeatured ? 52 : 44,
+              height: isFeatured ? 52 : 44,
+              borderRadius: '14px',
+              flexShrink: 0,
+              overflow: 'hidden',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              bgcolor: item.thumbnailUrl ? 'transparent' : accent ? `${accent.from}22` : 'rgba(58,107,255,0.1)',
+              color: accent?.from ?? 'primary.main',
+            }}
+          >
+            {item.thumbnailUrl ? (
+              <Box
+                component="img"
+                src={item.thumbnailUrl}
+                alt=""
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            ) : category ? (
+              <CategoryIcon category={category} />
+            ) : (
+              <MusicNoteRoundedIcon sx={{ fontSize: isFeatured ? 26 : 22 }} />
+            )}
+          </Box>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography
+              fontWeight={700}
+              sx={{
+                fontSize: isFeatured ? '1.05rem' : '0.95rem',
+                lineHeight: 1.25,
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
+                overflow: 'hidden',
+              }}
+            >
+              {item.name}
+            </Typography>
+            {item.description && (
+              <Typography
+                variant="body2"
+                color="text.secondary"
+                sx={{
+                  mt: 0.35,
+                  display: '-webkit-box',
+                  WebkitLineClamp: isFeatured ? 2 : 1,
+                  WebkitBoxOrient: 'vertical',
+                  overflow: 'hidden',
+                  fontSize: isFeatured ? '0.85rem' : '0.78rem',
+                }}
+              >
+                {item.description}
+              </Typography>
+            )}
+          </Box>
+        </Stack>
+      </Box>
+
+      <Stack
+        direction="row"
+        spacing={0.75}
+        flexWrap="wrap"
+        useFlexGap
+        sx={{ position: 'relative', zIndex: 1, mt: 'auto', pt: 0.5 }}
+      >
+        {category && (
+          <Chip
+            label={CATEGORY_LABELS[category]}
+            size="small"
+            sx={{
+              height: 24,
+              fontSize: '0.68rem',
+              bgcolor: accent ? `${accent.from}14` : undefined,
+              color: accent?.from ?? 'text.secondary',
+              border: 'none',
+            }}
+          />
+        )}
+        <Chip
+          label={sourceLabel(item.source)}
+          size="small"
+          variant="outlined"
+          sx={{ height: 24, fontSize: '0.68rem' }}
+        />
+        <Chip
+          label={formatTrackCount(item.trackCount)}
+          size="small"
+          variant="outlined"
+          sx={{ height: 24, fontSize: '0.68rem' }}
+        />
+      </Stack>
+    </Box>
+  );
+}
+
+function FeaturedPresetRow({
+  presets,
+  onSelect,
+  disabled,
+}: {
+  presets: PresetPlaylist[];
+  onSelect: (item: CatalogSearchResult) => void | Promise<void>;
+  disabled?: boolean;
+}) {
+  if (presets.length === 0) return null;
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5, px: 0.25 }}>
+        <AutoAwesomeRoundedIcon sx={{ fontSize: 18, color: 'primary.main' }} />
+        <Typography variant="subtitle2" fontWeight={700}>
+          Popular picks
+        </Typography>
+      </Stack>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 1.5,
+          overflowX: 'auto',
+          pb: 0.5,
+          mx: -0.5,
+          px: 0.5,
+          scrollSnapType: 'x mandatory',
+          WebkitOverflowScrolling: 'touch',
+          '&::-webkit-scrollbar': { height: 6 },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: 'rgba(20,33,63,0.12)',
+            borderRadius: 999,
+          },
+        }}
+      >
+        {presets.map((preset) => (
+          <Box
+            key={preset.id}
+            sx={{
+              flex: '0 0 auto',
+              width: { xs: 240, sm: 260, md: 280 },
+              scrollSnapAlign: 'start',
+            }}
+          >
+            <PlaylistPickCard
+              item={presetToResult(preset)}
+              category="trending"
+              variant="featured"
+              onSelect={onSelect}
+              disabled={disabled}
+            />
+          </Box>
+        ))}
+      </Box>
     </Box>
   );
 }
@@ -216,6 +314,9 @@ export function PlaylistPickerDialog({
   onSelect: (item: CatalogSearchResult) => Promise<void>;
   disabled?: boolean;
 }) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [presets, setPresets] = useState<PresetCatalogResponse | null>(null);
@@ -225,6 +326,7 @@ export function PlaylistPickerDialog({
   const [searchError, setSearchError] = useState<string | null>(null);
   const [importingSelection, setImportingSelection] = useState(false);
   const [pickerError, setPickerError] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
 
   useEffect(() => {
     if (!open) return;
@@ -233,6 +335,7 @@ export function PlaylistPickerDialog({
     setSearchResults([]);
     setSearchError(null);
     setPickerError(null);
+    setCategoryFilter('all');
   }, [open]);
 
   useEffect(() => {
@@ -287,120 +390,268 @@ export function PlaylistPickerDialog({
   };
 
   const pickerBusy = disabled || importingSelection;
-
   const showSearch = debouncedQuery.length > 0;
+
+  const filteredPresets = useMemo(() => {
+    if (!presets) return [];
+    if (categoryFilter === 'all') {
+      return [
+        ...presets.genre.map((p) => ({ preset: p, category: 'genre' as const })),
+        ...presets.theme.map((p) => ({ preset: p, category: 'theme' as const })),
+      ];
+    }
+    return presets[categoryFilter].map((preset) => ({ preset, category: categoryFilter }));
+  }, [presets, categoryFilter]);
+
+  const categoryCounts = useMemo(() => {
+    if (!presets) return { all: 0, trending: 0, genre: 0, theme: 0 };
+    return {
+      all: presets.trending.length + presets.genre.length + presets.theme.length,
+      trending: presets.trending.length,
+      genre: presets.genre.length,
+      theme: presets.theme.length,
+    };
+  }, [presets]);
 
   return (
     <Dialog
       open={open}
       onClose={pickerBusy ? undefined : onClose}
       fullWidth
-      maxWidth="sm"
-      PaperProps={{ sx: { borderRadius: '20px' } }}
+      fullScreen={isMobile}
+      maxWidth="lg"
+      PaperProps={{
+        sx: {
+          borderRadius: isMobile ? 0 : '24px',
+          overflow: 'hidden',
+          maxHeight: isMobile ? '100%' : 'min(92vh, 880px)',
+          bgcolor: '#F8FBFF',
+        },
+      }}
     >
-      <DialogTitle sx={{ pb: 1 }}>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <LibraryMusicRoundedIcon color="primary" />
-          <span>Add playlist</span>
+      <Box
+        sx={{
+          px: { xs: 2, sm: 3, md: 4 },
+          pt: { xs: 2, sm: 2.5 },
+          pb: 2,
+          borderBottom: '1px solid rgba(20,33,63,0.06)',
+          background:
+            'linear-gradient(180deg, rgba(58,107,255,0.07) 0%, rgba(58,107,255,0.02) 55%, transparent 100%)',
+        }}
+      >
+        <Stack direction="row" alignItems="flex-start" justifyContent="space-between" spacing={2}>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 0.5 }}>
+              <LibraryMusicRoundedIcon color="primary" />
+              <Typography variant="h5" fontWeight={700}>
+                Add a playlist
+              </Typography>
+            </Stack>
+            <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 560 }}>
+              Search Spotify, Apple Music & YouTube — or pick a curated playlist to import.
+            </Typography>
+          </Box>
+          <IconButton
+            onClick={onClose}
+            disabled={pickerBusy}
+            aria-label="Close"
+            sx={{
+              bgcolor: 'background.paper',
+              border: '1px solid rgba(20,33,63,0.08)',
+              '&:hover': { bgcolor: 'rgba(255,255,255,0.95)' },
+            }}
+          >
+            <CloseRoundedIcon />
+          </IconButton>
         </Stack>
-      </DialogTitle>
-      <DialogContent sx={{ pt: 1, pb: 3 }}>
+
         <TextField
           fullWidth
-          size="small"
-          placeholder="Search playlists — eurovision, disney, 90s…"
+          placeholder="Try eurovision, disney, 90s, k-pop…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           disabled={pickerBusy}
-          sx={{ mb: 2.5 }}
+          sx={{ mt: 2.5 }}
           slotProps={{
             input: {
+              sx: {
+                py: 1.35,
+                fontSize: '1rem',
+                bgcolor: 'background.paper',
+                borderRadius: '16px',
+              },
               startAdornment: (
                 <InputAdornment position="start">
-                  <SearchRoundedIcon fontSize="small" color="action" />
+                  <SearchRoundedIcon color="primary" />
                 </InputAdornment>
               ),
               endAdornment: searching ? (
                 <InputAdornment position="end">
-                  <CircularProgress size={18} />
+                  <CircularProgress size={20} />
                 </InputAdornment>
               ) : undefined,
             },
           }}
         />
 
+        {(pickerError || searchError) && (
+          <Typography variant="body2" color="error" sx={{ mt: 1.5 }}>
+            {pickerError ?? searchError}
+          </Typography>
+        )}
+      </Box>
+
+      <Box
+        sx={{
+          px: { xs: 2, sm: 3, md: 4 },
+          py: { xs: 2, sm: 2.5, md: 3 },
+          overflowY: 'auto',
+          flex: 1,
+        }}
+      >
         {showSearch ? (
-          <Stack spacing={1}>
+          <>
             {!searching && searchResults.length > 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Pick a playlist to import — track counts shown for each result.
-              </Typography>
-            )}
-            {pickerError && (
-              <Typography variant="body2" color="error">
-                {pickerError}
-              </Typography>
-            )}
-            {searchError && (
-              <Typography variant="body2" color="error">
-                {searchError}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                {searchResults.length} result{searchResults.length === 1 ? '' : 's'} for &ldquo;
+                {debouncedQuery}&rdquo;
               </Typography>
             )}
             {!searching && searchResults.length === 0 && !searchError && (
-              <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-                No playlists found for &ldquo;{debouncedQuery}&rdquo;. Try another search or paste a
-                link below.
-              </Typography>
+              <Box sx={{ py: 6, textAlign: 'center' }}>
+                <Typography variant="h6" fontWeight={600} gutterBottom>
+                  No playlists found
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 420, mx: 'auto' }}>
+                  Try another theme, or clear search to browse our curated picks below.
+                </Typography>
+              </Box>
             )}
-            {searchResults.map((item) => (
-              <PlaylistRow
-                key={item.id}
-                item={item}
-                onSelect={handleSelect}
-                disabled={pickerBusy || !item.url}
-              />
-            ))}
-          </Stack>
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: '1fr',
+                  sm: 'repeat(2, 1fr)',
+                  md: 'repeat(3, 1fr)',
+                },
+                gap: 1.5,
+              }}
+            >
+              {searchResults.map((item) => (
+                <PlaylistPickCard
+                  key={item.id}
+                  item={item}
+                  variant="search"
+                  onSelect={handleSelect}
+                  disabled={pickerBusy || !item.url}
+                />
+              ))}
+            </Box>
+          </>
         ) : presetsLoading ? (
-          <Stack alignItems="center" py={4}>
-            <CircularProgress size={28} />
+          <Stack alignItems="center" py={8}>
+            <CircularProgress size={32} />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              Loading curated playlists…
+            </Typography>
           </Stack>
         ) : presets ? (
-          <Stack spacing={2.5}>
-            {(['trending', 'genre', 'theme'] as const).map((category) => {
-              const items = presets[category];
-              if (!items.length) return null;
-              return (
-                <Box key={category}>
-                  <Typography variant="overline" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                    {CATEGORY_LABELS[category]}
-                  </Typography>
-                  <Box
-                    sx={{
-                      display: 'grid',
-                      gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-                      gap: 1.25,
-                    }}
-                  >
-                    {items.map((preset: PresetPlaylist) => (
-                      <PresetCard
-                        key={preset.id}
-                        preset={preset}
-                        onSelect={handleSelect}
-                        disabled={pickerBusy}
-                      />
-                    ))}
-                  </Box>
-                </Box>
-              );
-            })}
-          </Stack>
+          <>
+            {categoryFilter === 'all' && (
+              <FeaturedPresetRow
+                presets={presets.trending}
+                onSelect={handleSelect}
+                disabled={pickerBusy}
+              />
+            )}
+
+            <Stack
+              direction="row"
+              spacing={1}
+              flexWrap="wrap"
+              useFlexGap
+              sx={{ mb: 2.5 }}
+            >
+              {(
+                [
+                  ['all', 'All playlists'],
+                  ['trending', CATEGORY_LABELS.trending],
+                  ['genre', CATEGORY_LABELS.genre],
+                  ['theme', CATEGORY_LABELS.theme],
+                ] as const
+              ).map(([key, label]) => (
+                <Chip
+                  key={key}
+                  label={`${label} (${categoryCounts[key]})`}
+                  clickable
+                  onClick={() => setCategoryFilter(key)}
+                  color={categoryFilter === key ? 'primary' : 'default'}
+                  variant={categoryFilter === key ? 'filled' : 'outlined'}
+                  sx={{ fontWeight: 600, height: 34 }}
+                />
+              ))}
+            </Stack>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: {
+                  xs: 'repeat(2, 1fr)',
+                  sm: 'repeat(3, 1fr)',
+                  md: 'repeat(4, 1fr)',
+                },
+                gap: 1.5,
+              }}
+            >
+              {filteredPresets.length === 0 ? (
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  sx={{ gridColumn: '1 / -1', py: 2, textAlign: 'center' }}
+                >
+                  No playlists in this category.
+                </Typography>
+              ) : (
+                filteredPresets.map(({ preset, category }) => (
+                  <PlaylistPickCard
+                    key={preset.id}
+                    item={presetToResult(preset)}
+                    category={category}
+                    onSelect={handleSelect}
+                    disabled={pickerBusy}
+                  />
+                ))
+              )}
+            </Box>
+          </>
         ) : (
-          <Typography variant="body2" color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>
-            Could not load presets. Try searching for a theme instead.
-          </Typography>
+          <Box sx={{ py: 6, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              Could not load curated playlists. Use search to find playlists instead.
+            </Typography>
+          </Box>
         )}
-      </DialogContent>
+      </Box>
+
+      {importingSelection && (
+        <Box
+          sx={{
+            px: 3,
+            py: 1.5,
+            borderTop: '1px solid rgba(20,33,63,0.06)',
+            bgcolor: 'background.paper',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+          }}
+        >
+          <CircularProgress size={18} />
+          <Typography variant="body2" fontWeight={600}>
+            Importing playlist…
+          </Typography>
+        </Box>
+      )}
     </Dialog>
   );
 }
