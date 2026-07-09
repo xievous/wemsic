@@ -431,16 +431,15 @@ export function Game() {
 
   useEffect(() => {
     // Player pads never play audio in host mode — the host screen is the only
-    // sound source.
+    // sound source. Queue the preview even before sound is unlocked so round 1
+    // plays as soon as the user taps Enable sound.
     if (isPad) return;
-    if (!audioEnabled || previewUrl === undefined || roundIndex === undefined) {
-      return;
-    }
+    if (previewUrl === undefined || roundIndex === undefined) return;
     const key = `${roundIndex}:${previewUrl}`;
     if (lastAudioKeyRef.current === key) return;
     lastAudioKeyRef.current = key;
-    playPreview(previewUrl);
-  }, [audioEnabled, previewUrl, roundIndex, playPreview, isPad]);
+    playPreview(previewUrl, { loop: true });
+  }, [previewUrl, roundIndex, playPreview, isPad]);
 
   // Keep the preview playing through reveal until the next round starts.
   // playPreview swaps tracks on round:start; only stop when fully idle.

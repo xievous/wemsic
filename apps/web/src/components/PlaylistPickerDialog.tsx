@@ -56,7 +56,7 @@ function sourceLabel(source: CatalogSearchResult['source']): string {
 }
 
 function formatTrackCount(count: number | undefined): string {
-  if (count == null) return 'Unknown length';
+  if (count == null) return 'Length unknown';
   return `${count.toLocaleString()} track${count === 1 ? '' : 's'}`;
 }
 

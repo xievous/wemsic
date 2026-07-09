@@ -170,6 +170,67 @@ function dedupeHits(hits: SpotifyPlaylistSearchHit[]): SpotifyPlaylistSearchHit[
   return result.slice(0, SEARCH_MAX_RESULTS);
 }
 
+async function fetchWebApiPlaylistTrackCount(
+  accessToken: string,
+  playlistId: string,
+): Promise<number | undefined> {
+  const res = await fetch(
+    `https://api.spotify.com/v1/playlists/${playlistId}?fields=tracks.total`,
+    { headers: { Authorization: `Bearer ${accessToken}`, Accept: 'application/json' } },
+  );
+  if (!res.ok) return undefined;
+  const data = (await res.json()) as { tracks?: { total?: number } };
+  const total = data.tracks?.total;
+  return typeof total === 'number' && total > 0 ? total : undefined;
+}
+
+async function fetchSpclientPlaylistTrackCount(
+  accessToken: string,
+  playlistId: string,
+): Promise<number | undefined> {
+  const res = await fetch(
+    `https://spclient.wg.spotify.com/playlist/v2/playlist/${playlistId}?format=json&from=0&length=1`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        Accept: 'application/json',
+        'User-Agent': USER_AGENT,
+      },
+    },
+  );
+  if (!res.ok) return undefined;
+  const data = (await res.json()) as { length?: number };
+  return typeof data.length === 'number' && data.length > 0 ? data.length : undefined;
+}
+
+async function enrichHitTrackCount(
+  hit: SpotifyPlaylistSearchHit,
+  appToken: string | null,
+  embedToken: string | null,
+): Promise<SpotifyPlaylistSearchHit> {
+  if (hit.trackCount != null) return hit;
+  if (appToken) {
+    const total = await fetchWebApiPlaylistTrackCount(appToken, hit.id);
+    if (total != null) return { ...hit, trackCount: total };
+  }
+  if (embedToken) {
+    const total = await fetchSpclientPlaylistTrackCount(embedToken, hit.id);
+    if (total != null) return { ...hit, trackCount: total };
+  }
+  return hit;
+}
+
+export async function enrichSpotifyPlaylistTrackCounts(
+  hits: SpotifyPlaylistSearchHit[],
+): Promise<SpotifyPlaylistSearchHit[]> {
+  if (hits.length === 0) return hits;
+  const appToken = await getClientCredentialsToken();
+  const embedToken = await getAnonymousSpotifyAccessToken();
+  if (!appToken && !embedToken) return hits;
+
+  return Promise.all(hits.map((hit) => enrichHitTrackCount(hit, appToken, embedToken)));
+}
+
 export async function searchSpotifyPlaylists(theme: string): Promise<SpotifyPlaylistSearchHit[]> {
   const trimmed = theme.trim();
   if (!trimmed) return [];
@@ -184,7 +245,7 @@ export async function searchSpotifyPlaylists(theme: string): Promise<SpotifyPlay
       if (dedupeHits(all).length >= SEARCH_MAX_RESULTS) break;
     }
     const deduped = dedupeHits(all);
-    if (deduped.length > 0) return deduped;
+    if (deduped.length > 0) return enrichSpotifyPlaylistTrackCounts(deduped);
   }
 
   const embedToken = await getAnonymousSpotifyAccessToken();
@@ -195,5 +256,5 @@ export async function searchSpotifyPlaylists(theme: string): Promise<SpotifyPlay
     if (dedupeHits(all).length >= SEARCH_MAX_RESULTS) break;
   }
 
-  return dedupeHits(all);
+  return enrichSpotifyPlaylistTrackCounts(dedupeHits(all));
 }

@@ -105,6 +105,7 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
       name: hit.name,
       description: hit.curator ? `By ${hit.curator}` : undefined,
       url: hit.url,
+      trackCount: hit.trackCount,
       source: 'apple' as const,
       thumbnailUrl: hit.thumbnailUrl,
     }));

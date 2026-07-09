@@ -16,7 +16,7 @@ const YTM_IMPORT_MAX_TRACKS = 200;
 const SEARCH_MAX_RESULTS = 20;
 const SEARCH_MAX_PAGES = 3;
 const ENRICH_BATCH_SIZE = 4;
-const COUNT_SHELF_MAX_PAGES = 2;
+const COUNT_SHELF_MAX_PAGES = 4;
 
 const YTM_CLIENT = {
   clientName: 'WEB_REMIX',
