@@ -30,13 +30,18 @@ function loadStoredVolume(): number {
   return DEFAULT_VOLUME;
 }
 
+export interface PlayPreviewOptions {
+  /** Loop the 30s preview clip until stop() or the next preview. */
+  loop?: boolean;
+}
+
 interface AudioContextValue {
   /** True once the player has granted a gesture so previews can autoplay. */
   enabled: boolean;
   /** Call from a user gesture (e.g. a button click) to unlock audio. */
   enableAudio: () => void;
   /** Play a preview url on the shared, already-unlocked element. */
-  playPreview: (url?: string | null) => void;
+  playPreview: (url?: string | null, options?: PlayPreviewOptions) => void;
   /** Play a short, satisfying "correct guess" click/ding sound effect. */
   playCorrectChime: () => void;
   /** Stop playback. */
@@ -64,23 +69,18 @@ type WindowWithWebkitAudio = Window &
 export function AudioProvider({ children }: { children: ReactNode }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const pendingPreviewRef = useRef<string | null>(null);
+  const pendingLoopRef = useRef(false);
   const unlockedRef = useRef(false);
-  // A dedicated Web Audio context for synthesized UI sound effects. Kept
-  // separate from the <audio> preview element so effects never interrupt the
-  // track preview. Created lazily on first use so we don't spin one up before
-  // the player has interacted with the page.
   const effectCtxRef = useRef<AudioContext | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [volume, setVolumeState] = useState<number>(loadStoredVolume);
-  // Mirror volume in a ref so the play callbacks can read the current value
-  // without listing `volume` as a dependency. Otherwise changing the volume
-  // recreates those callbacks and re-fires the "play pending preview" effect,
-  // restarting the song mid-round.
   const volumeRef = useRef(volume);
+  const enabledRef = useRef(enabled);
 
-  // Keep the shared audio element in sync with the current volume. This runs on
-  // mount and whenever volume changes, so the setting carries across rounds and
-  // into a replay without any per-round wiring.
+  useEffect(() => {
+    enabledRef.current = enabled;
+  }, [enabled]);
+
   useEffect(() => {
     volumeRef.current = volume;
     const el = audioRef.current;
@@ -100,61 +100,105 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const playPreviewInternal = useCallback((url: string) => {
+  const playPreviewInternal = useCallback(async (url: string, loop: boolean) => {
     const el = audioRef.current;
     if (!el) return;
-    resolveSrc(el, url);
+
+    el.loop = loop;
     el.muted = false;
     el.volume = volumeRef.current;
-    el.currentTime = 0;
-    void el.play().catch(() => {});
+
+    const startPlayback = () => {
+      el.currentTime = 0;
+      void el.play().catch(() => {});
+    };
+
+    resolveSrc(el, url);
+
+    if (el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      startPlayback();
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      let settled = false;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        el.removeEventListener('canplay', onReady);
+        el.removeEventListener('loadeddata', onReady);
+        resolve();
+      };
+      const onReady = () => {
+        finish();
+        startPlayback();
+      };
+      el.addEventListener('canplay', onReady, { once: true });
+      el.addEventListener('loadeddata', onReady, { once: true });
+      window.setTimeout(finish, 2500);
+    });
+
+    if (el.paused && el.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) {
+      startPlayback();
+    }
   }, []);
 
   const playPendingPreview = useCallback(() => {
     const pending = pendingPreviewRef.current;
-    if (pending) playPreviewInternal(pending);
+    if (!pending || !unlockedRef.current) return;
+    void playPreviewInternal(pending, pendingLoopRef.current);
   }, [playPreviewInternal]);
 
   const enableAudio = useCallback(() => {
-    const el = audioRef.current;
-    if (el) {
-      try {
-        el.src = SILENT_WAV;
-        el.currentTime = 0;
-        // Unlock in the user gesture, then immediately chain the first real
-        // preview (if one was queued) while the gesture is still active.
-        void el
-          .play()
-          .then(() => {
-            unlockedRef.current = true;
-            playPendingPreview();
-          })
-          .catch(() => {});
-      } catch {
-        /* ignore */
-      }
-    }
+    // Mark enabled immediately so the UI updates on the user gesture. Autoplay
+    // unlock still runs via the silent clip; previews may play once that resolves
+    // or as soon as `enabled` is true (see playPreview).
     setEnabled(true);
+
+    const el = audioRef.current;
+    if (!el) {
+      unlockedRef.current = true;
+      playPendingPreview();
+      return;
+    }
+
+    try {
+      el.loop = false;
+      el.muted = false;
+      el.volume = volumeRef.current;
+      el.src = SILENT_WAV;
+      el.currentTime = 0;
+      const onUnlocked = () => {
+        unlockedRef.current = true;
+        playPendingPreview();
+      };
+      void el.play().then(onUnlocked).catch(onUnlocked);
+    } catch {
+      unlockedRef.current = true;
+      playPendingPreview();
+    }
   }, [playPendingPreview]);
 
   const playPreview = useCallback(
-    (url?: string | null) => {
+    (url?: string | null, options?: PlayPreviewOptions) => {
       if (!url) return;
       pendingPreviewRef.current = url;
-      if (!enabled && !unlockedRef.current) return;
-      playPreviewInternal(url);
+      pendingLoopRef.current = options?.loop ?? false;
+      if (!enabledRef.current && !unlockedRef.current) return;
+      void playPreviewInternal(url, pendingLoopRef.current);
     },
-    [enabled, playPreviewInternal],
+    [playPreviewInternal],
   );
 
-  // If a round starts right after lobby unlock, the preview may have been
-  // queued before the silent clip finished — replay once we're enabled.
   useEffect(() => {
     if (enabled) playPendingPreview();
   }, [enabled, playPendingPreview]);
 
   const stop = useCallback(() => {
-    audioRef.current?.pause();
+    const el = audioRef.current;
+    if (!el) return;
+    el.loop = false;
+    el.pause();
   }, []);
 
   const playCorrectChime = useCallback(() => {
@@ -174,12 +218,9 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
     const now = ctx.currentTime;
     const master = ctx.createGain();
-    // Scale the effect to the player's volume but keep it subtle so it never
-    // overpowers the music preview.
     master.gain.value = vol * 0.6;
     master.connect(ctx.destination);
 
-    // Sharp, clicky transient gives the satisfying "tactile" attack.
     const click = ctx.createOscillator();
     click.type = 'square';
     click.frequency.setValueAtTime(2600, now);
@@ -191,12 +232,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     click.start(now);
     click.stop(now + 0.06);
 
-    // Bright two-tone "ding" that rings out after the click.
     [880, 1320].forEach((freq, i) => {
-      const osc = ctx.createOscillator();
+      const osc = ctx!.createOscillator();
       osc.type = 'sine';
       osc.frequency.setValueAtTime(freq, now + 0.012);
-      const gain = ctx.createGain();
+      const gain = ctx!.createGain();
       const peak = i === 0 ? 0.32 : 0.14;
       gain.gain.setValueAtTime(0.0001, now + 0.012);
       gain.gain.exponentialRampToValueAtTime(peak, now + 0.035);
@@ -230,4 +270,3 @@ export function useAudio() {
   if (!ctx) throw new Error('useAudio must be used within AudioProvider');
   return ctx;
 }
-

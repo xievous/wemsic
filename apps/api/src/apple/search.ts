@@ -12,6 +12,7 @@ export interface ApplePlaylistSearchHit {
   url: string;
   storefront: string;
   thumbnailUrl?: string;
+  trackCount?: number;
 }
 
 interface AppleSearchResponse {
@@ -80,6 +81,54 @@ async function searchForQuery(
   return hits;
 }
 
+interface AppleTracksPageResponse {
+  data?: unknown[];
+  next?: string;
+}
+
+function nextAmpPath(nextUrl: string): string {
+  return nextUrl.startsWith(AMP_API) ? nextUrl.slice(AMP_API.length) : nextUrl;
+}
+
+async function fetchPlaylistTrackCount(
+  token: string,
+  storefront: string,
+  playlistId: string,
+): Promise<number | undefined> {
+  let total = 0;
+  let nextPath: string | null =
+    `/v1/catalog/${storefront}/playlists/${playlistId}/tracks?limit=100`;
+  let pages = 0;
+
+  while (nextPath && pages < 6) {
+    const data = await ampFetch<AppleTracksPageResponse>(nextPath, token);
+    if (!data) return total > 0 ? total : undefined;
+    total += data.data?.length ?? 0;
+    if (!data.next) return total > 0 ? total : undefined;
+    nextPath = nextAmpPath(data.next);
+    pages++;
+  }
+
+  return total > 0 ? total : undefined;
+}
+
+async function enrichHitTrackCount(
+  hit: ApplePlaylistSearchHit,
+  token: string,
+): Promise<ApplePlaylistSearchHit> {
+  if (hit.trackCount != null) return hit;
+  const total = await fetchPlaylistTrackCount(token, hit.storefront, hit.id);
+  return total != null ? { ...hit, trackCount: total } : hit;
+}
+
+export async function enrichApplePlaylistTrackCounts(
+  hits: ApplePlaylistSearchHit[],
+  token: string,
+): Promise<ApplePlaylistSearchHit[]> {
+  if (hits.length === 0) return hits;
+  return Promise.all(hits.map((hit) => enrichHitTrackCount(hit, token)));
+}
+
 function dedupeHits(hits: ApplePlaylistSearchHit[]): ApplePlaylistSearchHit[] {
   const seen = new Set<string>();
   const result: ApplePlaylistSearchHit[] = [];
@@ -107,5 +156,5 @@ export async function searchAppleMusicPlaylists(
     if (dedupeHits(all).length >= SEARCH_MAX_RESULTS) break;
   }
 
-  return dedupeHits(all);
+  return enrichApplePlaylistTrackCounts(dedupeHits(all), token);
 }
