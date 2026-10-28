@@ -1,0 +1,8 @@
+# GitHub Desktop's bundled Git has sh but no bash, and on Windows the `npm`
+# shim is a bash script. Fall back to npm.cmd there.
+if ! command -v bash >/dev/null 2>&1; then
+  npm() { npm.cmd "$@"; }
+fi
+
+npm run typecheck
+npm test

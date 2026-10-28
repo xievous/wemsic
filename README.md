@@ -104,7 +104,20 @@ npm run dev:api      # API only
 npm run dev:web      # Web only
 npm run build        # Build shared, API, and web
 npm run typecheck    # Typecheck all workspaces
+npm test             # Run the test suite once
+npm run test:watch   # Re-run tests on file changes
 ```
+
+## Testing
+
+Tests use [Vitest](https://vitest.dev/) and live next to the code as `*.test.ts` in `packages/shared` and `apps/api`. They import `@wemsic/shared` from source, so there's no need to build it first.
+
+- **Shared:** scoring and answer matching for each spelling leniency.
+- **API:** `TrackPool` rotation, plus `GameEngine` and `RoomManager` run through whole simulated games with fake timers and a stubbed preview lookup. Speed choice, typing, host screen mode, the start countdown and rematch are all covered without a browser.
+
+Known bugs are kept as `it.fails` tests, which pass while the bug exists. When you fix one, it fails, and you turn it into a normal `it`.
+
+A pre-commit hook ([husky](https://typicode.github.io/husky/)) runs `npm run typecheck` and `npm test`, and GitHub Actions runs typecheck, tests and build on every push to `main` and every pull request.
 
 ## Project structure
 

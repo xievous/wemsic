@@ -11,12 +11,17 @@
     "dev:api": "npm run dev -w @wemsic/api",
     "dev:web": "npm run dev -w @wemsic/web",
     "build": "npm run build -w @wemsic/shared && npm run build -w @wemsic/api && npm run build -w @wemsic/web",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run build -w @wemsic/shared && npm run typecheck --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "prepare": "husky"
   },
   "engines": {
     "node": ">=20"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "husky": "^9.1.7",
+    "vitest": "^3.2.7"
   }
 }

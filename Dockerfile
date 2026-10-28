@@ -26,11 +26,13 @@ WORKDIR /app
 ENV NODE_ENV=production
 
 # Install production deps for the API workspace only (pulls in @wemsic/shared).
+# --ignore-scripts skips the root "prepare" (husky), a dev dependency that
+# isn't installed here; none of the API's runtime deps need install scripts.
 COPY package.json package-lock.json ./
 COPY packages/shared/package.json packages/shared/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
-RUN npm install --omit=dev -w @wemsic/api
+RUN npm install --omit=dev --ignore-scripts -w @wemsic/api
 
 # Copy compiled output.
 COPY --from=build /app/packages/shared/dist packages/shared/dist
