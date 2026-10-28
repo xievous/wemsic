@@ -36,7 +36,6 @@ export interface Player {
   displayName: string;
   isHost: boolean;
   isReady: boolean;
-  spotifyConnected: boolean;
   playlists: PlayerPlaylist[];
   /** Total tracks contributed across all of this player's playlists. */
   trackCount: number;
@@ -126,16 +125,6 @@ export interface GameEndPayload {
   leaderboard: LeaderboardEntry[];
   winnerId: string | null;
 }
-
-export interface SpeedChoiceAnswer {
-  optionId: string;
-}
-
-export interface TypingGuessAnswer {
-  guess: string;
-}
-
-export type AnswerPayload = SpeedChoiceAnswer | TypingGuessAnswer;
 
 export interface PlaylistImportProgressPayload {
   playerId: string;

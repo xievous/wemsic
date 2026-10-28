@@ -1,5 +1,3 @@
-import { parseSpotifyLink } from '../spotify/client.js';
-
 export type MusicProvider = 'spotify' | 'apple' | 'youtube';
 
 export type MusicLinkKind = 'playlist' | 'album';
@@ -10,6 +8,23 @@ export interface ParsedMusicLink {
   id: string;
   /** Apple Music storefront code, e.g. `us`. */
   storefront?: string;
+}
+
+const SPOTIFY_ID = '[a-zA-Z0-9]{22}';
+
+export function parseSpotifyLink(input: string): { kind: MusicLinkKind; id: string } | null {
+  const trimmed = input.trim();
+  if (new RegExp(`^${SPOTIFY_ID}$`).test(trimmed)) {
+    return { kind: 'playlist', id: trimmed };
+  }
+
+  const album = trimmed.match(new RegExp(`album\\/(${SPOTIFY_ID})`, 'i'))?.[1];
+  if (album) return { kind: 'album', id: album };
+
+  const playlist = trimmed.match(new RegExp(`playlist\\/(${SPOTIFY_ID})`, 'i'))?.[1];
+  if (playlist) return { kind: 'playlist', id: playlist };
+
+  return null;
 }
 
 const APPLE_PATH =

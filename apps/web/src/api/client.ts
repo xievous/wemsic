@@ -36,21 +36,6 @@ export async function getRoom(roomCode: string) {
   return res.json() as Promise<LobbyState | { error: string }>;
 }
 
-export async function fetchSpotifyPlaylists(playerId: string) {
-  const res = await fetch(
-    `${API_URL}/spotify/playlists?playerId=${encodeURIComponent(playerId)}`,
-  );
-  return res.json() as Promise<{
-    playlists?: Array<{
-      id: string;
-      name: string;
-      trackCount: number;
-      imageUrl: string | null;
-    }>;
-    error?: string;
-  }>;
-}
-
 export async function importMusic(
   roomCode: string,
   playerId: string,
@@ -90,19 +75,6 @@ export async function removePlaylist(
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error ?? 'Failed to remove playlist');
   return data as { ok: true };
-}
-
-/** @deprecated use importMusic */
-export async function importPlaylist(
-  roomCode: string,
-  playerId: string,
-  playlistId: string,
-) {
-  return importMusic(roomCode, playerId, playlistId);
-}
-
-export function spotifyLoginUrl(playerId: string, roomCode: string) {
-  return `${API_URL}/auth/spotify/login?playerId=${encodeURIComponent(playerId)}&roomCode=${encodeURIComponent(roomCode)}`;
 }
 
 export async function fetchPresetPlaylists() {

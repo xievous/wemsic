@@ -32,7 +32,7 @@ Monorepo managed with npm workspaces.
 - **Node.js 20+**
 - **npm** (comes with Node)
 
-Spotify Developer credentials are **optional** — only needed if you want the legacy Spotify OAuth endpoints (`/auth/spotify/*`). The current lobby flow imports music by pasting public playlist links.
+Spotify Developer credentials are **optional**. Players never log in to Spotify; music is imported from public playlist links. If set, the API uses them (app-only, no user login) as a fallback for Spotify playlist search and track counts.
 
 ## Local development
 
@@ -52,18 +52,14 @@ Spotify Developer credentials are **optional** — only needed if you want the l
    # API
    PORT=3001
    WEB_ORIGIN=http://127.0.0.1:5173
-   API_PUBLIC_URL=http://127.0.0.1:3001
 
    # Web (set at build time for production)
    VITE_API_URL=http://127.0.0.1:3001
 
-   # Optional — Spotify OAuth (not required for link-based import)
+   # Optional — improves Spotify playlist search (not required for link import)
    SPOTIFY_CLIENT_ID=
    SPOTIFY_CLIENT_SECRET=
-   SPOTIFY_REDIRECT_URI=http://127.0.0.1:3001/auth/spotify/callback
    ```
-
-   If you configure Spotify OAuth, add `http://127.0.0.1:3001/auth/spotify/callback` as a redirect URI in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard). Use `127.0.0.1`, not `localhost` — [Spotify rejects `localhost` redirect URIs](https://developer.spotify.com/documentation/web-api/concepts/redirect_uri).
 
 3. **Start both servers**
 
@@ -161,9 +157,7 @@ A root `Dockerfile` and `render.yaml` blueprint are included.
 2. Set environment variables:
    - `NODE_ENV=production`
    - `WEB_ORIGIN` — your Vercel URL (e.g. `https://wemsic.vercel.app`)
-   - `API_PUBLIC_URL` — this service's URL (e.g. `https://wemsic-api.onrender.com`)
-   - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` (optional)
-   - `SPOTIFY_REDIRECT_URI` — `<API_PUBLIC_URL>/auth/spotify/callback` (optional)
+   - `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET` (optional, improves playlist search)
 3. Health check: `GET /health` → `{ "ok": true }`.
 
 > Run a **single instance**. Rooms and session state live in memory and are not shared across replicas. Free-tier hosts may sleep when idle and wipe rooms on cold start.

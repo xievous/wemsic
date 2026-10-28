@@ -19,7 +19,6 @@ import type {
   TypingSpellingLeniency,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
-import { clearSpotifyTokens, getSpotifyTokens } from '../spotify/client.js';
 import { generateRoomCode } from '../utils/roomCode.js';
 import { GameEngine } from './GameEngine.js';
 
@@ -35,7 +34,6 @@ interface RoomPlayer {
   displayName: string;
   isHost: boolean;
   isReady: boolean;
-  spotifyConnected: boolean;
   playlists: PlayerPlaylistEntry[];
   score: number;
 }
@@ -128,7 +126,6 @@ export class RoomManager {
     if (!room) return;
 
     room.players.delete(playerId);
-    clearSpotifyTokens(playerId);
 
     if (room.players.size === 0) {
       room.engine?.destroy();
@@ -156,13 +153,12 @@ export class RoomManager {
     if (!room.players.has(targetPlayerId)) return;
 
     room.players.delete(targetPlayerId);
-    clearSpotifyTokens(targetPlayerId);
     this.emitLobby(room);
   }
 
   /**
    * Send a finished room back to the lobby for a rematch. Players, their
-   * playlists and Spotify connections are kept; scores and ready states reset.
+   * playlists are kept; scores and ready states reset.
    * Any player may trigger it; repeated calls once back in the lobby are no-ops.
    */
   rematch(roomCode: string, playerId: string): void {
@@ -184,13 +180,6 @@ export class RoomManager {
       p.isReady = false;
     }
     this.emitLobby(room);
-  }
-
-  setSpotifyConnected(roomCode: string, playerId: string, connected: boolean): void {
-    const player = this.getPlayer(roomCode, playerId);
-    if (!player) return;
-    player.spotifyConnected = connected;
-    this.emitLobby(this.rooms.get(roomCode.toUpperCase())!);
   }
 
   addPlaylist(
@@ -489,10 +478,6 @@ export class RoomManager {
     return this.toLobbyState(room);
   }
 
-  isSpotifyConnected(playerId: string): boolean {
-    return getSpotifyTokens(playerId) !== null;
-  }
-
   private getPlayer(roomCode: string, playerId: string): RoomPlayer | undefined {
     return this.rooms.get(roomCode.toUpperCase())?.players.get(playerId);
   }
@@ -511,7 +496,6 @@ export class RoomManager {
       displayName,
       isHost,
       isReady: false,
-      spotifyConnected: false,
       playlists: [],
       score: 0,
     };
@@ -523,7 +507,6 @@ export class RoomManager {
       displayName: p.displayName,
       isHost: p.id === room.hostPlayerId,
       isReady: p.isReady,
-      spotifyConnected: p.spotifyConnected || this.isSpotifyConnected(p.id),
       playlists: p.playlists.map((pl) => ({
         id: pl.id,
         name: pl.name,

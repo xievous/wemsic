@@ -38,27 +38,3 @@ export async function resolvePreviewUrl(
     return null;
   }
 }
-
-export async function resolvePreviewsForTracks(
-  tracks: Array<{ spotifyTrackId: string; artists: string[]; title: string }>,
-): Promise<{ resolved: Array<{ trackId: string; previewUrl: string }>; skipped: number }> {
-  const resolved: Array<{ trackId: string; previewUrl: string }> = [];
-  let skipped = 0;
-
-  for (const track of tracks) {
-    const artist = track.artists[0] ?? 'Unknown';
-    const preview = await resolvePreviewUrl(artist, track.title);
-    if (preview) {
-      resolved.push({ trackId: track.spotifyTrackId, previewUrl: preview });
-    } else {
-      skipped++;
-    }
-    await delay(80);
-  }
-
-  return { resolved, skipped };
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}

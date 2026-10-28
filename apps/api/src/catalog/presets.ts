@@ -162,14 +162,6 @@ export function getPresetCatalog(): PresetCatalogResponse {
   };
 }
 
-export function getAllPresets(): PresetPlaylist[] {
-  return PRESETS;
-}
-
-export function getPresetById(id: string): PresetPlaylist | undefined {
-  return PRESETS.find((p) => p.id === id);
-}
-
 export function matchPresets(query: string): PresetPlaylist[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];

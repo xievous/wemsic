@@ -227,11 +227,6 @@ export function titleMatchesGuess(fullTitle: string, guess: string): boolean {
   return false;
 }
 
-/** @deprecated Prefer strictAnswerMatch / phraseMatchesTarget for typing */
-export function answersMatch(expected: string, actual: string): boolean {
-  return strictAnswerMatch(expected, actual);
-}
-
 function levenshteinRatio(a: string, b: string): number {
   const maxLen = Math.max(a.length, b.length);
   if (maxLen === 0) return 1;
