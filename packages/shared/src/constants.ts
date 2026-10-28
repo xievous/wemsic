@@ -19,8 +19,6 @@ export const MCQ_OPTION_COUNT = 4;
 
 /** MCQ: timer shrink when any player submits */
 export const TIMER_SHRINK_PER_SUBMISSION_RATIO = 0.45;
-/** Typing: timer shrink when a player gets both artist + title */
-export const TYPING_BOTH_TIMER_SHRINK_RATIO = 0.3;
 export const MIN_ROUND_REMAINING_MS = 2000;
 /** Minimum time a preview plays before early round end (ms) */
 export const MIN_ROUND_PLAY_MS = 10000;

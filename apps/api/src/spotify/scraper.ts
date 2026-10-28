@@ -1,5 +1,5 @@
 import type { NormalizedTrack } from '@wemsic/shared';
-import { parseSpotifyLink } from './client.js';
+import { parseSpotifyLink } from '../music/parseLink.js';
 
 interface EmbedTrack {
   uri: string;

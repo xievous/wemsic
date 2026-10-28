@@ -35,18 +35,14 @@ const webOrigins = resolveWebOrigins();
 
 export const config = {
   port: Number(optional('PORT', '3001')),
-  /** Primary web URL (Spotify redirects, API root hint). Use 127.0.0.1, not localhost. */
+  /** Primary web URL (API root hint). */
   webOrigin: webOrigins[0] ?? 'http://127.0.0.1:5173',
   /** Allowed browser origins for CORS and Socket.io */
   webOrigins,
-  apiPublicUrl: optional('API_PUBLIC_URL', 'http://127.0.0.1:3001'),
+  /** Client-credentials only, for playlist search (no user login). */
   spotify: {
     clientId: process.env.SPOTIFY_CLIENT_ID ?? '',
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET ?? '',
-    redirectUri: optional(
-      'SPOTIFY_REDIRECT_URI',
-      'http://127.0.0.1:3001/auth/spotify/callback',
-    ),
   },
   spotifyConfigured(): boolean {
     return Boolean(this.spotify.clientId && this.spotify.clientSecret);
