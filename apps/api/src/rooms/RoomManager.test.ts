@@ -205,6 +205,46 @@ describe('RoomManager: host screen mode', () => {
   });
 });
 
+describe('RoomManager: catching up a player who reconnects', () => {
+  const events = (ctx: ReturnType<typeof setup>) =>
+    ctx.rooms.getCatchUpEvents(ctx.roomCode).map((e) => e.event);
+
+  it('has nothing to send before the game starts', () => {
+    expect(events(setup())).toEqual([]);
+  });
+
+  it('sends the current round with its latest progress', async () => {
+    const ctx = setup();
+    await ctx.startAndWait();
+    const round = ctx.sent<{ options: { id: string }[] }>('round:start')[0]!;
+    ctx.rooms.submitMcqAnswer(ctx.roomCode, ctx.guest, round.options[0]!.id);
+
+    const [start, progress] = ctx.rooms.getCatchUpEvents(ctx.roomCode);
+    expect(start).toEqual({ event: 'round:start', payload: round });
+    expect(progress).toEqual({ event: 'round:progress', payload: ctx.sent('round:progress').at(-1) });
+  });
+
+  it('sends the reveal between rounds, then the next round', async () => {
+    const ctx = setup();
+    await ctx.startAndWait();
+    await vi.advanceTimersByTimeAsync(ROUND_MS);
+    expect(events(ctx)).toEqual(['round:reveal']);
+
+    await vi.advanceTimersByTimeAsync(BETWEEN_ROUNDS_DELAY_MS);
+    expect(events(ctx)).toEqual(['round:start', 'round:progress']);
+  });
+
+  it('sends the final scores once the game is over, and nothing after a rematch', async () => {
+    const ctx = setup();
+    await ctx.startAndWait();
+    await vi.advanceTimersByTimeAsync(ctx.lobby().settings.roundCount * (ROUND_MS + BETWEEN_ROUNDS_DELAY_MS));
+    expect(events(ctx)).toEqual(['game:end']);
+
+    ctx.rooms.rematch(ctx.roomCode, ctx.host);
+    expect(events(ctx)).toEqual([]);
+  });
+});
+
 describe('RoomManager: game end and rematch', () => {
   async function playWholeGame(ctx: ReturnType<typeof setup>) {
     await ctx.startAndWait();

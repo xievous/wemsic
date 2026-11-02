@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
+import { ReconnectingBanner } from '../components/ReconnectingBanner';
 import { clearSession, useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 
@@ -60,6 +61,7 @@ export function Results() {
 
   return (
     <Layout>
+      <ReconnectingBanner />
       <Box sx={{ textAlign: 'center', mb: 4 }}>
         <Typography variant="overline" color="text.secondary">
           Game over

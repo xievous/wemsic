@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '../audio/AudioProvider';
 import { Layout } from '../components/Layout';
+import { ReconnectingBanner } from '../components/ReconnectingBanner';
 import { useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { PadView } from './game/PadView';
@@ -146,6 +147,7 @@ export function Game() {
         <PlayerView {...viewProps} />
       )}
       {showFloatingEnableSound && <FloatingEnableSound onEnable={enableAudio} />}
+      <ReconnectingBanner />
     </Layout>
   );
 }

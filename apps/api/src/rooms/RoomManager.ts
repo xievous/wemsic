@@ -50,6 +50,13 @@ interface Room {
   createdAt: number;
   startCountdownEndsAt: number | null;
   startCountdownTimer: ReturnType<typeof setTimeout> | null;
+  /** Latest game events, re-sent to players who (re)join mid-game. */
+  catchUp: GameEvent[];
+}
+
+interface GameEvent {
+  event: string;
+  payload: unknown;
 }
 
 type BroadcastFn = (roomCode: string, event: string, payload: unknown) => void;
@@ -94,6 +101,7 @@ export class RoomManager {
       createdAt: Date.now(),
       startCountdownEndsAt: null,
       startCountdownTimer: null,
+      catchUp: [],
     };
 
     room.players.set(playerId, this.newPlayer(playerId, hostDisplayName, true));
@@ -171,6 +179,7 @@ export class RoomManager {
     room.engine = null;
     room.phase = 'lobby';
     room.skippedTracksCount = 0;
+    room.catchUp = [];
     if (room.startCountdownTimer) {
       clearTimeout(room.startCountdownTimer);
       room.startCountdownTimer = null;
@@ -368,6 +377,7 @@ export class RoomManager {
     // sequential pre-pass over every track.
     room.skippedTracksCount = 0;
     room.phase = 'playing';
+    room.catchUp = [];
 
     // The presenter (host in host mode) contributes tracks but does not compete,
     // so they're excluded from the engine's player set entirely.
@@ -387,10 +397,10 @@ export class RoomManager {
       room.settings.showOthersGuesses ?? false,
       {
         onRoundStart: (payload) => {
-          this.broadcast(room.code, 'round:start', payload);
+          this.broadcastGameEvent(room, 'round:start', payload);
         },
         onRoundProgress: (payload) => {
-          this.broadcast(room.code, 'round:progress', payload);
+          this.broadcastGameEvent(room, 'round:progress', payload);
         },
         onRoundReveal: (payload) => {
           for (const [id, pts] of Object.entries(payload.roundScores)) {
@@ -398,7 +408,7 @@ export class RoomManager {
             if (pl) pl.score += pts;
           }
 
-          this.broadcast(room.code, 'round:reveal', {
+          this.broadcastGameEvent(room, 'round:reveal', {
             ...payload,
             leaderboard: this.competingPlayerEntries(room)
               .map(([playerId, p]) => ({
@@ -426,7 +436,7 @@ export class RoomManager {
             roundsPlayed: engine.roundsPlayed,
             totalRounds: room.settings.roundCount,
           };
-          this.broadcast(room.code, 'game:end', payload);
+          this.broadcastGameEvent(room, 'game:end', payload);
         },
       },
     );
@@ -465,6 +475,14 @@ export class RoomManager {
       };
     }
     return room.engine.submitTypingGuess(playerId, guess);
+  }
+
+  /**
+   * What a player who joins now has missed: the current round and its latest
+   * progress, the current reveal, or the final scores.
+   */
+  getCatchUpEvents(roomCode: string): GameEvent[] {
+    return [...(this.rooms.get(roomCode.toUpperCase())?.catchUp ?? [])];
   }
 
   getLobbyState(roomCode: string): LobbyState | null {
@@ -537,6 +555,16 @@ export class RoomManager {
       skippedTracksCount: room.skippedTracksCount,
       startCountdownEndsAt: room.startCountdownEndsAt,
     };
+  }
+
+  private broadcastGameEvent(room: Room, event: string, payload: unknown): void {
+    // Progress only makes sense on top of its round:start; anything else
+    // replaces what came before.
+    room.catchUp =
+      event === 'round:progress'
+        ? [...room.catchUp.filter((e) => e.event === 'round:start'), { event, payload }]
+        : [{ event, payload }];
+    this.broadcast(room.code, event, payload);
   }
 
   private emitLobby(room: Room): void {
