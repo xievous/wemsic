@@ -129,10 +129,7 @@ describe('GameEngine: round flow', () => {
     expect(resolvePreviewUrl).toHaveBeenCalledTimes(5);
   });
 
-  // Known bug: destroy() only clears the round timer, not the between-rounds
-  // or early-reveal timeouts, so a destroyed engine keeps playing. Flip to
-  // `it` once fixed.
-  it.fails('stops scheduling rounds once destroyed', async () => {
+  it('stops scheduling rounds once destroyed', async () => {
     const { engine, events } = setup({ tracks: makeTracks('p1', 10) });
     await engine.start();
     await vi.advanceTimersByTimeAsync(SPEED_MS);
@@ -141,6 +138,31 @@ describe('GameEngine: round flow', () => {
     engine.destroy();
     await vi.advanceTimersByTimeAsync(BETWEEN_ROUNDS_DELAY_MS + SPEED_MS);
     expect(events.filter((e) => e.type === 'start')).toHaveLength(1);
+  });
+
+  it('cancels a pending early reveal when destroyed', async () => {
+    const { engine, events, last } = setup({ tracks: makeTracks('p1', 10) });
+    await engine.start();
+    await vi.advanceTimersByTimeAsync(MIN_ROUND_PLAY_MS);
+    engine.submitMcqAnswer('p1', correctOption(last('start')));
+    engine.submitMcqAnswer('p2', correctOption(last('start')));
+
+    engine.destroy();
+    await vi.advanceTimersByTimeAsync(SPEED_MS + BETWEEN_ROUNDS_DELAY_MS);
+    expect(events.map((e) => e.type)).toEqual(['start']);
+  });
+
+  it('drops a round whose preview lookup finishes after destroy', async () => {
+    let finishLookup!: (url: string) => void;
+    vi.mocked(resolvePreviewUrl).mockReturnValue(new Promise((resolve) => (finishLookup = resolve)));
+    const tracks = [makeTrack('p1-1', 'p1', { previewUrl: null })];
+    const { engine, events } = setup({ tracks });
+    const started = engine.start();
+
+    engine.destroy();
+    finishLookup(previewFor('Song p1-1'));
+    await started;
+    expect(events).toEqual([]);
   });
 });
 

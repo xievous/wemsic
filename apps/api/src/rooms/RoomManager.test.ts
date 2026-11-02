@@ -390,10 +390,7 @@ describe('RoomManager: game end and rematch', () => {
     expect(state.players.find((p) => p.id === ctx.host)?.playlists).toHaveLength(1);
   });
 
-  // Known bug: a rematch during the pause between rounds leaves the old
-  // engine's next-round timer running, so rounds keep arriving in the lobby.
-  // Flip to `it` once fixed.
-  it.fails('stops the old game when a rematch happens mid-game', async () => {
+  it('stops the old game when a rematch happens mid-game', async () => {
     const ctx = setup();
     await ctx.startAndWait();
     await vi.advanceTimersByTimeAsync(ROUND_MS);

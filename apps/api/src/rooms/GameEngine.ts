@@ -69,6 +69,9 @@ export class GameEngine {
   private activeRound: ActiveRound | null = null;
   private scores = new Map<string, number>();
   private roundTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Every pending timeout, so destroy() can stop the game mid-flight. */
+  private timeouts = new Set<ReturnType<typeof setTimeout>>();
+  private destroyed = false;
   private revealPending = false;
   private isRevealing = false;
 
@@ -201,7 +204,10 @@ export class GameEngine {
   }
 
   destroy(): void {
-    this.clearTimers();
+    this.destroyed = true;
+    for (const id of this.timeouts) clearTimeout(id);
+    this.timeouts.clear();
+    this.roundTimer = null;
   }
 
   setDisplayNames(names: Map<string, string>): void {
@@ -310,7 +316,7 @@ export class GameEngine {
     if (this.revealPending || this.isRevealing) return;
     this.revealPending = true;
     this.clearRoundTimer();
-    setTimeout(() => {
+    this.schedule(() => {
       this.revealPending = false;
       void this.revealRound();
     }, ALL_ANSWERED_REVEAL_DELAY_MS);
@@ -319,8 +325,18 @@ export class GameEngine {
   private clearRoundTimer(): void {
     if (this.roundTimer) {
       clearTimeout(this.roundTimer);
+      this.timeouts.delete(this.roundTimer);
       this.roundTimer = null;
     }
+  }
+
+  private schedule(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
+    const id = setTimeout(() => {
+      this.timeouts.delete(id);
+      if (!this.destroyed) fn();
+    }, ms);
+    this.timeouts.add(id);
+    return id;
   }
 
   private clearTimers(): void {
@@ -332,7 +348,7 @@ export class GameEngine {
     const round = this.activeRound;
     if (!round) return;
     const delay = Math.max(0, round.roundEndsAt - Date.now());
-    this.roundTimer = setTimeout(() => void this.revealRound(), delay);
+    this.roundTimer = this.schedule(() => void this.revealRound(), delay);
   }
 
   private buildPlayerStatuses(): RoundPlayerStatus[] {
@@ -392,6 +408,7 @@ export class GameEngine {
   }
 
   private async nextRound(): Promise<void> {
+    if (this.destroyed) return;
     if (this.roundIndex >= this.totalRounds) {
       this.endGame('completed');
       return;
@@ -411,6 +428,8 @@ export class GameEngine {
       previewUrl = track.previewUrl ?? null;
       if (!previewUrl) {
         previewUrl = await resolvePreviewUrl(track.artists[0] ?? '', track.title);
+        // The room may have moved on (rematch, everyone left) during the lookup.
+        if (this.destroyed) return;
       }
       if (previewUrl) break;
       this.pool.markUnplayable(track.spotifyTrackId);
@@ -527,7 +546,7 @@ export class GameEngine {
     this.roundIndex++;
     this.isRevealing = false;
 
-    setTimeout(() => void this.nextRound(), BETWEEN_ROUNDS_DELAY_MS);
+    this.schedule(() => void this.nextRound(), BETWEEN_ROUNDS_DELAY_MS);
   }
 
   private endGame(reason: GameEndReason): void {
