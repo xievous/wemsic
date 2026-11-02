@@ -4,6 +4,7 @@ import {
   MIN_ROUND_PLAY_MS,
 } from '@wemsic/shared';
 import type {
+  GameEndReason,
   GameMode,
   NormalizedTrack,
   RoundProgressPayload,
@@ -25,7 +26,7 @@ const TYPING_MS = 30_000;
 type Event =
   | { type: 'start'; payload: RoundStartPayload }
   | { type: 'reveal'; payload: RoundRevealPayload }
-  | { type: 'end'; payload: RoundRevealPayload['leaderboard'] };
+  | { type: 'end'; payload: RoundRevealPayload['leaderboard']; reason: GameEndReason };
 
 function setup({
   tracks,
@@ -46,7 +47,7 @@ function setup({
     onRoundStart: (payload) => events.push({ type: 'start', payload }),
     onRoundProgress: (payload) => progress.push(payload),
     onRoundReveal: (payload) => events.push({ type: 'reveal', payload }),
-    onGameEnd: (payload) => events.push({ type: 'end', payload }),
+    onGameEnd: (payload, reason) => events.push({ type: 'end', payload, reason }),
   });
   engine.setDisplayNames(new Map(players.map((id) => [id, id.toUpperCase()])));
 
@@ -104,7 +105,8 @@ describe('GameEngine: round flow', () => {
     await vi.advanceTimersByTimeAsync(5 * (SPEED_MS + BETWEEN_ROUNDS_DELAY_MS));
 
     expect(events.filter((e) => e.type === 'start')).toHaveLength(2);
-    expect(events.at(-1)?.type).toBe('end');
+    expect(events.at(-1)).toMatchObject({ type: 'end', reason: 'out_of_tracks' });
+    expect(engine.roundsPlayed).toBe(2);
   });
 
   it('falls back to the preview lookup for tracks without a preview', async () => {
@@ -122,7 +124,8 @@ describe('GameEngine: round flow', () => {
     const { engine, events } = setup({ tracks });
     await engine.start();
 
-    expect(events.map((e) => e.type)).toEqual(['end']);
+    expect(events).toMatchObject([{ type: 'end', reason: 'out_of_tracks' }]);
+    expect(engine.roundsPlayed).toBe(0);
     expect(resolvePreviewUrl).toHaveBeenCalledTimes(5);
   });
 

@@ -8,6 +8,7 @@ import {
   MAX_PLAYERS,
 } from '@wemsic/shared';
 import type {
+  GameEndPayload,
   GameMode,
   LobbyState,
   NormalizedTrack,
@@ -408,11 +409,11 @@ export class RoomManager {
               .sort((a, b) => b.score - a.score),
           });
         },
-        onGameEnd: (leaderboard) => {
+        onGameEnd: (leaderboard, reason) => {
           room.phase = 'finished';
           room.engine?.destroy();
           room.engine = null;
-          this.broadcast(room.code, 'game:end', {
+          const payload: GameEndPayload = {
             leaderboard: this.competingPlayerEntries(room)
               .map(([playerId, p]) => ({
                 playerId,
@@ -421,7 +422,11 @@ export class RoomManager {
               }))
               .sort((a, b) => b.score - a.score),
             winnerId: leaderboard[0]?.playerId ?? null,
-          });
+            reason,
+            roundsPlayed: engine.roundsPlayed,
+            totalRounds: room.settings.roundCount,
+          };
+          this.broadcast(room.code, 'game:end', payload);
         },
       },
     );
