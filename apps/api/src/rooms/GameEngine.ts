@@ -11,6 +11,7 @@ import {
   scoreTypingProgress,
 } from '@wemsic/shared';
 import type {
+  GameEndReason,
   GameMode,
   McqOption,
   NormalizedTrack,
@@ -74,7 +75,7 @@ export class GameEngine {
   private onRoundStart: (payload: RoundStartPayload) => void;
   private onRoundProgress: (payload: RoundProgressPayload) => void;
   private onRoundReveal: (payload: RoundRevealPayload) => void;
-  private onGameEnd: (leaderboard: RoundRevealPayload['leaderboard']) => void;
+  private onGameEnd: (leaderboard: RoundRevealPayload['leaderboard'], reason: GameEndReason) => void;
 
   constructor(
     tracks: NormalizedTrack[],
@@ -88,7 +89,7 @@ export class GameEngine {
       onRoundStart: (payload: RoundStartPayload) => void;
       onRoundProgress: (payload: RoundProgressPayload) => void;
       onRoundReveal: (payload: RoundRevealPayload) => void;
-      onGameEnd: (leaderboard: RoundRevealPayload['leaderboard']) => void;
+      onGameEnd: (leaderboard: RoundRevealPayload['leaderboard'], reason: GameEndReason) => void;
     },
   ) {
     this.pool = new TrackPool(tracks);
@@ -208,6 +209,11 @@ export class GameEngine {
   }
 
   private displayNames = new Map<string, string>();
+
+  /** Rounds that reached their reveal. */
+  get roundsPlayed(): number {
+    return this.roundIndex;
+  }
 
   getLeaderboardWithNames() {
     return [...this.scores.entries()]
@@ -387,7 +393,7 @@ export class GameEngine {
 
   private async nextRound(): Promise<void> {
     if (this.roundIndex >= this.totalRounds) {
-      this.endGame();
+      this.endGame('completed');
       return;
     }
 
@@ -413,7 +419,7 @@ export class GameEngine {
     }
 
     if (!track || !previewUrl) {
-      this.endGame();
+      this.endGame('out_of_tracks');
       return;
     }
 
@@ -524,9 +530,9 @@ export class GameEngine {
     setTimeout(() => void this.nextRound(), BETWEEN_ROUNDS_DELAY_MS);
   }
 
-  private endGame(): void {
+  private endGame(reason: GameEndReason): void {
     this.clearTimers();
-    this.onGameEnd(this.getLeaderboardWithNames());
+    this.onGameEnd(this.getLeaderboardWithNames(), reason);
   }
 }
 

@@ -1,4 +1,4 @@
-import { Box, Button, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
 import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
@@ -53,8 +53,10 @@ export function Results() {
       .sort((a, b) => b.score - a.score) ??
     [];
 
-  const winner = leaderboard[0];
-  const rest = leaderboard.slice(1);
+  // Nobody scored if no round was played, so there's no winner to show.
+  const noRoundsPlayed = gameEnd?.roundsPlayed === 0;
+  const winner = noRoundsPlayed ? undefined : leaderboard[0];
+  const rest = noRoundsPlayed ? [] : leaderboard.slice(1);
 
   return (
     <Layout>
@@ -62,6 +64,13 @@ export function Results() {
         <Typography variant="overline" color="text.secondary">
           Game over
         </Typography>
+        {gameEnd?.reason === 'out_of_tracks' && (
+          <Alert severity={noRoundsPlayed ? 'warning' : 'info'} sx={{ mt: 2, textAlign: 'left' }}>
+            {noRoundsPlayed
+              ? "None of the songs had a playable preview, so no rounds could be played. Try adding a different playlist."
+              : `Ran out of playable songs after ${gameEnd.roundsPlayed} of ${gameEnd.totalRounds} rounds. Add more playlists for a longer game.`}
+          </Alert>
+        )}
         {winner && (
           <Box
             sx={{

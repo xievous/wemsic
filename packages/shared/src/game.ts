@@ -121,9 +121,15 @@ export interface LeaderboardEntry {
   score: number;
 }
 
+/** `out_of_tracks`: no song left with a playable preview before the last round. */
+export type GameEndReason = 'completed' | 'out_of_tracks';
+
 export interface GameEndPayload {
   leaderboard: LeaderboardEntry[];
   winnerId: string | null;
+  reason: GameEndReason;
+  roundsPlayed: number;
+  totalRounds: number;
 }
 
 export interface PlaylistImportProgressPayload {

@@ -216,7 +216,30 @@ describe('RoomManager: game end and rematch', () => {
     const ctx = setup();
     await playWholeGame(ctx);
     expect(ctx.lobby().phase).toBe('finished');
-    expect(ctx.sent('game:end')).toHaveLength(1);
+    expect(ctx.sent('game:end')).toEqual([
+      expect.objectContaining({ reason: 'completed', roundsPlayed: 10, totalRounds: 10 }),
+    ]);
+  });
+
+  it('tells players the game ended because no song had a preview', async () => {
+    const ctx = setup();
+    ctx.rooms.addPlaylist(
+      ctx.roomCode,
+      ctx.host,
+      'no-previews',
+      'Apple mix',
+      null,
+      makeTracks(ctx.host, 12).map((t) => ({ ...t, previewUrl: null })),
+    );
+    ctx.rooms.setReady(ctx.roomCode, ctx.host, true);
+    ctx.rooms.setReady(ctx.roomCode, ctx.guest, true);
+    ctx.rooms.toggleStartCountdown(ctx.roomCode, ctx.host);
+    await vi.advanceTimersByTimeAsync(COUNTDOWN_MS);
+
+    expect(ctx.lobby().phase).toBe('finished');
+    expect(ctx.sent('game:end')).toEqual([
+      expect.objectContaining({ reason: 'out_of_tracks', roundsPlayed: 0 }),
+    ]);
   });
 
   it('sends a finished room back to the lobby with scores and ready reset', async () => {
