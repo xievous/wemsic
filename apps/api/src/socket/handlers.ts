@@ -20,6 +20,10 @@ export function registerSocketHandlers(
 
       const state = roomManager.getLobbyState(roomCode);
       if (state) socket.emit('lobby:state', state);
+      // A reconnecting phone missed whatever happened meanwhile; catch it up.
+      for (const { event, payload } of roomManager.getCatchUpEvents(roomCode)) {
+        socket.emit(event, payload);
+      }
     });
 
     socket.on('player:ready', (payload: { ready: boolean }) => {

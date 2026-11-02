@@ -21,6 +21,8 @@ import { API_URL } from '../config';
 
 interface SocketContextValue {
   connected: boolean;
+  /** Lost a connection that was working; socket.io is retrying. */
+  reconnecting: boolean;
   lobby: LobbyState | null;
   round: RoundStartPayload | null;
   roundProgress: RoundProgressPayload | null;
@@ -47,7 +49,10 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 export function SocketProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<Socket | null>(null);
   const activeRoomRef = useRef<string | null>(null);
+  /** Last room:join, re-sent after every reconnect (a new socket starts outside the room). */
+  const joinedRef = useRef<{ roomCode: string; playerId: string } | null>(null);
   const [connected, setConnected] = useState(false);
+  const [reconnecting, setReconnecting] = useState(false);
   const [lobby, setLobby] = useState<LobbyState | null>(null);
   const [round, setRound] = useState<RoundStartPayload | null>(null);
   const [roundProgress, setRoundProgress] =
@@ -66,6 +71,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
 
   const resetRoomState = useCallback(() => {
     activeRoomRef.current = null;
+    joinedRef.current = null;
     setLobby(null);
     setRound(null);
     setRoundProgress(null);
@@ -80,8 +86,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     const socket = io(API_URL, { transports: ['websocket', 'polling'] });
     socketRef.current = socket;
 
-    socket.on('connect', () => setConnected(true));
-    socket.on('disconnect', () => setConnected(false));
+    socket.on('connect', () => {
+      setConnected(true);
+      setReconnecting(false);
+      if (joinedRef.current) socket.emit('room:join', joinedRef.current);
+    });
+    socket.on('disconnect', () => {
+      setConnected(false);
+      setReconnecting(true);
+    });
     socket.on('typing:result', (result: TypingGuessResult) => {
       setLastTypingResult(result);
     });
@@ -148,7 +161,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setPlaylistImportProgress(null);
       setError(null);
     }
-    socketRef.current?.emit('room:join', { roomCode: normalized, playerId });
+    joinedRef.current = { roomCode: normalized, playerId };
+    // While disconnected, the connect handler sends the join instead.
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('room:join', joinedRef.current);
+    }
   }, []);
 
   const setReady = useCallback((ready: boolean) => {
@@ -188,6 +205,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     <SocketContext.Provider
       value={{
         connected,
+        reconnecting,
         lobby,
         round,
         roundProgress,
