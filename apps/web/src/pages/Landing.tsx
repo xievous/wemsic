@@ -96,7 +96,7 @@ export function Landing() {
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
         <Alert severity="info" onClose={() => setRemoved(false)} variant="filled">
-          The host removed you from that room.
+          You're no longer in that room. The host removed you, or you were away too long.
         </Alert>
       </Snackbar>
       <Box

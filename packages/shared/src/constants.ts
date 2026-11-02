@@ -7,6 +7,8 @@ export const DEFAULT_TYPING_SECONDS = 30;
 export const DEFAULT_TYPING_SPELLING_LENIENCY = 'normal' as const;
 export const ROOM_CODE_LENGTH = 6;
 export const MAX_PLAYERS = 8;
+/** A player offline this long outside a game is removed, freeing their slot. */
+export const AWAY_PLAYER_REMOVAL_MS = 3 * 60_000;
 
 export const SPEED_CHOICE_MAX_POINTS = 1000;
 export const SPEED_CHOICE_MIN_POINTS = 100;

@@ -3,7 +3,10 @@ import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material
 import type { Player } from '@wemsic/shared';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
-/** Lobby roster with ready state; the host gets a remove button on everyone else. */
+/**
+ * Lobby roster with ready and online state; the host gets a remove button on
+ * everyone else.
+ */
 export function PlayerList({
   players,
   myPlayerId,
@@ -32,6 +35,7 @@ export function PlayerList({
       >
         {players.map((p) => {
           const ready = p.isReady;
+          const offline = !p.connected;
           return (
             <Stack
               key={p.id}
@@ -45,7 +49,8 @@ export function PlayerList({
                 border: '2px solid',
                 borderColor: ready ? 'success.main' : 'rgba(20,33,63,0.06)',
                 boxShadow: '0 16px 36px -28px rgba(20,33,63,0.4)',
-                transition: 'border-color 200ms ease',
+                transition: 'border-color 200ms ease, opacity 200ms ease',
+                opacity: offline ? 0.55 : 1,
               }}
             >
               <PlayerAvatar id={p.id} name={p.displayName} size={44} done={ready} />
@@ -65,6 +70,11 @@ export function PlayerList({
                     />
                   )}
                 </Stack>
+                {offline && (
+                  <Typography variant="caption" color="text.secondary">
+                    Offline · doesn't block the start
+                  </Typography>
+                )}
               </Box>
               {isHost && p.id !== myPlayerId && (
                 <Tooltip title={`Remove ${p.displayName}`}>

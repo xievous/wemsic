@@ -1,4 +1,5 @@
 import {
+  AWAY_PLAYER_REMOVAL_MS,
   BETWEEN_ROUNDS_DELAY_MS,
   GAME_START_COUNTDOWN_SECONDS,
   MAX_PLAYERS,
@@ -23,6 +24,9 @@ function setup(roomType: RoomType = 'online') {
   const joined = rooms.joinRoom(roomCode, 'Guest');
   if ('error' in joined) throw new Error(joined.error);
   const guest = joined.playerId;
+  // What the socket handler does when each player's page joins the room.
+  rooms.playerConnected(roomCode, host, `socket-${host}`);
+  rooms.playerConnected(roomCode, guest, `socket-${guest}`);
 
   const lobby = () => rooms.getLobbyState(roomCode)!;
   const sent = <T = unknown>(event: string) =>
@@ -82,7 +86,100 @@ describe('RoomManager: joining', () => {
     expect(rooms.joinRoom('NOPE00', 'X')).toEqual({ error: 'Room not found' });
   });
 
-  it.todo('frees the slot of a player who disconnects and never comes back');
+});
+
+describe('RoomManager: leaving and offline players', () => {
+  const player = (ctx: ReturnType<typeof setup>, id: string) =>
+    ctx.lobby().players.find((p) => p.id === id);
+
+  it('shows who is online', () => {
+    const ctx = setup();
+    expect(player(ctx, ctx.guest)?.connected).toBe(true);
+
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    expect(player(ctx, ctx.guest)?.connected).toBe(false);
+  });
+
+  it('keeps a player online while any of their tabs is open', () => {
+    const ctx = setup();
+    ctx.rooms.playerConnected(ctx.roomCode, ctx.guest, 'second-tab');
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    expect(player(ctx, ctx.guest)?.connected).toBe(true);
+  });
+
+  it("doesn't let an offline player block the start", () => {
+    const ctx = setup();
+    ctx.rooms.addPlaylist(ctx.roomCode, ctx.host, 'pl', 'Mix', null, makeTracks(ctx.host, 12));
+    ctx.rooms.setReady(ctx.roomCode, ctx.host, true);
+    expect(ctx.lobby().canStart).toBe(false);
+
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    expect(ctx.lobby().canStart).toBe(true);
+  });
+
+  it('removes a player who stays offline, freeing their slot', async () => {
+    const ctx = setup();
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    await vi.advanceTimersByTimeAsync(AWAY_PLAYER_REMOVAL_MS - 1);
+    expect(player(ctx, ctx.guest)).toBeDefined();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(player(ctx, ctx.guest)).toBeUndefined();
+  });
+
+  it('keeps a player who comes back in time', async () => {
+    const ctx = setup();
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    await vi.advanceTimersByTimeAsync(AWAY_PLAYER_REMOVAL_MS - 1000);
+    ctx.rooms.playerConnected(ctx.roomCode, ctx.guest, 'new-socket');
+    await vi.advanceTimersByTimeAsync(AWAY_PLAYER_REMOVAL_MS);
+    expect(player(ctx, ctx.guest)?.connected).toBe(true);
+  });
+
+  it('removes a player whose page never connected', async () => {
+    const ctx = setup();
+    const late = ctx.rooms.joinRoom(ctx.roomCode, 'Closed the tab');
+    if ('error' in late) throw new Error(late.error);
+    await vi.advanceTimersByTimeAsync(AWAY_PLAYER_REMOVAL_MS);
+    expect(player(ctx, late.playerId)).toBeUndefined();
+  });
+
+  it('keeps an offline player in a running game so they can come back', async () => {
+    const ctx = setup();
+    await ctx.startAndWait();
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+    await vi.advanceTimersByTimeAsync(AWAY_PLAYER_REMOVAL_MS + 1000);
+    expect(ctx.lobby().phase).toBe('playing');
+    expect(player(ctx, ctx.guest)).toBeDefined();
+  });
+
+  it('hands the host role to an online player when the host leaves', () => {
+    const ctx = setup();
+    const third = ctx.rooms.joinRoom(ctx.roomCode, 'Third');
+    if ('error' in third) throw new Error(third.error);
+    ctx.rooms.playerConnected(ctx.roomCode, third.playerId, 'socket-third');
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
+
+    ctx.rooms.leaveRoom(ctx.roomCode, ctx.host);
+    expect(ctx.lobby().hostPlayerId).toBe(third.playerId);
+    expect(player(ctx, third.playerId)?.isHost).toBe(true);
+  });
+
+  it('closes the room when the last player leaves', () => {
+    const ctx = setup();
+    ctx.rooms.leaveRoom(ctx.roomCode, ctx.guest);
+    ctx.rooms.leaveRoom(ctx.roomCode, ctx.host);
+    expect(ctx.rooms.getLobbyState(ctx.roomCode)).toBeNull();
+  });
+
+  it(`lets someone take a freed slot in a full room`, async () => {
+    const ctx = setup();
+    while (ctx.lobby().players.length < MAX_PLAYERS) ctx.rooms.joinRoom(ctx.roomCode, 'Filler');
+    expect(ctx.rooms.joinRoom(ctx.roomCode, 'Waiting')).toEqual({ error: 'Room is full' });
+
+    ctx.rooms.leaveRoom(ctx.roomCode, ctx.guest);
+    expect(ctx.rooms.joinRoom(ctx.roomCode, 'Waiting')).toHaveProperty('playerId');
+  });
 });
 
 describe('RoomManager: ready and start rules', () => {
