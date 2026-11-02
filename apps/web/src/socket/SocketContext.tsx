@@ -33,6 +33,8 @@ interface SocketContextValue {
   playlistImportProgress: PlaylistImportProgressPayload | null;
   clearPlaylistImportProgress: () => void;
   joinRoom: (roomCode: string, playerId: string) => void;
+  /** Leave the room for good (frees the slot) and forget its state. */
+  leaveRoom: () => void;
   setReady: (ready: boolean) => void;
   updateSettings: (settings: Partial<LobbyState['settings']>) => void;
   startGame: () => void;
@@ -168,6 +170,11 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const leaveRoom = useCallback(() => {
+    if (joinedRef.current) socketRef.current?.emit('room:leave');
+    resetRoomState();
+  }, [resetRoomState]);
+
   const setReady = useCallback((ready: boolean) => {
     socketRef.current?.emit('player:ready', { ready });
   }, []);
@@ -216,6 +223,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         playlistImportProgress,
         clearPlaylistImportProgress,
         joinRoom,
+        leaveRoom,
         setReady,
         updateSettings,
         startGame,

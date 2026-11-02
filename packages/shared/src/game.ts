@@ -36,6 +36,8 @@ export interface Player {
   displayName: string;
   isHost: boolean;
   isReady: boolean;
+  /** Has an open connection to the room; offline players don't block the start. */
+  connected: boolean;
   playlists: PlayerPlaylist[];
   /** Total tracks contributed across all of this player's playlists. */
   trackCount: number;

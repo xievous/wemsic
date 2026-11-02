@@ -19,8 +19,7 @@ const popIn = keyframes`
 export function Results() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
-  const { gameEnd, lobby, joinRoom, connected, resetRoomState, rematch } =
-    useSocket();
+  const { gameEnd, lobby, joinRoom, connected, leaveRoom, rematch } = useSocket();
   const session = useSession();
   const joinedRef = useRef(false);
 
@@ -174,8 +173,8 @@ export function Results() {
           variant="outlined"
           size="large"
           onClick={() => {
+            leaveRoom();
             clearSession();
-            resetRoomState();
           }}
         >
           Back to home

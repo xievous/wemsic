@@ -1,4 +1,5 @@
 import {
+  AWAY_PLAYER_REMOVAL_MS,
   DEFAULT_ROUND_COUNT,
   DEFAULT_SPEED_CHOICE_SECONDS,
   DEFAULT_TYPING_SECONDS,
@@ -37,6 +38,9 @@ interface RoomPlayer {
   isReady: boolean;
   playlists: PlayerPlaylistEntry[];
   score: number;
+  /** Open socket ids; the player is online while this isn't empty. */
+  sockets: Set<string>;
+  awayTimer: ReturnType<typeof setTimeout> | null;
 }
 
 interface Room {
@@ -106,6 +110,7 @@ export class RoomManager {
 
     room.players.set(playerId, this.newPlayer(playerId, hostDisplayName, true));
     this.rooms.set(code, room);
+    this.startAwayTimer(room, playerId);
     this.emitLobby(room);
 
     return { roomCode: code, playerId, hostPlayerId: playerId };
@@ -122,6 +127,8 @@ export class RoomManager {
 
     const playerId = nanoid();
     room.players.set(playerId, this.newPlayer(playerId, displayName, false));
+    // Offline until their socket joins; a tab closed before that is cleaned up.
+    this.startAwayTimer(room, playerId);
     this.emitLobby(room);
     return { playerId };
   }
@@ -132,22 +139,49 @@ export class RoomManager {
 
   leaveRoom(roomCode: string, playerId: string): void {
     const room = this.rooms.get(roomCode.toUpperCase());
-    if (!room) return;
+    const player = room?.players.get(playerId);
+    if (!room || !player) return;
 
+    this.clearAwayTimer(player);
     room.players.delete(playerId);
 
     if (room.players.size === 0) {
       room.engine?.destroy();
+      if (room.startCountdownTimer) clearTimeout(room.startCountdownTimer);
       this.rooms.delete(room.code);
       return;
     }
 
     if (room.hostPlayerId === playerId) {
-      const next = room.players.keys().next().value as string;
-      room.hostPlayerId = next;
-      room.players.get(next)!.isHost = true;
+      const players = [...room.players.values()];
+      const next = players.find((p) => p.sockets.size > 0) ?? players[0]!;
+      room.hostPlayerId = next.id;
+      next.isHost = true;
     }
 
+    this.emitLobby(room);
+  }
+
+  /** One of the player's sockets joined the room. */
+  playerConnected(roomCode: string, playerId: string, socketId: string): void {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    const player = room?.players.get(playerId);
+    if (!room || !player) return;
+
+    const wasOnline = player.sockets.size > 0;
+    player.sockets.add(socketId);
+    this.clearAwayTimer(player);
+    if (!wasOnline) this.emitLobby(room);
+  }
+
+  /** One of the player's sockets went away; with none left they're offline. */
+  playerDisconnected(roomCode: string, playerId: string, socketId: string): void {
+    const room = this.rooms.get(roomCode.toUpperCase());
+    const player = room?.players.get(playerId);
+    if (!room || !player || !player.sockets.delete(socketId)) return;
+    if (player.sockets.size > 0) return;
+
+    this.startAwayTimer(room, playerId);
     this.emitLobby(room);
   }
 
@@ -159,8 +193,10 @@ export class RoomManager {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room || room.hostPlayerId !== hostPlayerId) return;
     if (targetPlayerId === hostPlayerId) return;
-    if (!room.players.has(targetPlayerId)) return;
+    const target = room.players.get(targetPlayerId);
+    if (!target) return;
 
+    this.clearAwayTimer(target);
     room.players.delete(targetPlayerId);
     this.emitLobby(room);
   }
@@ -307,10 +343,13 @@ export class RoomManager {
       (p) => this.playerTrackCount(p) >= MIN_PLAYLIST_TRACKS,
     );
     if (!hasPlaylist) return false;
-    // ...there must be at least one competing player...
-    const competitors = this.competingPlayerEntries(room).map(([, p]) => p);
+    // ...there must be at least one competing player online...
+    const competitors = this.competingPlayerEntries(room)
+      .map(([, p]) => p)
+      .filter((p) => p.sockets.size > 0);
     if (competitors.length < 1) return false;
-    // ...and every competing player is ready (the host presenter is exempt).
+    // ...and every one of them is ready (the host presenter is exempt, and
+    // offline players don't hold everyone else up).
     return competitors.every((p) => p.isReady);
   }
 
@@ -521,7 +560,30 @@ export class RoomManager {
       isReady: false,
       playlists: [],
       score: 0,
+      sockets: new Set(),
+      awayTimer: null,
     };
+  }
+
+  private startAwayTimer(room: Room, playerId: string): void {
+    const player = room.players.get(playerId);
+    if (!player) return;
+    this.clearAwayTimer(player);
+    player.awayTimer = setTimeout(() => {
+      player.awayTimer = null;
+      if (player.sockets.size > 0 || room.players.get(playerId) !== player) return;
+      // Mid-game they keep their place and score so they can come back.
+      if (room.phase === 'playing') {
+        this.startAwayTimer(room, playerId);
+        return;
+      }
+      this.leaveRoom(room.code, playerId);
+    }, AWAY_PLAYER_REMOVAL_MS);
+  }
+
+  private clearAwayTimer(player: RoomPlayer): void {
+    if (player.awayTimer) clearTimeout(player.awayTimer);
+    player.awayTimer = null;
   }
 
   private toLobbyState(room: Room): LobbyState {
@@ -530,6 +592,7 @@ export class RoomManager {
       displayName: p.displayName,
       isHost: p.id === room.hostPlayerId,
       isReady: p.isReady,
+      connected: p.sockets.size > 0,
       playlists: p.playlists.map((pl) => ({
         id: pl.id,
         name: pl.name,

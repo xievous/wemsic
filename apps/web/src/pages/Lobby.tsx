@@ -1,5 +1,5 @@
 import { MIN_PLAYLIST_TRACKS } from '@wemsic/shared';
-import { Alert, CircularProgress, Stack, Typography } from '@mui/material';
+import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { reconnect } from '../api/client';
@@ -19,6 +19,7 @@ export function Lobby() {
   const {
     lobby,
     joinRoom,
+    leaveRoom,
     setReady,
     updateSettings,
     startGame,
@@ -127,6 +128,20 @@ export function Lobby() {
         roomHasPlaylist={roomHasPlaylist}
         onStart={startGame}
       />
+
+      <Box sx={{ textAlign: 'center', mt: 3 }}>
+        <Button
+          color="inherit"
+          onClick={() => {
+            leaveRoom();
+            clearSession();
+            navigate('/');
+          }}
+          sx={{ color: 'text.secondary' }}
+        >
+          Leave room
+        </Button>
+      </Box>
     </Layout>
   );
 }

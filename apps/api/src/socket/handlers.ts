@@ -11,12 +11,16 @@ export function registerSocketHandlers(
 
     socket.on('room:join', (payload: { roomCode: string; playerId: string }) => {
       const nextCode = payload.roomCode.toUpperCase();
+      if (roomCode && playerId && (roomCode !== nextCode || playerId !== payload.playerId)) {
+        roomManager.playerDisconnected(roomCode, playerId, socket.id);
+      }
       if (roomCode && roomCode !== nextCode) {
         socket.leave(`room:${roomCode}`);
       }
       roomCode = nextCode;
       playerId = payload.playerId;
       socket.join(`room:${roomCode}`);
+      roomManager.playerConnected(roomCode, playerId, socket.id);
 
       const state = roomManager.getLobbyState(roomCode);
       if (state) socket.emit('lobby:state', state);
@@ -82,8 +86,18 @@ export function registerSocketHandlers(
       socket.emit('typing:result', result);
     });
 
+    socket.on('room:leave', () => {
+      if (!roomCode || !playerId) return;
+      roomManager.leaveRoom(roomCode, playerId);
+      socket.leave(`room:${roomCode}`);
+      roomCode = null;
+      playerId = null;
+    });
+
+    // Players stay in the room while offline so they can come back; see
+    // AWAY_PLAYER_REMOVAL_MS for when they're removed.
     socket.on('disconnect', () => {
-      /* Keep player in room for reconnection */
+      if (roomCode && playerId) roomManager.playerDisconnected(roomCode, playerId, socket.id);
     });
   });
 }
