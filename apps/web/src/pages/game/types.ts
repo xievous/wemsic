@@ -7,6 +7,8 @@ import type {
 /** Round state the Game page derives once and hands to whichever view renders. */
 export interface GameViewProps {
   playerId: string;
+  /** Seeds Eko's dance order, so everyone in the room sees the same moves. */
+  roomCode: string;
   round: RoundStartPayload | null;
   reveal: RoundRevealPayload | null;
   playerStatuses: RoundPlayerStatus[];

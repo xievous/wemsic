@@ -10,6 +10,7 @@ import { CueingUpSpinner } from './Waiting';
 /** Online mode: every device gets the stage, sound, and its own answer controls. */
 export function PlayerView({
   playerId,
+  roomCode,
   round,
   reveal,
   playerStatuses,
@@ -23,7 +24,14 @@ export function PlayerView({
   const answers = useRoundAnswers(round?.roundIndex, timerExpired);
 
   if (reveal) {
-    return <RoundReveal reveal={reveal} playerId={playerId} revealProgress={revealProgress} />;
+    return (
+      <RoundReveal
+        roomCode={roomCode}
+        reveal={reveal}
+        playerId={playerId}
+        revealProgress={revealProgress}
+      />
+    );
   }
   if (!round) return <CueingUpSpinner />;
 
@@ -33,10 +41,12 @@ export function PlayerView({
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
         <Stack spacing={2.5}>
           <Stage
+            roomCode={roomCode}
             roundIndex={round.roundIndex}
             totalRounds={round.totalRounds}
             timeLeft={timeLeft}
             progress={progress}
+            typing={isTyping}
           />
 
           <AnswerStatus

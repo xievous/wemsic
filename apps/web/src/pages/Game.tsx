@@ -121,6 +121,7 @@ export function Game() {
   const myStatus = playerStatuses.find((p) => p.playerId === session.playerId);
   const viewProps: GameViewProps = {
     playerId: session.playerId,
+    roomCode: session.roomCode,
     round,
     reveal,
     playerStatuses,
