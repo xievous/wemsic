@@ -70,11 +70,7 @@ export function PlayerList({
                     />
                   )}
                 </Stack>
-                {offline && (
-                  <Typography variant="caption" color="text.secondary">
-                    Offline · doesn't block the start
-                  </Typography>
-                )}
+                <PlayerStatus player={p} presenter={hostMode && p.isHost} />
               </Box>
               {isHost && p.id !== myPlayerId && (
                 <Tooltip title={`Remove ${p.displayName}`}>
@@ -96,5 +92,36 @@ export function PlayerList({
         })}
       </Box>
     </>
+  );
+}
+
+/** "Ready · 42 songs", "Not ready · No songs yet", "Runs the screen", or offline. */
+function PlayerStatus({ player, presenter }: { player: Player; presenter: boolean }) {
+  if (!player.connected) {
+    return (
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+        Offline · doesn't block the start
+      </Typography>
+    );
+  }
+  const songs =
+    player.trackCount > 0
+      ? `${player.trackCount} song${player.trackCount === 1 ? '' : 's'}`
+      : 'No songs yet';
+  return (
+    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+      {presenter ? (
+        'Runs the screen'
+      ) : (
+        <Box
+          component="span"
+          sx={{ color: player.isReady ? 'success.dark' : 'text.secondary', fontWeight: 700 }}
+        >
+          {player.isReady ? 'Ready' : 'Not ready'}
+        </Box>
+      )}
+      {' · '}
+      {songs}
+    </Typography>
   );
 }

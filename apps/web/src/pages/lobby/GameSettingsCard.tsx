@@ -28,6 +28,23 @@ import {
 
 type RoomSettings = LobbyState['settings'];
 
+/** "10 rounds · 20s per round · Normal spelling · guesses hidden" */
+function settingsSummary(settings: RoomSettings): string {
+  const parts = [
+    `${settings.roundCount} rounds`,
+    `${settings.roundDurationSeconds}s per round`,
+  ];
+  if (settings.gameMode === 'typing') {
+    const leniency =
+      SPELLING_LENIENCY_OPTIONS.find(
+        (o) => o.value === (settings.typingSpellingLeniency ?? 'normal'),
+      )?.title ?? 'Normal';
+    parts.push(`${leniency} spelling`);
+  }
+  parts.push(settings.showOthersGuesses ? 'guesses visible' : 'guesses hidden');
+  return parts.join(' · ');
+}
+
 function ModeTile({
   active,
   onClick,
@@ -123,19 +140,7 @@ export function GameSettingsCard({
             />
           </Stack>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            {settings.roundCount} rounds · {settings.roundDurationSeconds}s per round
-            {settings.gameMode === 'typing' && (
-              <>
-                {' '}
-                ·{' '}
-                {SPELLING_LENIENCY_OPTIONS.find(
-                  (o) => o.value === (settings.typingSpellingLeniency ?? 'normal'),
-                )?.title ?? 'Normal'}{' '}
-                spelling
-              </>
-            )}
-            {' · '}
-            {settings.showOthersGuesses ? 'guesses visible' : 'guesses hidden'}
+            {settingsSummary(settings)}
           </Typography>
         </CardContent>
       </Card>
@@ -206,5 +211,27 @@ export function GameSettingsCard({
         </DialogActions>
       </Dialog>
     </>
+  );
+}
+
+/** Read-only settings line for everyone but the host, so they know what's coming. */
+export function GameSettingsSummary({ settings }: { settings: RoomSettings }) {
+  const typing = settings.gameMode === 'typing';
+  return (
+    <Card sx={{ mb: 3 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{ color: 'primary.main', display: 'flex' }}>
+            {typing ? <KeyboardRoundedIcon /> : <BoltRoundedIcon />}
+          </Box>
+          <Box sx={{ minWidth: 0 }}>
+            <Typography fontWeight={700}>{typing ? 'Typing' : 'Speed choice'}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {settingsSummary(settings)}
+            </Typography>
+          </Box>
+        </Stack>
+      </CardContent>
+    </Card>
   );
 }

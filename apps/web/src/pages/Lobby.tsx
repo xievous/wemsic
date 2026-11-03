@@ -1,4 +1,3 @@
-import { MIN_PLAYLIST_TRACKS } from '@wemsic/shared';
 import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
@@ -6,11 +5,12 @@ import { reconnect } from '../api/client';
 import { Layout } from '../components/Layout';
 import { clearSession, loadSession, type Session } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
-import { GameSettingsCard } from './lobby/GameSettingsCard';
+import { GameSettingsCard, GameSettingsSummary } from './lobby/GameSettingsCard';
 import { MusicCard } from './lobby/MusicCard';
 import { PlayerList } from './lobby/PlayerList';
 import { HostModeNotice, RoomHeader } from './lobby/RoomHeader';
 import { StartControls } from './lobby/StartControls';
+import { startBlocker } from './lobby/startStatus';
 import { usePlaylistImport } from './lobby/usePlaylistImport';
 
 export function Lobby() {
@@ -84,9 +84,6 @@ export function Lobby() {
   const me = lobby.players.find((p) => p.id === session.playerId);
   const isHost = me?.isHost ?? false;
   const hostMode = lobby.settings.roomType === 'host';
-  const roomHasPlaylist = lobby.players.some(
-    (p) => p.trackCount >= MIN_PLAYLIST_TRACKS,
-  );
 
   return (
     <Layout maxWidth="md">
@@ -105,7 +102,11 @@ export function Lobby() {
         </Alert>
       )}
 
-      {isHost && <GameSettingsCard settings={lobby.settings} onChange={updateSettings} />}
+      {isHost ? (
+        <GameSettingsCard settings={lobby.settings} onChange={updateSettings} />
+      ) : (
+        <GameSettingsSummary settings={lobby.settings} />
+      )}
 
       <PlayerList
         players={lobby.players}
@@ -127,7 +128,7 @@ export function Lobby() {
         startCountdownEndsAt={lobby.startCountdownEndsAt}
         isHost={isHost}
         canStart={lobby.canStart}
-        roomHasPlaylist={roomHasPlaylist}
+        blocker={startBlocker(lobby, session.playerId)}
         onStart={startGame}
       />
 
