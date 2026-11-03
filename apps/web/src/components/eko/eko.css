@@ -89,11 +89,22 @@
 .eko[data-move='slump'] .eko-arm-l { animation: eko-hang-l 2s ease-in-out infinite alternate; }
 .eko[data-move='slump'] .eko-arm-r { animation: eko-hang-r 2s ease-in-out infinite alternate; }
 
-/* Eko stands still for anyone who asks for less motion; the faces still change. */
+/*
+ * For anyone who asks for less motion: no entrance and no big dance moves,
+ * just a slow sway while the small details (blinks, chest bars) keep going.
+ */
 @media (prefers-reduced-motion: reduce) {
-  .eko,
-  .eko * {
-    animation: none !important;
+  .eko-entrance,
+  .eko[data-move] .eko-head,
+  .eko[data-move] .eko-arm-l,
+  .eko[data-move] .eko-arm-r,
+  .eko[data-move] .eko-leg-l,
+  .eko[data-move] .eko-leg-r,
+  .eko[data-move] .eko-shadow {
+    animation: none;
+  }
+  .eko[data-move] .eko-rig {
+    animation: eko-sway 2.4s ease-in-out infinite alternate;
   }
 }
 
