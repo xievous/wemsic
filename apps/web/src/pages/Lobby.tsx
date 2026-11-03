@@ -26,6 +26,7 @@ export function Lobby() {
     kickPlayer,
     connected,
     error: socketError,
+    clearError,
   } = useSocket();
 
   const [session, setSession] = useState<Session | null>(null);
@@ -97,7 +98,8 @@ export function Lobby() {
         <Alert
           severity={socketError ? 'error' : 'info'}
           sx={{ mb: 2 }}
-          onClose={() => imports.setMessage(null)}
+          // Close whichever message is showing; the server error takes priority.
+          onClose={() => (socketError ? clearError() : imports.setMessage(null))}
         >
           {socketError ?? imports.message}
         </Alert>

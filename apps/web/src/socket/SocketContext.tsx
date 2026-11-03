@@ -29,6 +29,7 @@ interface SocketContextValue {
   reveal: RoundRevealPayload | null;
   gameEnd: GameEndPayload | null;
   error: string | null;
+  clearError: () => void;
   lastTypingResult: TypingGuessResult | null;
   playlistImportProgress: PlaylistImportProgressPayload | null;
   clearPlaylistImportProgress: () => void;
@@ -70,6 +71,8 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const clearPlaylistImportProgress = useCallback(() => {
     setPlaylistImportProgress(null);
   }, []);
+
+  const clearError = useCallback(() => setError(null), []);
 
   const resetRoomState = useCallback(() => {
     activeRoomRef.current = null;
@@ -219,6 +222,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         reveal,
         gameEnd,
         error,
+        clearError,
         lastTypingResult,
         playlistImportProgress,
         clearPlaylistImportProgress,
