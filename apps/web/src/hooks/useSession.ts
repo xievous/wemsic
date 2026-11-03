@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 const SESSION_KEY = 'wemsic_session';
+// Kept in localStorage, unlike the session, so it survives leaving the room.
+const NAME_KEY = 'wemsic_name';
 
 export interface Session {
   roomCode: string;
@@ -10,6 +12,20 @@ export interface Session {
 
 export function saveSession(session: Session): void {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  try {
+    localStorage.setItem(NAME_KEY, session.displayName);
+  } catch {
+    // Storage can be blocked; the name just won't be remembered.
+  }
+}
+
+/** The name this device last played under, to prefill Create and Join. */
+export function loadSavedName(): string {
+  try {
+    return localStorage.getItem(NAME_KEY) ?? '';
+  } catch {
+    return '';
+  }
 }
 
 export function loadSession(): Session | null {

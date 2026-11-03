@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { joinRoom } from '../api/client';
 import { Layout } from '../components/Layout';
-import { saveSession } from '../hooks/useSession';
+import { loadSavedName, saveSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 
 export function JoinRoom() {
@@ -19,7 +19,7 @@ export function JoinRoom() {
   const navigate = useNavigate();
   const { resetRoomState } = useSocket();
   const [code, setCode] = useState(paramCode?.toUpperCase() ?? '');
-  const [name, setName] = useState('');
+  const [name, setName] = useState(loadSavedName);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -87,6 +87,8 @@ export function JoinRoom() {
               },
             }}
             fullWidth
+            // From an invite link the code is already there, so start on the name.
+            autoFocus={!paramCode}
           />
           <TextField
             label="Your name"
@@ -94,6 +96,7 @@ export function JoinRoom() {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleJoin()}
             fullWidth
+            autoFocus={Boolean(paramCode)}
             inputProps={{ maxLength: 24 }}
           />
           {error && <Alert severity="error">{error}</Alert>}
