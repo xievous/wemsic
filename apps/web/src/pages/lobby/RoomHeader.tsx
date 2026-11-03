@@ -2,6 +2,7 @@ import CastForEducationRoundedIcon from '@mui/icons-material/CastForEducationRou
 import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
 import QRCode from 'react-qr-code';
 import { CopyRoomCodeButton } from '../../components/CopyRoomCodeButton';
+import { InviteLinkButton, joinUrlFor } from '../../components/InviteLinkButton';
 
 const bannerSx = {
   mb: 3,
@@ -32,7 +33,7 @@ function RoomCode({ code, compact = false }: { code: string; compact?: boolean }
 
 /**
  * Gradient room-code banner. The host-mode shared screen also gets a QR code
- * so players can scan to join; online mode shows the connection status.
+ * so players can scan to join; elsewhere there's an invite link to share.
  */
 export function RoomHeader({
   code,
@@ -63,15 +64,18 @@ export function RoomHeader({
           </Typography>
           <RoomCode code={code} />
         </Box>
-        <Chip
-          label={connected ? 'Connected' : 'Connecting...'}
-          sx={{
-            bgcolor: 'rgba(255,255,255,0.2)',
-            color: '#fff',
-            fontWeight: 700,
-            backdropFilter: 'blur(4px)',
-          }}
-        />
+        <Stack direction="row" spacing={1} alignItems="center">
+          <InviteLinkButton code={code} />
+          <Chip
+            label={connected ? 'Connected' : 'Connecting...'}
+            sx={{
+              bgcolor: 'rgba(255,255,255,0.2)',
+              color: '#fff',
+              fontWeight: 700,
+              backdropFilter: 'blur(4px)',
+            }}
+          />
+        </Stack>
       </Box>
     );
   }
@@ -84,12 +88,13 @@ export function RoomHeader({
             Room code
           </Typography>
           <RoomCode code={code} compact />
+          <InviteLinkButton code={code} />
         </Stack>
       </Box>
     );
   }
 
-  const joinUrl = `${window.location.origin}/join/${code.toUpperCase()}`;
+  const joinUrl = joinUrlFor(code);
   return (
     <Box sx={{ ...bannerSx, overflow: 'hidden' }}>
       <Box

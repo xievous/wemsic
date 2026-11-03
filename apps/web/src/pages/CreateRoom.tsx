@@ -14,7 +14,7 @@ import type { RoomType } from '@wemsic/shared';
 import { useNavigate } from 'react-router-dom';
 import { createRoomWithHost } from '../api/client';
 import { Layout } from '../components/Layout';
-import { saveSession } from '../hooks/useSession';
+import { loadSavedName, saveSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 
 function RoomTypeTile({
@@ -64,7 +64,7 @@ function RoomTypeTile({
 export function CreateRoom() {
   const navigate = useNavigate();
   const { resetRoomState } = useSocket();
-  const [name, setName] = useState('');
+  const [name, setName] = useState(loadSavedName);
   const [roomType, setRoomType] = useState<RoomType>('online');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
