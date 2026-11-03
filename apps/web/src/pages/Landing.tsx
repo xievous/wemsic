@@ -6,6 +6,7 @@ import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
+import { Eko } from '../components/eko/Eko';
 import { Layout } from '../components/Layout';
 import { TILE_COLORS } from '../theme';
 
@@ -156,7 +157,21 @@ export function Landing() {
           </Stack>
         </Box>
 
-        <MockRound />
+        <Box sx={{ position: 'relative', pb: { xs: 12, sm: 10 } }}>
+          <MockRound />
+          {/* Eko DJs in front of the card's corner, where the answer tiles are empty. */}
+          <Box
+            sx={{
+              position: 'absolute',
+              right: { xs: 0, md: -24 },
+              bottom: 0,
+              width: { xs: 150, sm: 190, md: 230 },
+              pointerEvents: 'none',
+            }}
+          >
+            <Eko face="happy" move="scratch" desk entrance />
+          </Box>
+        </Box>
       </Box>
     </Layout>
   );

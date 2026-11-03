@@ -1,0 +1,167 @@
+/*
+ * Eko's animations. Each part's transform-origin is set inline in viewBox
+ * units, so every part here uses view-box as its transform box. The svg's
+ * data-move picks which parts dance and how; data-face only recolours the
+ * antenna (the face itself is swapped in the markup).
+ */
+.eko {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+.eko * {
+  transform-box: view-box;
+}
+
+/* Arrival: slides in from the right and settles with a little bounce. */
+.eko-entrance {
+  animation: eko-enter 0.9s cubic-bezier(0.34, 1.4, 0.64, 1) 0.2s both;
+}
+
+/* The antenna light follows the mood. */
+.eko-antenna {
+  fill: #ffb020;
+  transition: fill 200ms ease;
+  animation: eko-led 1s steps(1, end) infinite;
+}
+.eko[data-face='starry'] .eko-antenna { fill: #16c79a; }
+.eko[data-face='oops'] .eko-antenna { fill: #ff5470; }
+.eko[data-face='love'] .eko-antenna { fill: #ff6b9a; }
+.eko[data-face='sleepy'] .eko-antenna { fill: #6c5ce7; }
+.eko[data-face='focused'] .eko-antenna { fill: #00bfd8; }
+.eko[data-face='whoa'] .eko-antenna { animation-duration: 0.25s; }
+
+.eko-blink { animation: eko-blink 4.2s infinite; }
+.eko-eq { animation: eko-eq 0.55s ease-in-out infinite alternate; }
+.eko-twinkle { animation: eko-twinkle 0.9s ease-in-out infinite; }
+.eko-pulse { animation: eko-pulse 0.5s ease-in-out infinite; }
+.eko-drop { animation: eko-drop 1.4s ease-in infinite; }
+.eko-zz { animation: eko-zz 2.4s ease-out infinite; }
+
+/* Moves */
+.eko[data-move='sway'] .eko-eq { animation-duration: 1.6s; }
+.eko[data-move='sway'] .eko-rig { animation: eko-sway 2.4s ease-in-out infinite alternate; }
+.eko[data-move='sway'] .eko-head { animation: eko-tilt 3s ease-in-out infinite alternate; }
+
+.eko[data-move='bob'] .eko-rig { animation: eko-squash 0.5s ease-in-out infinite; }
+.eko[data-move='bob'] .eko-head { animation: eko-bob 1s ease-in-out infinite; }
+.eko[data-move='bob'] .eko-arm-l { animation: eko-swing-l 1s ease-in-out infinite; }
+.eko[data-move='bob'] .eko-arm-r { animation: eko-swing-r 1s ease-in-out infinite; }
+
+.eko[data-move='pump'] .eko-rig { animation: eko-hop 0.5s ease-in-out infinite; }
+.eko[data-move='pump'] .eko-head { animation: eko-nod 0.5s ease-in-out infinite; }
+.eko[data-move='pump'] .eko-arm-r { animation: eko-pump-r 0.5s ease-in-out infinite; }
+.eko[data-move='pump'] .eko-arm-l { animation: eko-swing-l 1s ease-in-out infinite; }
+
+.eko[data-move='step'] .eko-rig { animation: eko-step 1s ease-in-out infinite; }
+.eko[data-move='step'] .eko-leg-l { animation: eko-lift-l 1s ease-in-out infinite; }
+.eko[data-move='step'] .eko-leg-r { animation: eko-lift-r 1s ease-in-out infinite; }
+.eko[data-move='step'] .eko-arm-l { animation: eko-swing-l 1s ease-in-out infinite; }
+.eko[data-move='step'] .eko-arm-r { animation: eko-swing-r 1s ease-in-out infinite; }
+.eko[data-move='step'] .eko-head { animation: eko-tilt 0.5s ease-in-out infinite alternate; }
+
+.eko[data-move='spin'] .eko-rig { animation: eko-spin 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
+.eko[data-move='spin'] .eko-arm-l { animation: eko-out-l 0.5s ease-in-out infinite; }
+.eko[data-move='spin'] .eko-arm-r { animation: eko-out-r 0.5s ease-in-out infinite; }
+
+.eko[data-move='jump'] .eko-rig { animation: eko-jump 1s ease-in-out infinite; }
+.eko[data-move='jump'] .eko-arm-l { animation: eko-jump-arm-l 1s ease-in-out infinite; }
+.eko[data-move='jump'] .eko-arm-r { animation: eko-jump-arm-r 1s ease-in-out infinite; }
+.eko[data-move='jump'] .eko-shadow { animation: eko-jump-shadow 1s ease-in-out infinite; }
+
+.eko[data-move='robot'] .eko-arm-l { animation: eko-robot-l 2s linear infinite; }
+.eko[data-move='robot'] .eko-arm-r { animation: eko-robot-r 2s linear infinite; }
+.eko[data-move='robot'] .eko-head { animation: eko-robot-head 1s linear infinite; }
+
+.eko[data-move='roof'] .eko-rig { animation: eko-hop 0.5s ease-in-out infinite; }
+.eko[data-move='roof'] .eko-head { animation: eko-nod 0.5s ease-in-out infinite; }
+.eko[data-move='roof'] .eko-arm-l { animation: eko-roof-l 0.5s ease-in-out infinite; }
+.eko[data-move='roof'] .eko-arm-r { animation: eko-roof-r 0.5s ease-in-out infinite; }
+
+.eko[data-move='scratch'] .eko-head { animation: eko-bob 1s ease-in-out infinite; }
+.eko[data-move='scratch'] .eko-arm-r { animation: eko-scratch-r 0.25s ease-in-out infinite alternate; }
+.eko[data-move='scratch'] .eko-arm-l { animation: eko-rest-l 1s ease-in-out infinite alternate; }
+.eko[data-move='scratch'] .eko-rig { animation: eko-squash 0.5s ease-in-out infinite; }
+
+.eko[data-move='slump'] .eko-rig { animation: eko-slump 2s ease-in-out infinite alternate; }
+.eko[data-move='slump'] .eko-head { animation: eko-droop 2s ease-in-out infinite alternate; }
+.eko[data-move='slump'] .eko-arm-l { animation: eko-hang-l 2s ease-in-out infinite alternate; }
+.eko[data-move='slump'] .eko-arm-r { animation: eko-hang-r 2s ease-in-out infinite alternate; }
+
+/* Eko stands still for anyone who asks for less motion; the faces still change. */
+@media (prefers-reduced-motion: reduce) {
+  .eko,
+  .eko * {
+    animation: none !important;
+  }
+}
+
+@keyframes eko-enter {
+  0% { transform: translateX(70%); opacity: 0; }
+  60% { opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes eko-blink { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(0.1); } }
+@keyframes eko-eq { from { transform: scaleY(0.25); } to { transform: scaleY(1); } }
+@keyframes eko-led { 0% { opacity: 1; } 50% { opacity: 0.3; } }
+@keyframes eko-twinkle { 0%, 100% { transform: scale(1) rotate(0deg); } 50% { transform: scale(0.7) rotate(25deg); } }
+@keyframes eko-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.25); } }
+@keyframes eko-drop {
+  0% { transform: translateY(0); opacity: 1; }
+  80% { transform: translateY(8px); opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+@keyframes eko-zz {
+  0% { transform: translate(0, 0); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translate(10px, -16px); opacity: 0; }
+}
+@keyframes eko-sway { from { transform: rotate(-3deg); } to { transform: rotate(3deg); } }
+@keyframes eko-tilt { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
+@keyframes eko-bob {
+  0%, 50%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(4px) rotate(-7deg); }
+  75% { transform: translateY(4px) rotate(7deg); }
+}
+@keyframes eko-squash { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(1.03, 0.96); } }
+@keyframes eko-swing-l { 0%, 100% { transform: rotate(14deg); } 50% { transform: rotate(-8deg); } }
+@keyframes eko-swing-r { 0%, 100% { transform: rotate(8deg); } 50% { transform: rotate(-14deg); } }
+@keyframes eko-hop { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+@keyframes eko-nod { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(3px) rotate(-5deg); } }
+@keyframes eko-pump-r { 0%, 100% { transform: rotate(-140deg); } 50% { transform: rotate(-175deg); } }
+@keyframes eko-step { 0%, 100% { transform: translateX(-12px); } 50% { transform: translateX(12px); } }
+@keyframes eko-lift-l { 0%, 50%, 100% { transform: rotate(0deg); } 25% { transform: rotate(16deg); } }
+@keyframes eko-lift-r { 0%, 50%, 100% { transform: rotate(0deg); } 75% { transform: rotate(-16deg); } }
+@keyframes eko-spin {
+  0% { transform: translateY(0) scaleX(1); }
+  25% { transform: translateY(-10px) scaleX(0.02); }
+  50% { transform: translateY(0) scaleX(-1); }
+  75% { transform: translateY(-10px) scaleX(0.02); }
+  100% { transform: translateY(0) scaleX(1); }
+}
+@keyframes eko-out-l { 0%, 100% { transform: rotate(62deg); } 50% { transform: rotate(84deg); } }
+@keyframes eko-out-r { 0%, 100% { transform: rotate(-62deg); } 50% { transform: rotate(-84deg); } }
+@keyframes eko-jump {
+  0%, 78%, 100% { transform: translateY(0) scale(1, 1); }
+  15% { transform: translateY(0) scale(1.08, 0.88); }
+  40% { transform: translateY(-34px) scale(0.95, 1.06); }
+  62% { transform: translateY(0) scale(1.07, 0.9); }
+}
+@keyframes eko-jump-arm-l { 0%, 15%, 78%, 100% { transform: rotate(12deg); } 40% { transform: rotate(158deg); } }
+@keyframes eko-jump-arm-r { 0%, 15%, 78%, 100% { transform: rotate(-12deg); } 40% { transform: rotate(-158deg); } }
+@keyframes eko-jump-shadow {
+  0%, 15%, 62%, 100% { transform: scale(1); opacity: 1; }
+  40% { transform: scale(0.6); opacity: 0.5; }
+}
+@keyframes eko-robot-l { 0%, 22% { transform: rotate(0deg); } 25%, 72% { transform: rotate(90deg); } 75%, 100% { transform: rotate(0deg); } }
+@keyframes eko-robot-r { 0%, 47% { transform: rotate(0deg); } 50%, 97% { transform: rotate(-90deg); } 100% { transform: rotate(0deg); } }
+@keyframes eko-robot-head { 0%, 45% { transform: rotate(-8deg); } 50%, 95% { transform: rotate(8deg); } 100% { transform: rotate(-8deg); } }
+@keyframes eko-roof-l { 0%, 100% { transform: rotate(148deg); } 50% { transform: rotate(172deg); } }
+@keyframes eko-roof-r { 0%, 100% { transform: rotate(-148deg); } 50% { transform: rotate(-172deg); } }
+@keyframes eko-scratch-r { from { transform: rotate(-14deg); } to { transform: rotate(-30deg); } }
+@keyframes eko-rest-l { from { transform: rotate(4deg); } to { transform: rotate(14deg); } }
+@keyframes eko-slump { from { transform: translateY(2px) scale(1.02, 0.97); } to { transform: translateY(4px) scale(1.03, 0.95); } }
+@keyframes eko-droop { from { transform: translateY(4px) rotate(-4deg); } to { transform: translateY(6px) rotate(-8deg); } }
+@keyframes eko-hang-l { from { transform: rotate(-4deg); } to { transform: rotate(-8deg); } }
+@keyframes eko-hang-r { from { transform: rotate(4deg); } to { transform: rotate(8deg); } }
