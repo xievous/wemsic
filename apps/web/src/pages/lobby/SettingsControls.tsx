@@ -1,5 +1,7 @@
 import { Box, Stack, TextField, Typography } from '@mui/material';
 import type { TypingSpellingLeniency } from '@wemsic/shared';
+import { useState } from 'react';
+import { settleSetting, validSetting } from './numberSetting';
 
 export const SPELLING_LENIENCY_OPTIONS: {
   value: TypingSpellingLeniency;
@@ -43,14 +45,34 @@ export function NumberField({
   min: number;
   max: number;
 }) {
+  // What's in the field while the host is editing it; null shows `value`.
+  const [draft, setDraft] = useState<string | null>(null);
+
+  function settle() {
+    if (draft === null) return;
+    const n = settleSetting(draft, min, max);
+    if (n !== null && n !== value) onChange(n);
+    setDraft(null);
+  }
+
   return (
     <TextField
       label={label}
       type="number"
       size="small"
       sx={{ flex: 1 }}
-      value={value}
-      onChange={(e) => onChange(Number(e.target.value))}
+      value={draft ?? value}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        // Send right away once it's a real value, so the arrows and fully
+        // typed numbers update the room without waiting for blur.
+        const n = validSetting(e.target.value, min, max);
+        if (n !== null && n !== value) onChange(n);
+      }}
+      onBlur={settle}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
       inputProps={{ min, max }}
     />
   );
