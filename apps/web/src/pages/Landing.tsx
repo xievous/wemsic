@@ -1,88 +1,12 @@
 import { Alert, Box, Button, Chip, Snackbar, Stack, Typography } from '@mui/material';
-import { keyframes } from '@mui/system';
 import GraphicEqRoundedIcon from '@mui/icons-material/GraphicEqRounded';
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
+import { Eko } from '../components/eko/Eko';
 import { Layout } from '../components/Layout';
-import { TILE_COLORS } from '../theme';
-
-const pulse = keyframes`
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.06); }
-`;
-
-const previewOptions = [
-  'Blinding Lights',
-  'As It Was',
-  'good 4 u',
-  'Levitating',
-];
-
-function MockRound() {
-  return (
-    <Box
-      sx={{
-        borderRadius: '28px',
-        p: { xs: 2.5, sm: 3 },
-        bgcolor: 'background.paper',
-        border: '1px solid rgba(20,33,63,0.06)',
-        boxShadow: '0 30px 60px -30px rgba(20,33,63,0.35)',
-        transform: { md: 'rotate(2deg)' },
-      }}
-    >
-      <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2.5 }}>
-        <Box
-          sx={{
-            width: 64,
-            height: 64,
-            borderRadius: '18px',
-            flexShrink: 0,
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            background: 'linear-gradient(135deg, #3A6BFF, #00BFD8)',
-            animation: `${pulse} 2.2s ease-in-out infinite`,
-            '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
-          }}
-        >
-          <GraphicEqRoundedIcon sx={{ fontSize: 34 }} />
-        </Box>
-        <Box>
-          <Typography variant="overline" color="text.secondary">
-            Now playing
-          </Typography>
-          <Typography variant="h6" sx={{ lineHeight: 1.1 }}>
-            What&apos;s this track?
-          </Typography>
-        </Box>
-      </Stack>
-      <Stack spacing={1.25}>
-        {previewOptions.map((label, i) => {
-          const c = TILE_COLORS[i];
-          return (
-            <Box
-              key={label}
-              sx={{
-                borderRadius: '14px',
-                px: 2,
-                py: 1.5,
-                fontWeight: 600,
-                color: c.text,
-                background: c.bg,
-                boxShadow: `0 5px 0 ${c.shadow}`,
-              }}
-            >
-              {label}
-            </Box>
-          );
-        })}
-      </Stack>
-    </Box>
-  );
-}
 
 export function Landing() {
   const [searchParams] = useSearchParams();
@@ -156,7 +80,15 @@ export function Landing() {
           </Stack>
         </Box>
 
-        <MockRound />
+        <Box
+          sx={{
+            width: '100%',
+            maxWidth: { xs: 240, sm: 300, md: 380 },
+            justifySelf: 'center',
+          }}
+        >
+          <Eko face="happy" move="scratch" desk entrance />
+        </Box>
       </Box>
     </Layout>
   );
