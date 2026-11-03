@@ -9,6 +9,7 @@ import { PresenterWaitingStage } from './Waiting';
 /** Host mode, shared screen: big question + sound, read-only answers, no input. */
 export function PresenterView({
   playerId,
+  roomCode,
   round,
   reveal,
   playerStatuses,
@@ -20,6 +21,7 @@ export function PresenterView({
   if (reveal) {
     return (
       <RoundReveal
+        roomCode={roomCode}
         reveal={reveal}
         playerId={playerId}
         revealProgress={revealProgress}
@@ -34,10 +36,12 @@ export function PresenterView({
       <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
         <Stack spacing={2.5}>
           <Stage
+            roomCode={roomCode}
             roundIndex={round.roundIndex}
             totalRounds={round.totalRounds}
             timeLeft={timeLeft}
             progress={progress}
+            typing={round.gameMode === 'typing'}
             presenter
           />
 

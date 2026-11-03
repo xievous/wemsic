@@ -1,20 +1,25 @@
 import { Box, Stack, Typography } from '@mui/material';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import type { RoundRevealPayload } from '@wemsic/shared';
+import { Eko } from '../../components/eko/Eko';
+import { revealMood } from '../../components/eko/ekoMood';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 import { RoundProgressBar } from '../../components/RoundProgressBar';
 import { popIn } from '../../styles/animations';
 
 /**
  * Answer card + leaderboard between rounds, shared by online players and the
- * host presenter. The presenter doesn't score, so their card has no points pill.
+ * host presenter. The presenter doesn't score, so their card has no points
+ * pill. Eko reacts to this player's own points.
  */
 export function RoundReveal({
+  roomCode,
   reveal,
   playerId,
   revealProgress,
   presenter = false,
 }: {
+  roomCode: string;
   reveal: RoundRevealPayload;
   playerId: string;
   revealProgress: number;
@@ -22,6 +27,8 @@ export function RoundReveal({
 }) {
   const myScore = reveal.roundScores[playerId] ?? 0;
   const scored = myScore > 0;
+  const mood = revealMood(roomCode, reveal.roundIndex, myScore, presenter);
+  const eko = <Eko face={mood.face} move={mood.move} onDark />;
   return (
     <Stack spacing={2.5}>
       <Box
@@ -65,7 +72,7 @@ export function RoundReveal({
               <VolumeUpRoundedIcon sx={{ fontSize: 44 }} />
             </Box>
           )}
-          <Box sx={{ minWidth: 0 }}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
             <Typography variant="overline" sx={{ opacity: 0.7 }}>
               The track was
             </Typography>
@@ -76,6 +83,18 @@ export function RoundReveal({
               {reveal.correctArtists.join(', ')}
             </Typography>
           </Box>
+          {/* Opposite the album art from sm up; on phones it moves down beside the points. */}
+          <Box
+            sx={{
+              display: { xs: 'none', sm: 'block' },
+              width: presenter ? 160 : 120,
+              flexShrink: 0,
+              alignSelf: 'flex-end',
+              mb: -1,
+            }}
+          >
+            {eko}
+          </Box>
         </Stack>
         <Box sx={{ mt: 2.5 }}>
           <RoundProgressBar
@@ -83,25 +102,34 @@ export function RoundReveal({
             size={presenter ? 'large' : 'default'}
           />
         </Box>
-        {!presenter && (
-          <Box
-            sx={{
-              mt: 2.5,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 1,
-              px: 2,
-              py: 1,
-              borderRadius: 999,
-              bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
-              animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
-            }}
-          >
-            <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
-              {scored ? `+${myScore} points` : 'No points this round'}
-            </Typography>
+        <Stack
+          direction="row"
+          justifyContent="space-between"
+          alignItems="flex-end"
+          sx={{ mt: 2.5, display: { xs: 'flex', sm: presenter ? 'none' : 'flex' } }}
+        >
+          {!presenter && (
+            <Box
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 1,
+                px: 2,
+                py: 1,
+                borderRadius: 999,
+                bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
+                animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
+              }}
+            >
+              <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
+                {scored ? `+${myScore} points` : 'No points this round'}
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ display: { xs: 'block', sm: 'none' }, width: 76, ml: 'auto', mb: -1 }}>
+            {eko}
           </Box>
-        )}
+        </Stack>
       </Box>
 
       <Box

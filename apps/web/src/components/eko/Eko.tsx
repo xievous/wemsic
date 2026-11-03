@@ -37,22 +37,28 @@ const EQ_BARS = [
  * The wemsic mascot: a visor robot, drawn in SVG and animated in CSS. The
  * move and face are data attributes, so switching them never remounts it.
  * With `desk`, Eko stands behind a DJ desk; with `entrance`, it slides in
- * once when it mounts. Decorative only, so it's hidden from screen readers.
+ * once when it mounts; `onDark` adds a light outline so the blue body stands
+ * out on the navy game cards. Decorative only, so it's hidden from screen readers.
  */
 export function Eko({
   face = 'happy',
   move = 'bob',
   desk = false,
   entrance = false,
+  onDark = false,
 }: {
   face?: EkoFace;
   move?: EkoMove;
   desk?: boolean;
   entrance?: boolean;
+  onDark?: boolean;
 }) {
+  const className = ['eko', entrance && 'eko-entrance', onDark && 'eko-on-dark']
+    .filter(Boolean)
+    .join(' ');
   return (
     <svg
-      className={entrance ? 'eko eko-entrance' : 'eko'}
+      className={className}
       viewBox="0 0 200 232"
       aria-hidden="true"
       focusable="false"

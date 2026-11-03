@@ -14,6 +14,10 @@
   transform-box: view-box;
 }
 
+.eko-on-dark {
+  filter: drop-shadow(0 0 1.5px rgba(255, 255, 255, 0.55));
+}
+
 /* Arrival: slides in from the right and settles with a little bounce. */
 .eko-entrance {
   animation: eko-enter 0.9s cubic-bezier(0.34, 1.4, 0.64, 1) 0.2s both;
