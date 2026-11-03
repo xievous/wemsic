@@ -98,7 +98,9 @@ export function Layout({
       sx={{
         position: 'relative',
         minHeight: '100dvh',
-        overflow: 'hidden',
+        // clip, not hidden: hidden makes this a scroll container, which stops
+        // position: sticky children (the lobby Start button) from sticking.
+        overflowX: 'clip',
         background:
           'linear-gradient(180deg, #F3F8FF 0%, #E9F2FF 100%)',
       }}

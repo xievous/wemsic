@@ -67,7 +67,16 @@ export function StartControls({
           startIcon={countdownActive ? <CloseRoundedIcon /> : <PlayArrowRoundedIcon />}
           disabled={!canStart && !countdownActive}
           onClick={onStart}
-          sx={{ py: 2, fontSize: '1.15rem' }}
+          sx={{
+            py: 2,
+            fontSize: '1.15rem',
+            // On phones the button is below a long page; keep it in reach.
+            position: { xs: 'sticky', sm: 'static' },
+            bottom: { xs: 16 },
+            zIndex: 5,
+            // Solid, so the page doesn't show through while it's disabled and stuck.
+            '&.Mui-disabled': { bgcolor: '#DCE3F0' },
+          }}
         >
           {countdownActive
             ? `Starting in ${countdownLeft}… (tap to cancel)`
