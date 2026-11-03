@@ -1,11 +1,25 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import {
+  Box,
+  Button,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  IconButton,
+  Stack,
+  Tooltip,
+  Typography,
+} from '@mui/material';
 import type { Player } from '@wemsic/shared';
+import { useState } from 'react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
 /**
  * Lobby roster with ready and online state; the host gets a remove button on
- * everyone else.
+ * everyone else, behind a confirmation so one mis-tap doesn't kick anyone.
  */
 export function PlayerList({
   players,
@@ -20,6 +34,8 @@ export function PlayerList({
   hostMode: boolean;
   onKick: (playerId: string) => void;
 }) {
+  const [confirmKick, setConfirmKick] = useState<Player | null>(null);
+
   return (
     <>
       <Typography variant="h5" sx={{ mb: 1.5 }}>
@@ -77,7 +93,7 @@ export function PlayerList({
                   <IconButton
                     size="small"
                     aria-label={`Remove ${p.displayName}`}
-                    onClick={() => onKick(p.id)}
+                    onClick={() => setConfirmKick(p)}
                     sx={{
                       color: 'text.secondary',
                       '&:hover': { color: 'error.main', bgcolor: 'rgba(255,84,112,0.1)' },
@@ -91,6 +107,34 @@ export function PlayerList({
           );
         })}
       </Box>
+
+      <Dialog
+        open={confirmKick !== null}
+        onClose={() => setConfirmKick(null)}
+        PaperProps={{ sx: { borderRadius: '20px' } }}
+      >
+        <DialogTitle>Remove {confirmKick?.displayName}?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Their playlists leave with them. They can rejoin with the room code.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5 }}>
+          <Button onClick={() => setConfirmKick(null)} color="inherit">
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => {
+              if (confirmKick) onKick(confirmKick.id);
+              setConfirmKick(null);
+            }}
+          >
+            Remove
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
