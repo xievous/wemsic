@@ -1,23 +1,25 @@
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import { Alert, Button } from '@mui/material';
+import { Alert, Button, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 
 /**
  * Start countdown notice for everyone, plus the host's start / cancel button.
- * The server owns the countdown; this only ticks down to its end time.
+ * Everyone else sees what the room is waiting for. The server owns the
+ * countdown; this only ticks down to its end time.
  */
 export function StartControls({
   startCountdownEndsAt,
   isHost,
   canStart,
-  roomHasPlaylist,
+  blocker,
   onStart,
 }: {
   startCountdownEndsAt?: number | null;
   isHost: boolean;
   canStart: boolean;
-  roomHasPlaylist: boolean;
+  /** Why the game can't start yet (see startBlocker), or null. */
+  blocker: string | null;
   onStart: () => void;
 }) {
   const [countdownLeft, setCountdownLeft] = useState<number | null>(null);
@@ -69,10 +71,14 @@ export function StartControls({
         >
           {countdownActive
             ? `Starting in ${countdownLeft}… (tap to cancel)`
-            : roomHasPlaylist
-              ? 'Start the game'
-              : 'Add a playlist to start'}
+            : (blocker ?? 'Start the game')}
         </Button>
+      )}
+
+      {!isHost && !countdownActive && (
+        <Typography color="text.secondary" sx={{ textAlign: 'center', fontWeight: 600 }}>
+          {blocker ?? 'Everyone’s ready. Waiting for the host to start.'}
+        </Typography>
       )}
     </>
   );
