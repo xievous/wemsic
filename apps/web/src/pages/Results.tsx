@@ -1,20 +1,14 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
-import { keyframes } from '@mui/system';
-import EmojiEventsRoundedIcon from '@mui/icons-material/EmojiEventsRounded';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
 import { useEffect, useRef } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
+import { Eko } from '../components/eko/Eko';
 import { Layout } from '../components/Layout';
 import { PlayerAvatar } from '../components/PlayerAvatar';
 import { ReconnectingBanner } from '../components/ReconnectingBanner';
 import { clearSession, useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
-
-const popIn = keyframes`
-  0% { transform: scale(0.7) translateY(10px); opacity: 0; }
-  60% { transform: scale(1.06); }
-  100% { transform: scale(1) translateY(0); opacity: 1; }
-`;
+import { WinnerCard } from './results/WinnerCard';
 
 export function Results() {
   const { code } = useParams<{ code: string }>();
@@ -65,6 +59,11 @@ export function Results() {
         <Typography variant="overline" color="text.secondary">
           Game over
         </Typography>
+        {noRoundsPlayed && (
+          <Box sx={{ width: 110, mx: 'auto', mt: 1 }}>
+            <Eko face="oops" move="slump" />
+          </Box>
+        )}
         {gameEnd?.reason === 'out_of_tracks' && (
           <Alert severity={noRoundsPlayed ? 'warning' : 'info'} sx={{ mt: 2, textAlign: 'left' }}>
             {noRoundsPlayed
@@ -72,30 +71,7 @@ export function Results() {
               : `Ran out of playable songs after ${gameEnd.roundsPlayed} of ${gameEnd.totalRounds} rounds. Add more playlists for a longer game.`}
           </Alert>
         )}
-        {winner && (
-          <Box
-            sx={{
-              mt: 2,
-              p: { xs: 3, sm: 4 },
-              borderRadius: '28px',
-              color: '#fff',
-              background: 'linear-gradient(135deg, #3A6BFF 0%, #6C5CE7 50%, #00BFD8 100%)',
-              boxShadow: '0 30px 60px -28px rgba(58,107,255,0.55)',
-              animation: `${popIn} 0.55s cubic-bezier(0.16,1,0.3,1)`,
-            }}
-          >
-            <EmojiEventsRoundedIcon sx={{ fontSize: 52, mb: 1 }} />
-            <Stack direction="row" spacing={2} alignItems="center" justifyContent="center" sx={{ mb: 1.5 }}>
-              <PlayerAvatar id={winner.playerId} name={winner.displayName} size={64} ring />
-            </Stack>
-            <Typography variant="h3" sx={{ color: '#fff' }}>
-              {winner.displayName} wins
-            </Typography>
-            <Typography sx={{ opacity: 0.9, fontWeight: 600, mt: 0.5 }}>
-              {winner.score} points
-            </Typography>
-          </Box>
-        )}
+        {winner && <WinnerCard winner={winner} />}
       </Box>
 
       {rest.length > 0 && (
