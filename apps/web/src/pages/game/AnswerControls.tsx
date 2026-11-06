@@ -6,7 +6,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import HexagonRoundedIcon from '@mui/icons-material/HexagonRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import type { McqOption } from '@wemsic/shared';
-import type { Ref } from 'react';
+import { useEffect, type Ref } from 'react';
 import { TILE_COLORS } from '../../theme';
 
 const TILE_SHAPES = [
@@ -18,7 +18,7 @@ const TILE_SHAPES = [
   FavoriteRoundedIcon,
 ];
 
-/** Tappable speed-choice tiles for players and pads. */
+/** Tappable speed-choice tiles for players and pads; keys 1–4 pick them too. */
 export function McqOptions({
   options,
   selectedOption,
@@ -26,22 +26,36 @@ export function McqOptions({
   onSelect,
 }: {
   options: McqOption[];
-  selectedOption: string | null;
+  selectedOption: McqOption | null;
   answered: boolean;
-  onSelect: (optionId: string) => void;
+  onSelect: (option: McqOption) => void;
 }) {
-  function handlePointerDown(e: React.PointerEvent, optionId: string) {
+  function handlePointerDown(e: React.PointerEvent, option: McqOption) {
     if (answered || e.button !== 0) return;
     e.preventDefault();
-    onSelect(optionId);
+    onSelect(option);
   }
 
-  function handleKeyDown(e: React.KeyboardEvent, optionId: string) {
+  function handleKeyDown(e: React.KeyboardEvent, option: McqOption) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     e.preventDefault();
     if (e.repeat) return;
-    onSelect(optionId);
+    onSelect(option);
   }
+
+  useEffect(() => {
+    if (answered) return;
+    function onNumberKey(e: KeyboardEvent) {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return;
+      const option = options[Number(e.key) - 1];
+      if (!option) return;
+      e.preventDefault();
+      onSelect(option);
+    }
+    window.addEventListener('keydown', onNumberKey);
+    return () => window.removeEventListener('keydown', onNumberKey);
+  }, [answered, options, onSelect]);
 
   return (
     <Box
@@ -54,15 +68,15 @@ export function McqOptions({
       {options.map((opt, i) => {
         const c = TILE_COLORS[i % TILE_COLORS.length];
         const Shape = TILE_SHAPES[i % TILE_SHAPES.length];
-        const isSelected = selectedOption === opt.id;
+        const isSelected = selectedOption?.id === opt.id;
         const dimmed = answered && !isSelected;
         return (
           <Box
             key={opt.id}
             role="button"
             tabIndex={answered ? -1 : 0}
-            onPointerDown={(e) => handlePointerDown(e, opt.id)}
-            onKeyDown={(e) => handleKeyDown(e, opt.id)}
+            onPointerDown={(e) => handlePointerDown(e, opt)}
+            onKeyDown={(e) => handleKeyDown(e, opt)}
             sx={{
               position: 'relative',
               cursor: answered ? 'default' : 'pointer',
@@ -88,6 +102,29 @@ export function McqOptions({
             <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
               {opt.label}
             </Typography>
+            {i < 9 && (
+              // Key hint, only on devices with a mouse (and so, likely, a keyboard).
+              <Box
+                component="kbd"
+                aria-hidden
+                sx={{
+                  ml: 'auto',
+                  flexShrink: 0,
+                  display: 'none',
+                  '@media (hover: hover) and (pointer: fine)': { display: 'grid' },
+                  placeItems: 'center',
+                  width: 26,
+                  height: 26,
+                  borderRadius: '8px',
+                  bgcolor: 'rgba(255,255,255,0.25)',
+                  fontFamily: 'inherit',
+                  fontWeight: 700,
+                  fontSize: '0.85rem',
+                }}
+              >
+                {i + 1}
+              </Box>
+            )}
           </Box>
         );
       })}

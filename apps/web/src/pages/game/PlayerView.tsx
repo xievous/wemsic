@@ -5,12 +5,14 @@ import { RoundReveal } from './RoundReveal';
 import { Stage } from './Stage';
 import type { GameViewProps } from './types';
 import { useRoundAnswers } from './useRoundAnswers';
+import { missedPickNote } from './pickNote';
 import { CueingUpSpinner } from './Waiting';
 
 /** Online mode: every device gets the stage, sound, and its own answer controls. */
 export function PlayerView({
   playerId,
   roomCode,
+  gameMode,
   round,
   reveal,
   playerStatuses,
@@ -30,6 +32,11 @@ export function PlayerView({
         reveal={reveal}
         playerId={playerId}
         revealProgress={revealProgress}
+        pickNote={missedPickNote(
+          gameMode,
+          answers.selectedOption,
+          reveal.roundScores[playerId] ?? 0,
+        )}
       />
     );
   }

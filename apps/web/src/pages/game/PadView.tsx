@@ -3,6 +3,7 @@ import { popIn } from '../../styles/animations';
 import { AnswerStatus, McqOptions, TypingInput } from './AnswerControls';
 import type { GameViewProps } from './types';
 import { useRoundAnswers } from './useRoundAnswers';
+import { missedPickNote } from './pickNote';
 import { CueingUpSpinner } from './Waiting';
 
 /**
@@ -11,6 +12,7 @@ import { CueingUpSpinner } from './Waiting';
  */
 export function PadView({
   playerId,
+  gameMode,
   round,
   reveal,
   timeLeft,
@@ -20,7 +22,15 @@ export function PadView({
 }: GameViewProps) {
   const answers = useRoundAnswers(round?.roundIndex, timerExpired);
 
-  if (reveal) return <PadRoundScore score={reveal.roundScores[playerId] ?? 0} />;
+  if (reveal) {
+    const score = reveal.roundScores[playerId] ?? 0;
+    return (
+      <PadRoundScore
+        score={score}
+        pickNote={missedPickNote(gameMode, answers.selectedOption, score)}
+      />
+    );
+  }
   if (!round) return <CueingUpSpinner />;
 
   const isTyping = round.gameMode === 'typing';
@@ -91,7 +101,7 @@ export function PadView({
 }
 
 /** Between rounds on a pad: just this player's points; the answer is on the big screen. */
-function PadRoundScore({ score }: { score: number }) {
+function PadRoundScore({ score, pickNote }: { score: number; pickNote: string | null }) {
   const scored = score > 0;
   return (
     <Stack spacing={2.5} alignItems="center" sx={{ py: { xs: 4, sm: 8 } }}>
@@ -117,7 +127,7 @@ function PadRoundScore({ score }: { score: number }) {
           {scored ? `+${score}` : 'No points'}
         </Typography>
         <Typography sx={{ opacity: 0.9 }}>
-          {scored ? 'points' : 'Better luck next track'}
+          {scored ? 'points' : (pickNote ?? 'Better luck next track')}
         </Typography>
       </Box>
       <Typography color="text.secondary" sx={{ textAlign: 'center' }}>
