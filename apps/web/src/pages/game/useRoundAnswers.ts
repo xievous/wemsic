@@ -1,3 +1,4 @@
+import type { McqOption } from '@wemsic/shared';
 import { useEffect, useRef, useState } from 'react';
 import { useAudio } from '../../audio/AudioProvider';
 import { useSocket } from '../../socket/SocketContext';
@@ -46,13 +47,14 @@ function playTypingCorrectDing(el: Element) {
 /**
  * Local answer state for a competing player (online player or host-mode pad):
  * the locked-in MCQ option, the typing guess draft, and the shake/ding
- * feedback when a typing result comes back. Resets every round.
+ * feedback when a typing result comes back. Resets when the next round
+ * starts, so the pick is still there to show at the reveal.
  */
 export function useRoundAnswers(roundIndex: number | undefined, timerExpired: boolean) {
   const { submitMcqAnswer, submitTypingGuess, lastTypingResult } = useSocket();
   const { playCorrectChime } = useAudio();
   const [mcqAnswered, setMcqAnswered] = useState(false);
-  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+  const [selectedOption, setSelectedOption] = useState<McqOption | null>(null);
   const [guess, setGuess] = useState('');
   const typingChatRef = useRef<HTMLDivElement>(null);
   const typingChatAtSubmitRef = useRef<HTMLDivElement | null>(null);
@@ -85,11 +87,11 @@ export function useRoundAnswers(roundIndex: number | undefined, timerExpired: bo
     typingAnimRef.current = playTypingCorrectDing(el);
   }, [lastTypingResult, playCorrectChime]);
 
-  function selectOption(optionId: string) {
+  function selectOption(option: McqOption) {
     if (mcqAnswered) return;
-    submitMcqAnswer(optionId);
+    submitMcqAnswer(option.id);
     setMcqAnswered(true);
-    setSelectedOption(optionId);
+    setSelectedOption(option);
   }
 
   function submitGuess(e?: React.FormEvent) {

@@ -124,6 +124,11 @@ export class RoomManager {
     if (!room) return { error: 'Room not found' };
     if (room.phase !== 'lobby') return { error: 'Game already started' };
     if (room.players.size >= MAX_PLAYERS) return { error: 'Room is full' };
+    // Two Sams make the scoreboard and "Added by" ambiguous.
+    const taken = [...room.players.values()].find((p) => sameName(p.displayName, displayName));
+    if (taken) {
+      return { error: `Someone here is already called ${taken.displayName}. Pick another name.` };
+    }
 
     const playerId = nanoid();
     room.players.set(playerId, this.newPlayer(playerId, displayName, false));
@@ -422,8 +427,10 @@ export class RoomManager {
     // so they're excluded from the engine's player set entirely.
     const competing = this.competingPlayerEntries(room);
     const playerIds = competing.map(([id]) => id);
+    // Everyone's names, the presenter's too: the reveal says who added each
+    // song, and the presenter can add songs without competing.
     const displayNames = new Map(
-      competing.map(([id, p]) => [id, p.displayName]),
+      [...room.players.entries()].map(([id, p]) => [id, p.displayName]),
     );
 
     const engine = new GameEngine(
@@ -641,4 +648,10 @@ export class RoomManager {
     }
     this.broadcast(room.code, 'lobby:state', this.toLobbyState(room));
   }
+}
+
+/** Names match ignoring case and extra spaces, so "sam" and "Sam " clash. */
+function sameName(a: string, b: string): boolean {
+  const key = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return key(a) === key(b);
 }

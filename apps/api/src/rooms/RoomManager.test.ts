@@ -71,7 +71,9 @@ describe('RoomManager: joining', () => {
 
   it(`refuses joins past ${MAX_PLAYERS} players`, () => {
     const { rooms, roomCode, lobby } = setup();
-    while (lobby().players.length < MAX_PLAYERS) rooms.joinRoom(roomCode, 'Filler');
+    while (lobby().players.length < MAX_PLAYERS) {
+      rooms.joinRoom(roomCode, `Filler ${lobby().players.length}`);
+    }
     expect(rooms.joinRoom(roomCode, 'One too many')).toEqual({ error: 'Room is full' });
   });
 
@@ -79,6 +81,15 @@ describe('RoomManager: joining', () => {
     const { rooms, roomCode, startAndWait } = setup();
     await startAndWait();
     expect(rooms.joinRoom(roomCode, 'Late')).toEqual({ error: 'Game already started' });
+  });
+
+  it('refuses a name someone in the room already has, ignoring case and spaces', () => {
+    const { rooms, roomCode, lobby } = setup();
+    expect(rooms.joinRoom(roomCode, '  guest ')).toEqual({
+      error: 'Someone here is already called Guest. Pick another name.',
+    });
+    expect(lobby().players).toHaveLength(2);
+    expect(rooms.joinRoom(roomCode, 'Guest 2')).toHaveProperty('playerId');
   });
 
   it('refuses unknown rooms', () => {
@@ -174,7 +185,9 @@ describe('RoomManager: leaving and offline players', () => {
 
   it(`lets someone take a freed slot in a full room`, async () => {
     const ctx = setup();
-    while (ctx.lobby().players.length < MAX_PLAYERS) ctx.rooms.joinRoom(ctx.roomCode, 'Filler');
+    while (ctx.lobby().players.length < MAX_PLAYERS) {
+      ctx.rooms.joinRoom(ctx.roomCode, `Filler ${ctx.lobby().players.length}`);
+    }
     expect(ctx.rooms.joinRoom(ctx.roomCode, 'Waiting')).toEqual({ error: 'Room is full' });
 
     ctx.rooms.leaveRoom(ctx.roomCode, ctx.guest);

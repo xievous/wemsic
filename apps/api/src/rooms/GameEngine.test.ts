@@ -192,6 +192,22 @@ describe('GameEngine: speed choice', () => {
     expect(reveal.leaderboard[0]).toMatchObject({ playerId: 'p1', displayName: 'P1' });
   });
 
+  it('says who added the song', async () => {
+    const { engine, last } = setup({ tracks: makeTracks('p2', 10) });
+    await engine.start();
+    await vi.advanceTimersByTimeAsync(SPEED_MS);
+
+    expect(last('reveal').addedBy).toEqual({ playerId: 'p2', displayName: 'P2' });
+  });
+
+  it('leaves out a contributor it has no name for', async () => {
+    const { engine, last } = setup({ tracks: makeTracks('someone-else', 10) });
+    await engine.start();
+    await vi.advanceTimersByTimeAsync(SPEED_MS);
+
+    expect(last('reveal').addedBy).toBeNull();
+  });
+
   it('scores a faster correct answer higher', async () => {
     const { engine, last } = setup({ tracks: makeTracks('p1', 10) });
     await engine.start();

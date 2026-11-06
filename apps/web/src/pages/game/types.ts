@@ -1,4 +1,5 @@
 import type {
+  GameMode,
   RoundPlayerStatus,
   RoundRevealPayload,
   RoundStartPayload,
@@ -9,6 +10,8 @@ export interface GameViewProps {
   playerId: string;
   /** Seeds Eko's dance order, so everyone in the room sees the same moves. */
   roomCode: string;
+  /** From the room settings, which can't change mid-game; set even at the reveal. */
+  gameMode: GameMode;
   round: RoundStartPayload | null;
   reveal: RoundRevealPayload | null;
   playerStatuses: RoundPlayerStatus[];

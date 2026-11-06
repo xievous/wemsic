@@ -17,12 +17,15 @@ export function RoundReveal({
   reveal,
   playerId,
   revealProgress,
+  pickNote = null,
   presenter = false,
 }: {
   roomCode: string;
   reveal: RoundRevealPayload;
   playerId: string;
   revealProgress: number;
+  /** Shown under "No points": what this player picked, if anything. */
+  pickNote?: string | null;
   presenter?: boolean;
 }) {
   const myScore = reveal.roundScores[playerId] ?? 0;
@@ -82,6 +85,19 @@ export function RoundReveal({
             <Typography sx={{ opacity: 0.85, mt: 0.5, fontSize: '1.05rem' }}>
               {reveal.correctArtists.join(', ')}
             </Typography>
+            {reveal.addedBy && (
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 1.25 }}>
+                <PlayerAvatar
+                  id={reveal.addedBy.playerId}
+                  name={reveal.addedBy.displayName}
+                  size={22}
+                />
+                <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.85 }} noWrap>
+                  Added by{' '}
+                  {reveal.addedBy.playerId === playerId ? 'you' : reveal.addedBy.displayName}
+                </Typography>
+              </Stack>
+            )}
           </Box>
           {/* Opposite the album art from sm up; on phones it moves down beside the points. */}
           <Box
@@ -109,21 +125,28 @@ export function RoundReveal({
           sx={{ mt: 2.5, display: { xs: 'flex', sm: presenter ? 'none' : 'flex' } }}
         >
           {!presenter && (
-            <Box
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 1,
-                px: 2,
-                py: 1,
-                borderRadius: 999,
-                bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
-                animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
-              }}
-            >
-              <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
-                {scored ? `+${myScore} points` : 'No points this round'}
-              </Typography>
+            <Box sx={{ minWidth: 0 }}>
+              <Box
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 1,
+                  px: 2,
+                  py: 1,
+                  borderRadius: 999,
+                  bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
+                  animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
+                }}
+              >
+                <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
+                  {scored ? `+${myScore} points` : 'No points this round'}
+                </Typography>
+              </Box>
+              {pickNote && (
+                <Typography sx={{ mt: 1, ml: 0.5, opacity: 0.8, fontWeight: 600 }}>
+                  {pickNote}
+                </Typography>
+              )}
             </Box>
           )}
           <Box sx={{ display: { xs: 'block', sm: 'none' }, width: 76, ml: 'auto', mb: -1 }}>
