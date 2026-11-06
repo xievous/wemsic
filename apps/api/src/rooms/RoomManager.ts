@@ -124,6 +124,11 @@ export class RoomManager {
     if (!room) return { error: 'Room not found' };
     if (room.phase !== 'lobby') return { error: 'Game already started' };
     if (room.players.size >= MAX_PLAYERS) return { error: 'Room is full' };
+    // Two Sams make the scoreboard and "Added by" ambiguous.
+    const taken = [...room.players.values()].find((p) => sameName(p.displayName, displayName));
+    if (taken) {
+      return { error: `Someone here is already called ${taken.displayName}. Pick another name.` };
+    }
 
     const playerId = nanoid();
     room.players.set(playerId, this.newPlayer(playerId, displayName, false));
@@ -643,4 +648,10 @@ export class RoomManager {
     }
     this.broadcast(room.code, 'lobby:state', this.toLobbyState(room));
   }
+}
+
+/** Names match ignoring case and extra spaces, so "sam" and "Sam " clash. */
+function sameName(a: string, b: string): boolean {
+  const key = (name: string) => name.trim().replace(/\s+/g, ' ').toLocaleLowerCase();
+  return key(a) === key(b);
 }

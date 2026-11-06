@@ -122,6 +122,7 @@ export function Game() {
   const viewProps: GameViewProps = {
     playerId: session.playerId,
     roomCode: session.roomCode,
+    gameMode: lobby?.settings.gameMode ?? 'speed_choice',
     round,
     reveal,
     playerStatuses,
