@@ -23,18 +23,10 @@ export const TRIVIA_PLACEHOLDERS: Record<TriviaKind, string> = {
 /** "Who added this song?" needs at least this many people with songs in the game. */
 export const TRIVIA_MIN_CONTRIBUTORS = 3;
 
-/** Typing a year that's off by 0, 1 or 2 earns this share of the points. */
-const YEAR_CREDIT = [1, 0.5, 0.25];
-
 /** A typed year, or null when the guess isn't one. */
 export function parseYearGuess(guess: string): number | null {
   const match = guess.trim().match(/^'?(\d{4})$/);
   return match ? Number(match[1]) : null;
-}
-
-/** Share of the points a year guess earns: exact, one year off, two years off. */
-export function yearGuessCredit(answer: number, guess: number): number {
-  return YEAR_CREDIT[Math.abs(answer - guess)] ?? 0;
 }
 
 /** Album titles without "(Deluxe Edition)", "- Remastered 2011", "+ Bonus Video" and the like. */

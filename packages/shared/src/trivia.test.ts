@@ -4,7 +4,6 @@ import {
   matchPlayerName,
   parseYearGuess,
   triviaTextMatches,
-  yearGuessCredit,
 } from './trivia.js';
 
 const song = { title: 'Dreams (2004 Remaster)', artists: ['Fleetwood Mac'], album: 'Rumours' };
@@ -15,13 +14,6 @@ describe('trivia answers', () => {
     expect(parseYearGuess("'1977")).toBe(1977);
     expect(parseYearGuess('77')).toBeNull();
     expect(parseYearGuess('the seventies')).toBeNull();
-  });
-
-  it('gives part of the points for a near year', () => {
-    expect(yearGuessCredit(1977, 1977)).toBe(1);
-    expect(yearGuessCredit(1977, 1978)).toBe(0.5);
-    expect(yearGuessCredit(1977, 1975)).toBe(0.25);
-    expect(yearGuessCredit(1977, 1980)).toBe(0);
   });
 
   it('matches the title, the artist and the album', () => {

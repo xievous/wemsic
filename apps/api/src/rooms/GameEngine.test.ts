@@ -403,7 +403,7 @@ describe('GameEngine: trivia', () => {
       });
     });
 
-    it('takes one year, scores near misses lower, and keeps the result hidden', async () => {
+    it('takes one year, scores only the exact one, and keeps the result hidden', async () => {
       const { engine, last } = await twoRounds();
       engine.submitTypingGuess('p1', 'Artist x');
       engine.submitTypingGuess('p2', 'Artist x');
@@ -426,8 +426,9 @@ describe('GameEngine: trivia', () => {
 
       const { roundScores, trivia } = last('reveal');
       expect(trivia).toEqual({ kind: 'year', answer: '1977' });
-      expect(roundScores.p1).toBeGreaterThan(0);
-      expect(roundScores.p2).toBeGreaterThan(roundScores.p1!);
+      // One year off scores nothing.
+      expect(roundScores.p1).toBe(0);
+      expect(roundScores.p2).toBeGreaterThan(0);
     });
   });
 });

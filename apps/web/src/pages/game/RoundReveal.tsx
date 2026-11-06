@@ -52,7 +52,8 @@ export function RoundReveal({
               px: 2,
               py: 1.25,
               borderRadius: '18px',
-              bgcolor: 'rgba(255,255,255,0.1)',
+              bgcolor: 'rgba(22,199,154,0.16)',
+              border: '1px solid rgba(22,199,154,0.35)',
               animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1)`,
             }}
           >
@@ -65,7 +66,7 @@ export function RoundReveal({
                 fontWeight: 700,
                 fontSize: { xs: '1.4rem', sm: '1.7rem' },
                 lineHeight: 1.15,
-                color: '#FFD27A',
+                color: '#9FF0D4',
               }}
             >
               {reveal.trivia.answer}

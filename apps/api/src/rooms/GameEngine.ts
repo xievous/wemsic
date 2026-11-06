@@ -12,7 +12,6 @@ import {
   matchPlayerName,
   parseYearGuess,
   triviaTextMatches,
-  yearGuessCredit,
   scoreSpeedChoice,
   scoreTypingProgress,
 } from '@wemsic/shared';
@@ -63,7 +62,7 @@ interface ActiveRound {
   typingVisibleGuesses: Map<string, string>;
   /** Trivia rounds: the question being asked. */
   trivia: TriviaQuestion | null;
-  /** Trivia typing: each player's final answer, as a share of the points (0–1). */
+  /** Trivia typing: each player's final answer; credit is 1 when right, 0 when not. */
   triviaAnswers: Map<string, { credit: number; at: number }>;
 }
 
@@ -291,7 +290,7 @@ export class GameEngine {
     if (question.kind === 'year') {
       const year = parseYearGuess(guess);
       if (year === null) return result({ incorrect: true, hint: 'Type a year, like 1997' });
-      credit = yearGuessCredit(question.year!, year);
+      credit = year === question.year ? 1 : 0;
     } else if (question.kind === 'added_by') {
       const named = matchPlayerName(this.contributors(), guess);
       if (!named) return result({ incorrect: true, hint: "That's not someone in this game" });
