@@ -65,9 +65,6 @@
 .eko[data-move='step'] .eko-arm-r { animation: eko-swing-r 1s ease-in-out infinite; }
 .eko[data-move='step'] .eko-head { animation: eko-tilt 0.5s ease-in-out infinite alternate; }
 
-.eko[data-move='spin'] .eko-rig { animation: eko-spin 1.5s cubic-bezier(0.45, 0, 0.55, 1) infinite; }
-.eko[data-move='spin'] .eko-arm-l { animation: eko-out-l 0.5s ease-in-out infinite; }
-.eko[data-move='spin'] .eko-arm-r { animation: eko-out-r 0.5s ease-in-out infinite; }
 
 .eko[data-move='jump'] .eko-rig { animation: eko-jump 1s ease-in-out infinite; }
 .eko[data-move='jump'] .eko-arm-l { animation: eko-jump-arm-l 1s ease-in-out infinite; }
@@ -148,15 +145,6 @@
 @keyframes eko-step { 0%, 100% { transform: translateX(-12px); } 50% { transform: translateX(12px); } }
 @keyframes eko-lift-l { 0%, 50%, 100% { transform: rotate(0deg); } 25% { transform: rotate(16deg); } }
 @keyframes eko-lift-r { 0%, 50%, 100% { transform: rotate(0deg); } 75% { transform: rotate(-16deg); } }
-@keyframes eko-spin {
-  0% { transform: translateY(0) scaleX(1); }
-  25% { transform: translateY(-10px) scaleX(0.02); }
-  50% { transform: translateY(0) scaleX(-1); }
-  75% { transform: translateY(-10px) scaleX(0.02); }
-  100% { transform: translateY(0) scaleX(1); }
-}
-@keyframes eko-out-l { 0%, 100% { transform: rotate(62deg); } 50% { transform: rotate(84deg); } }
-@keyframes eko-out-r { 0%, 100% { transform: rotate(-62deg); } 50% { transform: rotate(-84deg); } }
 @keyframes eko-jump {
   0%, 78%, 100% { transform: translateY(0) scale(1, 1); }
   15% { transform: translateY(0) scale(1.08, 0.88); }

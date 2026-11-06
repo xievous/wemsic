@@ -4,6 +4,7 @@ import { BouncingBars } from '../../components/BouncingBars';
 import { Eko } from '../../components/eko/Eko';
 import { danceMove, roundFace } from '../../components/eko/ekoMood';
 import { RoundProgressBar } from '../../components/RoundProgressBar';
+import { popIn } from '../../styles/animations';
 import { EnableSoundButton, VolumeControl } from './SoundControls';
 
 /**
@@ -17,6 +18,7 @@ export function Stage({
   timeLeft,
   progress,
   typing,
+  question,
   presenter = false,
 }: {
   roomCode: string;
@@ -25,6 +27,8 @@ export function Stage({
   timeLeft: number;
   progress: number;
   typing: boolean;
+  /** Trivia rounds: what this round asks. */
+  question?: string;
   presenter?: boolean;
 }) {
   const { enabled: audioEnabled, enableAudio, volume, setVolume } = useAudio();
@@ -85,6 +89,25 @@ export function Stage({
             </Typography>
           </Box>
         </Stack>
+
+        {question && (
+          <Typography
+            component="h2"
+            sx={{
+              mt: presenter ? 3 : 2,
+              fontFamily: '"Fredoka", sans-serif',
+              fontWeight: 700,
+              lineHeight: 1.15,
+              fontSize: presenter
+                ? { xs: '1.6rem', sm: '2.4rem' }
+                : { xs: '1.3rem', sm: '1.6rem' },
+              color: '#fff',
+              animation: `${popIn} 0.45s cubic-bezier(0.16,1,0.3,1)`,
+            }}
+          >
+            {question}
+          </Typography>
+        )}
 
         <Box
           sx={{

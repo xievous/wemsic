@@ -1,6 +1,6 @@
 import { Box, Stack, Typography } from '@mui/material';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
-import type { RoundRevealPayload } from '@wemsic/shared';
+import { TRIVIA_QUESTIONS, type RoundRevealPayload } from '@wemsic/shared';
 import { Eko } from '../../components/eko/Eko';
 import { revealMood } from '../../components/eko/ekoMood';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
@@ -45,6 +45,34 @@ export function RoundReveal({
           boxShadow: '0 30px 60px -30px rgba(14,26,60,0.75)',
         }}
       >
+        {reveal.trivia && (
+          <Box
+            sx={{
+              mb: 2.5,
+              px: 2,
+              py: 1.25,
+              borderRadius: '18px',
+              bgcolor: 'rgba(22,199,154,0.16)',
+              border: '1px solid rgba(22,199,154,0.35)',
+              animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1)`,
+            }}
+          >
+            <Typography variant="overline" sx={{ opacity: 0.75, display: 'block', lineHeight: 1.6 }}>
+              {TRIVIA_QUESTIONS[reveal.trivia.kind]}
+            </Typography>
+            <Typography
+              sx={{
+                fontFamily: '"Fredoka", sans-serif',
+                fontWeight: 700,
+                fontSize: { xs: '1.4rem', sm: '1.7rem' },
+                lineHeight: 1.15,
+                color: '#9FF0D4',
+              }}
+            >
+              {reveal.trivia.answer}
+            </Typography>
+          </Box>
+        )}
         <Stack direction="row" spacing={2.5} alignItems="center">
           {reveal.albumArtUrl ? (
             <Box

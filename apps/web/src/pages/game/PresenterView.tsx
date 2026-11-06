@@ -1,4 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material';
+import { TRIVIA_QUESTIONS } from '@wemsic/shared';
 import { RoundPlayers } from '../../components/RoundPlayers';
 import { PresenterOptions } from './AnswerControls';
 import { RoundReveal } from './RoundReveal';
@@ -42,6 +43,7 @@ export function PresenterView({
             timeLeft={timeLeft}
             progress={progress}
             typing={round.gameMode === 'typing'}
+            question={round.trivia && TRIVIA_QUESTIONS[round.trivia]}
             presenter
           />
 
@@ -60,7 +62,7 @@ export function PresenterView({
               }}
             >
               <Typography variant="h5" gutterBottom>
-                Name that track
+                {round.trivia ? 'Type your answer' : 'Name that track'}
               </Typography>
               <Typography color="text.secondary">
                 {showOthersGuesses
@@ -79,6 +81,7 @@ export function PresenterView({
           gameMode={round.gameMode}
           showOthersGuesses={showOthersGuesses}
           roundIndex={round.roundIndex}
+          trivia={round.trivia}
         />
       </Box>
     </Stack>

@@ -6,7 +6,12 @@ import {
   MIN_ROUND_PLAY_MS,
   MIN_ROUND_REMAINING_MS,
   TIMER_SHRINK_PER_SUBMISSION_RATIO,
+  TYPING_BOTH_POINTS,
+  applyTypingTimeBonus,
   evaluateTypingSubmission,
+  matchPlayerName,
+  parseYearGuess,
+  triviaTextMatches,
   scoreSpeedChoice,
   scoreTypingProgress,
 } from '@wemsic/shared';
@@ -15,16 +20,20 @@ import type {
   GameMode,
   McqOption,
   NormalizedTrack,
+  QuestionSet,
   RoundPlayerStatus,
   RoundProgressPayload,
   RoundRevealPayload,
   RoundStartPayload,
+  TriviaKind,
   TypingGuessResult,
   TypingSpellingLeniency,
 } from '@wemsic/shared';
 import { nanoid } from 'nanoid';
+import { resolveTrackFacts } from '../itunes/facts.js';
 import { resolvePreviewUrl } from '../deezer/preview.js';
 import { TrackPool } from './TrackPool.js';
+import { pickTriviaQuestion, type Contributor, type TriviaQuestion } from './trivia.js';
 
 interface PlayerAnswer {
   answer: unknown;
@@ -51,6 +60,15 @@ interface ActiveRound {
   typingProgress: Map<string, TypingPlayerProgress>;
   /** Latest fully incorrect guess per player (visible-guesses typing mode) */
   typingVisibleGuesses: Map<string, string>;
+  /** Trivia rounds: the question being asked. */
+  trivia: TriviaQuestion | null;
+  /** Trivia typing: each player's final answer; credit is 1 when right, 0 when not. */
+  triviaAnswers: Map<string, { credit: number; at: number }>;
+}
+
+/** Trivia questions answered once (typing every year or name until one fits would be too easy). */
+function isOneShot(kind: TriviaKind): boolean {
+  return kind === 'year' || kind === 'added_by';
 }
 
 function emptyTypingProgress(): TypingPlayerProgress {
@@ -74,6 +92,8 @@ export class GameEngine {
   private destroyed = false;
   private revealPending = false;
   private isRevealing = false;
+  private lastTriviaKind: TriviaKind | null = null;
+  private questionSet: QuestionSet;
 
   private onRoundStart: (payload: RoundStartPayload) => void;
   private onRoundProgress: (payload: RoundProgressPayload) => void;
@@ -94,7 +114,9 @@ export class GameEngine {
       onRoundReveal: (payload: RoundRevealPayload) => void;
       onGameEnd: (leaderboard: RoundRevealPayload['leaderboard'], reason: GameEndReason) => void;
     },
+    options: { questionSet?: QuestionSet } = {},
   ) {
+    this.questionSet = options.questionSet ?? 'song';
     this.pool = new TrackPool(tracks);
     for (const id of playerIds) this.scores.set(id, 0);
     this.onRoundStart = callbacks.onRoundStart;
@@ -139,6 +161,7 @@ export class GameEngine {
     if (!trimmed) return fail();
 
     const round = this.activeRound;
+    if (round.trivia) return this.submitTriviaGuess(playerId, trimmed, round, round.trivia);
 
     const { matchedArtist, matchedTitle } = evaluateTypingSubmission(
       round.track.artists,
@@ -236,6 +259,73 @@ export class GameEngine {
       .sort((a, b) => b.score - a.score);
   }
 
+  /**
+   * A typed trivia answer. Title, artist and album take guesses until one is
+   * right. A year or a player's name is final once given, and nobody learns
+   * whether it was right until the reveal.
+   */
+  private submitTriviaGuess(
+    playerId: string,
+    guess: string,
+    round: ActiveRound,
+    question: TriviaQuestion,
+  ): TypingGuessResult {
+    const oneShot = isOneShot(question.kind);
+    const result = (r: { incorrect: boolean; correct?: boolean; locked?: boolean; hint?: string }) => ({
+      incorrect: r.incorrect,
+      matchedArtist: false,
+      matchedTitle: !!r.correct,
+      artistCorrect: false,
+      titleCorrect: !!r.correct,
+      bothCorrect: !!r.correct,
+      locked: r.locked,
+      hint: r.hint,
+    });
+
+    if (round.triviaAnswers.has(playerId)) {
+      return result({ incorrect: false, correct: !oneShot, locked: true });
+    }
+
+    let credit: number;
+    if (question.kind === 'year') {
+      const year = parseYearGuess(guess);
+      if (year === null) return result({ incorrect: true, hint: 'Type a year, like 1997' });
+      credit = year === question.year ? 1 : 0;
+    } else if (question.kind === 'added_by') {
+      const named = matchPlayerName(this.contributors(), guess);
+      if (!named) return result({ incorrect: true, hint: "That's not someone in this game" });
+      credit = named.playerId === question.addedBy!.playerId ? 1 : 0;
+    } else {
+      const right = triviaTextMatches(
+        question.kind,
+        { title: round.track.title, artists: round.track.artists, album: question.album ?? null },
+        guess,
+        this.typingSpellingLeniency,
+      );
+      if (!right) {
+        if (this.showOthersGuesses) round.typingVisibleGuesses.set(playerId, guess);
+        this.emitProgress();
+        return result({ incorrect: true });
+      }
+      credit = 1;
+    }
+
+    round.triviaAnswers.set(playerId, { credit, at: Date.now() });
+    round.typingVisibleGuesses.delete(playerId);
+    this.emitProgress();
+    this.tryEarlyEnd();
+    return result({ incorrect: false, correct: !oneShot, locked: true });
+  }
+
+  /** Everyone with songs in the game, by name. */
+  private contributors(): Contributor[] {
+    const ids = new Set(this.pool.getAllTracks().map((t) => t.contributedBy));
+    return [...ids].flatMap((playerId) => {
+      const displayName = this.displayNames.get(playerId);
+      return displayName ? [{ playerId, displayName }] : [];
+    });
+  }
+
   private minPlayMs(): number {
     return Math.max(
       MIN_ROUND_PLAY_MS,
@@ -307,6 +397,7 @@ export class GameEngine {
     if (this.gameMode === 'speed_choice') {
       return round.mcqDoneIds.size >= this.playerIds.length;
     }
+    if (round.trivia) return round.triviaAnswers.size >= this.playerIds.length;
     return this.countBothCorrect() >= this.playerIds.length;
   }
 
@@ -363,6 +454,17 @@ export class GameEngine {
         playerId,
         displayName: this.displayNames.get(playerId) ?? 'Player',
       };
+
+      if (this.gameMode === 'typing' && round?.trivia) {
+        // One-shot answers show as locked in, never as right or wrong, until the reveal.
+        const answer = round.triviaAnswers.get(playerId);
+        const right = !!answer && !isOneShot(round.trivia.kind);
+        const status: RoundPlayerStatus = { ...base, done: !!answer, bothCorrect: right };
+        if (this.showOthersGuesses) {
+          return { ...status, guessText: round.typingVisibleGuesses.get(playerId), guessedRight: right };
+        }
+        return status;
+      }
 
       if (this.gameMode === 'typing' && round) {
         const prog = round.typingProgress.get(playerId) ?? emptyTypingProgress();
@@ -447,12 +549,29 @@ export class GameEngine {
       return;
     }
 
+    const choices = this.gameMode === 'speed_choice';
+    let trivia: TriviaQuestion | null = null;
+    if (this.questionSet === 'trivia') {
+      const song = track;
+      trivia = await pickTriviaQuestion({
+        track: song,
+        pool: this.pool.getAllTracks(),
+        contributors: this.contributors(),
+        previousKind: this.lastTriviaKind,
+        choices,
+        facts: () => resolveTrackFacts(song.artists[0] ?? '', song.title),
+      });
+      if (this.destroyed) return;
+      this.lastTriviaKind = trivia.kind;
+    }
+
     const roundStartedAt = Date.now();
     const roundEndsAt = roundStartedAt + this.roundDurationMs;
-    const mcq =
-      this.gameMode === 'speed_choice'
-        ? this.buildMcqOptions(track)
-        : { options: [] as McqOption[], correctOptionId: '' };
+    const mcq = !choices
+      ? { options: [] as McqOption[], correctOptionId: '' }
+      : trivia
+        ? makeOptions(trivia.answer, trivia.wrong, trivia.sortOptions)
+        : this.buildMcqOptions(track);
 
     this.activeRound = {
       track,
@@ -465,6 +584,8 @@ export class GameEngine {
       mcqDoneIds: new Set(),
       typingProgress: new Map(),
       typingVisibleGuesses: new Map(),
+      trivia,
+      triviaAnswers: new Map(),
     };
 
     const payload: RoundStartPayload = {
@@ -476,6 +597,7 @@ export class GameEngine {
       roundDurationMs: this.roundDurationMs,
       players: this.buildPlayerStatuses(),
       options: this.gameMode === 'speed_choice' ? mcq.options : undefined,
+      trivia: trivia?.kind,
     };
 
     this.onRoundStart(payload);
@@ -492,17 +614,10 @@ export class GameEngine {
     );
     shuffle(all);
     const distractors = all.slice(0, MCQ_OPTION_COUNT - 1);
-    const correctId = nanoid(8);
-    const options: McqOption[] = [
-      { id: correctId, label: correct.title },
-      ...distractors.map((t) => ({ id: nanoid(8), label: t.title })),
-    ];
-    shuffle(options);
-    const correctOpt = options.find((o) => o.label === correct.title);
-    return {
-      options,
-      correctOptionId: correctOpt?.id ?? correctId,
-    };
+    return makeOptions(
+      correct.title,
+      distractors.map((t) => t.title),
+    );
   }
 
   private async revealRound(): Promise<void> {
@@ -527,6 +642,14 @@ export class GameEngine {
           const timeRemaining = Math.max(0, round.roundEndsAt - entry.submittedAt);
           points = scoreSpeedChoice(correct, timeRemaining, this.roundDurationMs);
         }
+      } else if (round.trivia) {
+        const answer = round.triviaAnswers.get(playerId);
+        if (answer && answer.credit > 0) {
+          const timeRemaining = Math.max(0, round.roundEndsAt - answer.at);
+          points = Math.floor(
+            answer.credit * applyTypingTimeBonus(TYPING_BOTH_POINTS, timeRemaining, this.roundDurationMs),
+          );
+        }
       } else {
         const prog = round.typingProgress.get(playerId) ?? emptyTypingProgress();
         points = scoreTypingProgress(prog, round.roundEndsAt, this.roundDurationMs);
@@ -542,6 +665,7 @@ export class GameEngine {
       correctArtists: round.track.artists,
       albumArtUrl: round.track.albumArtUrl,
       addedBy: this.addedBy(round.track.contributedBy),
+      trivia: round.trivia ? { kind: round.trivia.kind, answer: round.trivia.answer } : undefined,
       roundScores,
       leaderboard: this.getLeaderboardWithNames(),
       nextRoundStartsAt: Date.now() + BETWEEN_ROUNDS_DELAY_MS,
@@ -559,6 +683,22 @@ export class GameEngine {
     this.clearTimers();
     this.onGameEnd(this.getLeaderboardWithNames(), reason);
   }
+}
+
+/** Options with the correct one among them, shuffled or, for years, in order. */
+function makeOptions(
+  correct: string,
+  wrong: string[],
+  sorted = false,
+): { options: McqOption[]; correctOptionId: string } {
+  const correctOptionId = nanoid(8);
+  const options: McqOption[] = [
+    { id: correctOptionId, label: correct },
+    ...wrong.map((label) => ({ id: nanoid(8), label })),
+  ];
+  if (sorted) options.sort((a, b) => a.label.localeCompare(b.label));
+  else shuffle(options);
+  return { options, correctOptionId };
 }
 
 function shuffle<T>(arr: T[]): void {

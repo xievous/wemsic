@@ -1,5 +1,15 @@
 export type GameMode = 'speed_choice' | 'typing';
 
+/**
+ * What the rounds ask. `song`: name the song (and artist, when typing).
+ * `trivia`: each round asks one question about the song, picked from
+ * TriviaKind, answered in the room's game mode.
+ */
+export type QuestionSet = 'song' | 'trivia';
+
+/** The question a trivia round asks. */
+export type TriviaKind = 'title' | 'artist' | 'album' | 'year' | 'added_by';
+
 /** How strictly typed answers are matched in typing mode. */
 export type TypingSpellingLeniency = 'normal' | 'hard' | 'lenient';
 
@@ -52,6 +62,8 @@ export interface RoomSettings {
   typingSpellingLeniency: TypingSpellingLeniency;
   /** When true, other players' live guesses appear during rounds. */
   showOthersGuesses: boolean;
+  /** Song-name rounds or a trivia mix; works with either game mode. */
+  questionSet: QuestionSet;
   /** Chosen at room creation and immutable afterwards. */
   roomType: RoomType;
 }
@@ -103,6 +115,8 @@ export interface RoundStartPayload {
   roundDurationMs: number;
   players: RoundPlayerStatus[];
   options?: McqOption[];
+  /** Trivia rounds only: what this round asks. */
+  trivia?: TriviaKind;
 }
 
 export interface RoundRevealPayload {
@@ -117,6 +131,8 @@ export interface RoundRevealPayload {
   /** Unix ms when the next round begins */
   nextRoundStartsAt: number;
   betweenRoundsDelayMs: number;
+  /** Trivia rounds only: the question and its answer as shown to players. */
+  trivia?: { kind: TriviaKind; answer: string };
 }
 
 export interface LeaderboardEntry {

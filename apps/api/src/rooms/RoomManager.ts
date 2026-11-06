@@ -97,6 +97,7 @@ export class RoomManager {
         roundDurationSeconds: DEFAULT_SPEED_CHOICE_SECONDS,
         typingSpellingLeniency: DEFAULT_TYPING_SPELLING_LENIENCY,
         showOthersGuesses: false,
+        questionSet: 'song',
         roomType,
       },
       players: new Map(),
@@ -321,6 +322,9 @@ export class RoomManager {
     if (settings.showOthersGuesses !== undefined) {
       room.settings.showOthersGuesses = settings.showOthersGuesses;
     }
+    if (settings.questionSet === 'song' || settings.questionSet === 'trivia') {
+      room.settings.questionSet = settings.questionSet;
+    }
 
     this.emitLobby(room);
     return true;
@@ -485,6 +489,7 @@ export class RoomManager {
           this.broadcastGameEvent(room, 'game:end', payload);
         },
       },
+      { questionSet: room.settings.questionSet },
     );
 
     engine.setDisplayNames(displayNames);

@@ -23,6 +23,7 @@ import {
   GuessVisibilitySegment,
   LeniencySegment,
   NumberField,
+  QuestionSetSegment,
   SPELLING_LENIENCY_OPTIONS,
 } from './SettingsControls';
 
@@ -31,6 +32,7 @@ type RoomSettings = LobbyState['settings'];
 /** "10 rounds · 20s per round · Normal spelling · guesses hidden" */
 function settingsSummary(settings: RoomSettings): string {
   const parts = [
+    ...(settings.questionSet === 'trivia' ? ['Trivia mix'] : []),
     `${settings.roundCount} rounds`,
     `${settings.roundDurationSeconds}s per round`,
   ];
@@ -136,9 +138,22 @@ export function GameSettingsCard({
               onClick={() => onChange({ gameMode: 'typing' })}
               icon={<KeyboardRoundedIcon />}
               title="Typing"
-              desc="Type the artist and the song"
+              desc={
+                settings.questionSet === 'trivia'
+                  ? 'Type the answer'
+                  : 'Type the artist and the song'
+              }
             />
           </Stack>
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
+              Questions
+            </Typography>
+            <QuestionSetSegment
+              value={settings.questionSet ?? 'song'}
+              onChange={(questionSet) => onChange({ questionSet })}
+            />
+          </Box>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
             {settingsSummary(settings)}
           </Typography>

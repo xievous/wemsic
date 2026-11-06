@@ -5,8 +5,8 @@ import SquareRoundedIcon from '@mui/icons-material/SquareRounded';
 import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import HexagonRoundedIcon from '@mui/icons-material/HexagonRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
-import type { McqOption } from '@wemsic/shared';
-import { useEffect, type Ref } from 'react';
+import { TRIVIA_PLACEHOLDERS, type McqOption, type TriviaKind } from '@wemsic/shared';
+import type { Ref } from 'react';
 import { TILE_COLORS } from '../../theme';
 
 const TILE_SHAPES = [
@@ -18,7 +18,7 @@ const TILE_SHAPES = [
   FavoriteRoundedIcon,
 ];
 
-/** Tappable speed-choice tiles for players and pads; keys 1–4 pick them too. */
+/** Tappable speed-choice tiles for players and pads. */
 export function McqOptions({
   options,
   selectedOption,
@@ -42,20 +42,6 @@ export function McqOptions({
     if (e.repeat) return;
     onSelect(option);
   }
-
-  useEffect(() => {
-    if (answered) return;
-    function onNumberKey(e: KeyboardEvent) {
-      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return;
-      const option = options[Number(e.key) - 1];
-      if (!option) return;
-      e.preventDefault();
-      onSelect(option);
-    }
-    window.addEventListener('keydown', onNumberKey);
-    return () => window.removeEventListener('keydown', onNumberKey);
-  }, [answered, options, onSelect]);
 
   return (
     <Box
@@ -102,29 +88,6 @@ export function McqOptions({
             <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
               {opt.label}
             </Typography>
-            {i < 9 && (
-              // Key hint, only on devices with a mouse (and so, likely, a keyboard).
-              <Box
-                component="kbd"
-                aria-hidden
-                sx={{
-                  ml: 'auto',
-                  flexShrink: 0,
-                  display: 'none',
-                  '@media (hover: hover) and (pointer: fine)': { display: 'grid' },
-                  placeItems: 'center',
-                  width: 26,
-                  height: 26,
-                  borderRadius: '8px',
-                  bgcolor: 'rgba(255,255,255,0.25)',
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                }}
-              >
-                {i + 1}
-              </Box>
-            )}
           </Box>
         );
       })}
@@ -180,6 +143,8 @@ export function TypingInput({
   onSubmit,
   disabled,
   containerRef,
+  trivia,
+  hint,
 }: {
   guess: string;
   onGuessChange: (value: string) => void;
@@ -187,14 +152,19 @@ export function TypingInput({
   disabled: boolean;
   /** Element the shake/ding feedback animates. */
   containerRef: Ref<HTMLDivElement>;
+  /** Trivia rounds: the question being answered. */
+  trivia?: TriviaKind;
+  /** Why the last guess wasn't taken. */
+  hint?: string | null;
 }) {
   return (
     <Box component="form" onSubmit={onSubmit}>
       <Stack spacing={1.5}>
         <Box ref={containerRef} sx={{ borderRadius: 3, overflow: 'visible' }}>
           <TextField
-            label="Your guess"
-            placeholder="Artist, song, or both"
+            label={trivia ? 'Your answer' : 'Your guess'}
+            placeholder={trivia ? TRIVIA_PLACEHOLDERS[trivia] : 'Artist, song, or both'}
+            helperText={hint ?? undefined}
             value={guess}
             onChange={(e) => onGuessChange(e.target.value)}
             onKeyDown={(e) => {
@@ -218,7 +188,7 @@ export function TypingInput({
           disabled={disabled || !guess.trim()}
           sx={{ alignSelf: 'flex-end' }}
         >
-          Submit guess
+          {trivia === 'year' || trivia === 'added_by' ? 'Lock in' : 'Submit guess'}
         </Button>
       </Stack>
     </Box>
@@ -230,13 +200,26 @@ export function AnswerStatus({
   isTyping,
   mcqAnswered,
   myBothCorrect,
+  trivia,
+  triviaLocked = false,
 }: {
   isTyping: boolean;
   mcqAnswered: boolean;
   myBothCorrect: boolean | undefined;
+  trivia?: TriviaKind;
+  triviaLocked?: boolean;
 }) {
   if (!isTyping && mcqAnswered) {
     return <Alert severity="success">Answer locked in. Hold tight.</Alert>;
+  }
+  if (isTyping && trivia) {
+    if (!triviaLocked) return null;
+    // A year or a name is final; whether it's right waits for the reveal.
+    return trivia === 'year' || trivia === 'added_by' ? (
+      <Alert severity="info">Answer locked in. Find out at the reveal.</Alert>
+    ) : (
+      <Alert severity="success">That's right. Waiting on the rest.</Alert>
+    );
   }
   if (isTyping && myBothCorrect) {
     return (

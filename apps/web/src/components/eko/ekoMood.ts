@@ -1,7 +1,7 @@
 import type { EkoFace, EkoMove } from './Eko';
 
 /** The upbeat moves Eko cycles through in a game; slump and sway are for moods. */
-export const GAME_MOVES: readonly EkoMove[] = ['bob', 'pump', 'step', 'spin', 'jump', 'robot', 'roof'];
+export const GAME_MOVES: readonly EkoMove[] = ['bob', 'pump', 'step', 'jump', 'robot', 'roof'];
 
 /**
  * The dance for one round or its reveal. The order is a shuffle seeded by the

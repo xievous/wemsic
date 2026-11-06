@@ -17,7 +17,6 @@ export type EkoMove =
   | 'bob'
   | 'pump'
   | 'step'
-  | 'spin'
   | 'jump'
   | 'robot'
   | 'roof'

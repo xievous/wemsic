@@ -1,4 +1,5 @@
 import { Box, Stack } from '@mui/material';
+import { TRIVIA_QUESTIONS } from '@wemsic/shared';
 import { RoundPlayers } from '../../components/RoundPlayers';
 import { AnswerStatus, McqOptions, TypingInput } from './AnswerControls';
 import { RoundReveal } from './RoundReveal';
@@ -22,6 +23,8 @@ export function PlayerView({
   timerExpired,
   showOthersGuesses,
   myBothCorrect,
+  triviaLocked,
+  typingHint,
 }: GameViewProps) {
   const answers = useRoundAnswers(round?.roundIndex, timerExpired);
 
@@ -54,12 +57,15 @@ export function PlayerView({
             timeLeft={timeLeft}
             progress={progress}
             typing={isTyping}
+            question={round.trivia && TRIVIA_QUESTIONS[round.trivia]}
           />
 
           <AnswerStatus
             isTyping={isTyping}
             mcqAnswered={answers.mcqAnswered}
             myBothCorrect={myBothCorrect}
+            trivia={round.trivia}
+            triviaLocked={triviaLocked}
           />
 
           {round.gameMode === 'speed_choice' && round.options && (
@@ -75,8 +81,10 @@ export function PlayerView({
               guess={answers.guess}
               onGuessChange={answers.setGuess}
               onSubmit={answers.submitGuess}
-              disabled={timerExpired}
+              disabled={timerExpired || triviaLocked}
               containerRef={answers.typingChatRef}
+              trivia={round.trivia}
+              hint={typingHint}
             />
           )}
         </Stack>
@@ -89,6 +97,7 @@ export function PlayerView({
           gameMode={round.gameMode}
           showOthersGuesses={showOthersGuesses}
           roundIndex={round.roundIndex}
+          trivia={round.trivia}
         />
       </Box>
     </Stack>
