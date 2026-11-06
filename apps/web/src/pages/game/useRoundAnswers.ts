@@ -78,6 +78,8 @@ export function useRoundAnswers(roundIndex: number | undefined, timerExpired: bo
     if (!el) return;
 
     typingAnimRef.current?.cancel();
+    // A locked-in year or name stays a secret until the reveal.
+    if (lastTypingResult.locked && !lastTypingResult.bothCorrect) return;
     if (lastTypingResult.incorrect) {
       typingAnimRef.current = playTypingWrongShake(el);
       return;

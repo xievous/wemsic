@@ -1,4 +1,5 @@
 import { Box, Stack, Typography } from '@mui/material';
+import { TRIVIA_QUESTIONS } from '@wemsic/shared';
 import { popIn } from '../../styles/animations';
 import { AnswerStatus, McqOptions, TypingInput } from './AnswerControls';
 import type { GameViewProps } from './types';
@@ -19,6 +20,8 @@ export function PadView({
   progress,
   timerExpired,
   myBothCorrect,
+  triviaLocked,
+  typingHint,
 }: GameViewProps) {
   const answers = useRoundAnswers(round?.roundIndex, timerExpired);
 
@@ -51,6 +54,11 @@ export function PadView({
           Listen to the host screen
         </Typography>
       </Box>
+      {round.trivia && (
+        <Typography variant="h5" component="h2" sx={{ lineHeight: 1.2 }}>
+          {TRIVIA_QUESTIONS[round.trivia]}
+        </Typography>
+      )}
       <Box
         sx={{
           height: 8,
@@ -77,6 +85,8 @@ export function PadView({
         isTyping={isTyping}
         mcqAnswered={answers.mcqAnswered}
         myBothCorrect={myBothCorrect}
+        trivia={round.trivia}
+        triviaLocked={triviaLocked}
       />
 
       {round.gameMode === 'speed_choice' && round.options && (
@@ -92,7 +102,9 @@ export function PadView({
           guess={answers.guess}
           onGuessChange={answers.setGuess}
           onSubmit={answers.submitGuess}
-          disabled={timerExpired}
+          disabled={timerExpired || triviaLocked}
+          trivia={round.trivia}
+          hint={typingHint}
           containerRef={answers.typingChatRef}
         />
       )}

@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import type { GameMode, RoundPlayerStatus } from '@wemsic/shared';
+import type { GameMode, RoundPlayerStatus, TriviaKind } from '@wemsic/shared';
 import { PlayerAvatar } from './PlayerAvatar';
 
 function typingSecondary(p: RoundPlayerStatus): string {
@@ -36,14 +36,18 @@ export const RoundPlayers = memo(function RoundPlayers({
   gameMode,
   showOthersGuesses = false,
   roundIndex,
+  trivia,
 }: {
   players: RoundPlayerStatus[];
   currentPlayerId: string;
   gameMode?: GameMode;
   showOthersGuesses?: boolean;
   roundIndex?: number;
+  /** Trivia rounds have one answer, so typing shows no Artist/Song pills. */
+  trivia?: TriviaKind;
 }) {
-  const isTyping = gameMode === 'typing';
+  const isTyping = gameMode === 'typing' && !trivia;
+  const triviaTyping = gameMode === 'typing' && !!trivia;
   const stickyProgressRef = useRef(new Map<string, { artistCorrect: boolean; titleCorrect: boolean }>());
   const lastRoundRef = useRef<number | undefined>(undefined);
 
@@ -87,7 +91,16 @@ export const RoundPlayers = memo(function RoundPlayers({
             : p.done;
 
           let secondary: string;
-          if (showWrongGuess) {
+          if (triviaTyping) {
+            secondary =
+              showOthersGuesses && p.guessText && !p.done
+                ? p.guessText
+                : p.bothCorrect
+                  ? 'Got it'
+                  : p.done
+                    ? 'Locked in'
+                    : 'Thinking';
+          } else if (showWrongGuess) {
             secondary = p.guessText!;
           } else if (showGuessedRight) {
             secondary = 'Guessed right';
@@ -150,6 +163,17 @@ export const RoundPlayers = memo(function RoundPlayers({
           );
         })}
       </Stack>
+      {triviaTyping && (
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4 }}
+        >
+          {trivia === 'year' || trivia === 'added_by'
+            ? 'One answer each. Everyone finds out at the reveal.'
+            : 'Keep guessing until you get it. The round ends when everyone has.'}
+        </Typography>
+      )}
       {isTyping && (
         <Typography
           variant="caption"

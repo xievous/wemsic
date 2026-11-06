@@ -43,6 +43,7 @@ export function registerSocketHandlers(
         roundDurationSeconds?: number;
         typingSpellingLeniency?: 'normal' | 'hard' | 'lenient';
         showOthersGuesses?: boolean;
+        questionSet?: 'song' | 'trivia';
       }) => {
         if (!roomCode || !playerId) return;
         roomManager.updateSettings(roomCode, playerId, payload);

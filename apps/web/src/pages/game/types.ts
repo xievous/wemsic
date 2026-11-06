@@ -23,4 +23,8 @@ export interface GameViewProps {
   timerExpired: boolean;
   showOthersGuesses: boolean;
   myBothCorrect: boolean | undefined;
+  /** Trivia typing: my answer is final for this round. */
+  triviaLocked: boolean;
+  /** Why my last typed guess wasn't taken, e.g. it wasn't a year. */
+  typingHint: string | null;
 }

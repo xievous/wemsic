@@ -135,6 +135,8 @@ export function Game() {
     myBothCorrect: showOthersGuesses
       ? lastTypingResult?.bothCorrect
       : myStatus?.bothCorrect,
+    triviaLocked: !!round?.trivia && (!!lastTypingResult?.locked || !!myStatus?.done),
+    typingHint: lastTypingResult?.hint ?? null,
   };
 
   const showFloatingEnableSound = !audioEnabled && !isPad && (!round || Boolean(reveal));

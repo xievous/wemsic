@@ -2,10 +2,11 @@ import { normalizeAnswer, stripTitleQualifiers } from '@wemsic/shared';
 
 const previewCache = new Map<string, string | null>();
 
-interface DeezerTrack {
+export interface DeezerTrack {
+  id?: number;
   preview?: string;
   title?: string;
-  artist?: { name?: string };
+  artist?: { id?: number; name?: string };
 }
 
 export async function resolvePreviewUrl(
@@ -41,16 +42,23 @@ export async function resolvePreviewUrl(
 
 /** First result by the same artist whose title matches, so we never play the wrong song. */
 function pickPreview(results: DeezerTrack[], artist: string, coreTitle: string): string | null {
+  return findSong(results.filter((t) => t.preview), artist, coreTitle)?.preview ?? null;
+}
+
+/** The first result that is this song by this artist, not a cover or a different song. */
+export function findSong<T extends DeezerTrack>(
+  results: T[],
+  artist: string,
+  coreTitle: string,
+): T | undefined {
   const wantArtist = normalizeAnswer(artist);
   const wantTitle = normalizeAnswer(coreTitle);
-  if (!wantArtist || !wantTitle) return null;
+  if (!wantArtist || !wantTitle) return undefined;
 
-  const match = results.find((t) => {
-    if (!t.preview) return false;
+  return results.find((t) => {
     const gotTitle = normalizeAnswer(stripTitleQualifiers(t.title ?? ''));
     return gotTitle === wantTitle && sameArtist(normalizeAnswer(t.artist?.name ?? ''), wantArtist);
   });
-  return match?.preview ?? null;
 }
 
 /**

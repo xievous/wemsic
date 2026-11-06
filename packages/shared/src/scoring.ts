@@ -35,7 +35,7 @@ export interface TypingSubmissionMatch {
   matchedTitle: boolean;
 }
 
-function matchesArtist(
+export function matchesArtist(
   artists: string[],
   guess: string,
   leniency: TypingSpellingLeniency,
@@ -49,7 +49,7 @@ function matchesArtist(
   return artists.some((artist) => phraseMatchesTarget(artist, guess));
 }
 
-function matchesTitle(
+export function matchesTitle(
   title: string,
   guess: string,
   leniency: TypingSpellingLeniency,
@@ -185,4 +185,8 @@ export interface TypingGuessResult {
   artistCorrect: boolean;
   titleCorrect: boolean;
   bothCorrect: boolean;
+  /** Trivia: this answer is final, no more guesses this round. */
+  locked?: boolean;
+  /** Trivia: why a guess wasn't taken, e.g. it wasn't a year. */
+  hint?: string;
 }

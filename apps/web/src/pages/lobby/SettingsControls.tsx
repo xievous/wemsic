@@ -1,5 +1,5 @@
 import { Box, Stack, TextField, Typography } from '@mui/material';
-import type { TypingSpellingLeniency } from '@wemsic/shared';
+import type { QuestionSet, TypingSpellingLeniency } from '@wemsic/shared';
 import { useState } from 'react';
 import { settleSetting, validSetting } from './numberSetting';
 
@@ -163,6 +163,31 @@ function SegmentedControl<T extends string | boolean>({
         );
       })}
     </Box>
+  );
+}
+
+const QUESTION_SET_OPTIONS = [
+  { value: 'song', title: 'Song name' },
+  { value: 'trivia', title: 'Trivia mix' },
+] as const;
+
+/** Name the song every round, or a mix of questions about each song. */
+export function QuestionSetSegment({
+  value,
+  onChange,
+}: {
+  value: QuestionSet;
+  onChange: (value: QuestionSet) => void;
+}) {
+  return (
+    <Stack spacing={1}>
+      <SegmentedControl<QuestionSet> options={QUESTION_SET_OPTIONS} value={value} onChange={onChange} />
+      <Typography variant="caption" color="text.secondary" sx={{ px: 0.25, lineHeight: 1.45 }}>
+        {value === 'trivia'
+          ? 'Each round asks one question: the song, the artist, the album, the year, or who added it (with 3 or more people).'
+          : 'Every round asks what the song is.'}
+      </Typography>
+    </Stack>
   );
 }
 

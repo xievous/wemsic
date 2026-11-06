@@ -6,6 +6,7 @@ import {
 import type {
   GameEndReason,
   GameMode,
+  QuestionSet,
   NormalizedTrack,
   RoundProgressPayload,
   RoundRevealPayload,
@@ -18,6 +19,10 @@ import { GameEngine } from './GameEngine.js';
 
 vi.mock('../deezer/preview.js', () => ({
   resolvePreviewUrl: vi.fn(async () => null),
+}));
+
+vi.mock('../itunes/facts.js', () => ({
+  resolveTrackFacts: vi.fn(async () => ({ album: null, year: 1977, otherAlbums: [] })),
 }));
 
 const SPEED_MS = 15_000;
@@ -34,12 +39,14 @@ function setup({
   rounds = 3,
   durationMs = mode === 'typing' ? TYPING_MS : SPEED_MS,
   players = ['p1', 'p2'],
+  questionSet = 'song',
 }: {
   tracks: NormalizedTrack[];
   mode?: GameMode;
   rounds?: number;
   durationMs?: number;
   players?: string[];
+  questionSet?: QuestionSet;
 }) {
   const events: Event[] = [];
   const progress: RoundProgressPayload[] = [];
@@ -48,7 +55,7 @@ function setup({
     onRoundProgress: (payload) => progress.push(payload),
     onRoundReveal: (payload) => events.push({ type: 'reveal', payload }),
     onGameEnd: (payload, reason) => events.push({ type: 'end', payload, reason }),
-  });
+  }, { questionSet });
   engine.setDisplayNames(new Map(players.map((id) => [id, id.toUpperCase()])));
 
   const last = <T extends Event['type']>(type: T) =>
@@ -325,5 +332,102 @@ describe('GameEngine: typing', () => {
     const { engine } = setup({ tracks: makeTracks('p1', 10) });
     await engine.start();
     expect(engine.submitTypingGuess('p1', 'anything')).toMatchObject({ incorrect: true });
+  });
+});
+
+describe('GameEngine: trivia', () => {
+  /** The answer to this round's question, worked out from the track it plays. */
+  function triviaAnswer(round: RoundStartPayload): string {
+    const title = titleFromPreview(round.previewUrl);
+    if (round.trivia === 'artist') return `Artist ${title.slice('Song '.length)}`;
+    if (round.trivia === 'year') return '1977';
+    return title;
+  }
+
+  it('asks a question each round and scores the right option', async () => {
+    const tracks = [...makeTracks('p1', 10), ...makeTracks('p2', 10)];
+    const { engine, last } = setup({ tracks, rounds: 1, questionSet: 'trivia' });
+    await engine.start();
+
+    const round = last('start');
+    expect(['title', 'artist', 'year']).toContain(round.trivia);
+    const right = round.options!.find((o) => o.label === triviaAnswer(round))!;
+    engine.submitMcqAnswer('p1', right.id);
+    engine.submitMcqAnswer('p2', round.options!.find((o) => o !== right)!.id);
+    await vi.advanceTimersByTimeAsync(SPEED_MS);
+
+    const reveal = last('reveal');
+    expect(reveal.trivia).toEqual({ kind: round.trivia, answer: triviaAnswer(round) });
+    expect(reveal.roundScores.p1).toBeGreaterThan(0);
+    expect(reveal.roundScores.p2).toBe(0);
+  });
+
+  it('never asks who added a song when only two people added songs', async () => {
+    const tracks = [...makeTracks('p1', 10), ...makeTracks('p2', 10)];
+    const { engine, events } = setup({ tracks, rounds: 12, questionSet: 'trivia' });
+    await engine.start();
+    await vi.advanceTimersByTimeAsync(12 * (SPEED_MS + BETWEEN_ROUNDS_DELAY_MS));
+
+    const kinds = events.flatMap((e) => (e.type === 'start' ? [e.payload.trivia] : []));
+    expect(kinds).toHaveLength(12);
+    expect(kinds).not.toContain('added_by');
+  });
+
+  describe('typing', () => {
+    // With random() = 0 the first question is the artist, and the second
+    // (the artist can't come twice, and there's no album) is the year.
+    beforeEach(() => {
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+    });
+    afterEach(() => {
+      vi.mocked(Math.random).mockRestore();
+    });
+
+    async function twoRounds() {
+      const tracks = [...makeTracks('p1', 10), ...makeTracks('p2', 10)];
+      const game = setup({ tracks, mode: 'typing', rounds: 2, questionSet: 'trivia' });
+      await game.engine.start();
+      return game;
+    }
+
+    it('takes text guesses until one is right', async () => {
+      const { engine, last } = await twoRounds();
+      const round = last('start');
+      expect(round.trivia).toBe('artist');
+
+      expect(engine.submitTypingGuess('p1', 'someone else')).toMatchObject({ incorrect: true });
+      expect(engine.submitTypingGuess('p1', triviaAnswer(round))).toMatchObject({
+        incorrect: false,
+        bothCorrect: true,
+        locked: true,
+      });
+    });
+
+    it('takes one year, scores near misses lower, and keeps the result hidden', async () => {
+      const { engine, last } = await twoRounds();
+      engine.submitTypingGuess('p1', 'Artist x');
+      engine.submitTypingGuess('p2', 'Artist x');
+      await vi.advanceTimersByTimeAsync(TYPING_MS + BETWEEN_ROUNDS_DELAY_MS);
+      expect(last('start').trivia).toBe('year');
+
+      expect(engine.submitTypingGuess('p1', 'the seventies')).toMatchObject({
+        incorrect: true,
+        hint: 'Type a year, like 1997',
+      });
+      expect(engine.submitTypingGuess('p1', '1978')).toMatchObject({
+        incorrect: false,
+        bothCorrect: false,
+        locked: true,
+      });
+      // The first year counts; trying another changes nothing.
+      expect(engine.submitTypingGuess('p1', '1977')).toMatchObject({ locked: true, bothCorrect: false });
+      engine.submitTypingGuess('p2', '1977');
+      await vi.advanceTimersByTimeAsync(ALL_ANSWERED_REVEAL_DELAY_MS);
+
+      const { roundScores, trivia } = last('reveal');
+      expect(trivia).toEqual({ kind: 'year', answer: '1977' });
+      expect(roundScores.p1).toBeGreaterThan(0);
+      expect(roundScores.p2).toBeGreaterThan(roundScores.p1!);
+    });
   });
 });
