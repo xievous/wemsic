@@ -6,7 +6,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded';
 import HexagonRoundedIcon from '@mui/icons-material/HexagonRounded';
 import FavoriteRoundedIcon from '@mui/icons-material/FavoriteRounded';
 import { TRIVIA_PLACEHOLDERS, type McqOption, type TriviaKind } from '@wemsic/shared';
-import { useEffect, type Ref } from 'react';
+import type { Ref } from 'react';
 import { TILE_COLORS } from '../../theme';
 
 const TILE_SHAPES = [
@@ -18,7 +18,7 @@ const TILE_SHAPES = [
   FavoriteRoundedIcon,
 ];
 
-/** Tappable speed-choice tiles for players and pads; keys 1–4 pick them too. */
+/** Tappable speed-choice tiles for players and pads. */
 export function McqOptions({
   options,
   selectedOption,
@@ -42,20 +42,6 @@ export function McqOptions({
     if (e.repeat) return;
     onSelect(option);
   }
-
-  useEffect(() => {
-    if (answered) return;
-    function onNumberKey(e: KeyboardEvent) {
-      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.target instanceof HTMLElement && e.target.closest('input, textarea')) return;
-      const option = options[Number(e.key) - 1];
-      if (!option) return;
-      e.preventDefault();
-      onSelect(option);
-    }
-    window.addEventListener('keydown', onNumberKey);
-    return () => window.removeEventListener('keydown', onNumberKey);
-  }, [answered, options, onSelect]);
 
   return (
     <Box
