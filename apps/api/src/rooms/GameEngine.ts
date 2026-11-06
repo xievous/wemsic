@@ -221,6 +221,11 @@ export class GameEngine {
     return this.roundIndex;
   }
 
+  private addedBy(playerId: string): RoundRevealPayload['addedBy'] {
+    const displayName = this.displayNames.get(playerId);
+    return displayName ? { playerId, displayName } : null;
+  }
+
   getLeaderboardWithNames() {
     return [...this.scores.entries()]
       .map(([playerId, score]) => ({
@@ -536,6 +541,7 @@ export class GameEngine {
       correctTitle: round.track.title,
       correctArtists: round.track.artists,
       albumArtUrl: round.track.albumArtUrl,
+      addedBy: this.addedBy(round.track.contributedBy),
       roundScores,
       leaderboard: this.getLeaderboardWithNames(),
       nextRoundStartsAt: Date.now() + BETWEEN_ROUNDS_DELAY_MS,

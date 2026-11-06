@@ -422,8 +422,10 @@ export class RoomManager {
     // so they're excluded from the engine's player set entirely.
     const competing = this.competingPlayerEntries(room);
     const playerIds = competing.map(([id]) => id);
+    // Everyone's names, the presenter's too: the reveal says who added each
+    // song, and the presenter can add songs without competing.
     const displayNames = new Map(
-      competing.map(([id, p]) => [id, p.displayName]),
+      [...room.players.entries()].map(([id, p]) => [id, p.displayName]),
     );
 
     const engine = new GameEngine(

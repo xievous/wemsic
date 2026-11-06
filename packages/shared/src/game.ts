@@ -110,6 +110,8 @@ export interface RoundRevealPayload {
   correctTitle: string;
   correctArtists: string[];
   albumArtUrl: string | null;
+  /** Who added this song to the room; null when the contributor isn't known. */
+  addedBy: { playerId: string; displayName: string } | null;
   roundScores: Record<string, number>;
   leaderboard: LeaderboardEntry[];
   /** Unix ms when the next round begins */

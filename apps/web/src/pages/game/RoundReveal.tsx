@@ -82,6 +82,19 @@ export function RoundReveal({
             <Typography sx={{ opacity: 0.85, mt: 0.5, fontSize: '1.05rem' }}>
               {reveal.correctArtists.join(', ')}
             </Typography>
+            {reveal.addedBy && (
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 1.25 }}>
+                <PlayerAvatar
+                  id={reveal.addedBy.playerId}
+                  name={reveal.addedBy.displayName}
+                  size={22}
+                />
+                <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.85 }} noWrap>
+                  Added by{' '}
+                  {reveal.addedBy.playerId === playerId ? 'you' : reveal.addedBy.displayName}
+                </Typography>
+              </Stack>
+            )}
           </Box>
           {/* Opposite the album art from sm up; on phones it moves down beside the points. */}
           <Box
