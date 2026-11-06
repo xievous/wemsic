@@ -102,29 +102,6 @@ export function McqOptions({
             <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
               {opt.label}
             </Typography>
-            {i < 9 && (
-              // Key hint, only on devices with a mouse (and so, likely, a keyboard).
-              <Box
-                component="kbd"
-                aria-hidden
-                sx={{
-                  ml: 'auto',
-                  flexShrink: 0,
-                  display: 'none',
-                  '@media (hover: hover) and (pointer: fine)': { display: 'grid' },
-                  placeItems: 'center',
-                  width: 26,
-                  height: 26,
-                  borderRadius: '8px',
-                  bgcolor: 'rgba(255,255,255,0.25)',
-                  fontFamily: 'inherit',
-                  fontWeight: 700,
-                  fontSize: '0.85rem',
-                }}
-              >
-                {i + 1}
-              </Box>
-            )}
           </Box>
         );
       })}
