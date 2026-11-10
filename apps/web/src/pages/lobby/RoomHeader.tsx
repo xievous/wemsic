@@ -10,7 +10,21 @@ import { copyText, joinUrlFor, shareJoinLink } from '../../components/inviteLink
 import { INK } from '../../theme';
 import { LOBBY_SIDE_WIDTH } from './layout';
 
-/** A button that briefly says it worked ("Copied"), then goes back to its label. */
+/** Hidden on screen, still read out by screen readers. */
+const visuallyHidden = {
+  position: 'absolute',
+  width: '1px',
+  height: '1px',
+  overflow: 'hidden',
+  clip: 'rect(0 0 0 0)',
+  whiteSpace: 'nowrap',
+} as const;
+
+/**
+ * A button that confirms it worked without changing its text, so it never
+ * changes size: it turns green with a tick for two seconds. Screen readers
+ * hear `doneLabel` through a hidden status message.
+ */
 function FlashButton({
   label,
   doneLabel,
@@ -27,15 +41,19 @@ function FlashButton({
     <Button
       variant="contained"
       size="large"
+      color={done ? 'success' : 'primary'}
       startIcon={done ? <CheckCircleRoundedIcon /> : icon}
       onClick={async () => {
         if ((await onClick()) !== 'copied') return;
         setDone(true);
         window.setTimeout(() => setDone(false), 2000);
       }}
-      sx={{ py: 1.75, fontSize: '1.1rem', fontWeight: 700 }}
+      sx={{ py: 1.75, fontSize: '1.1rem', fontWeight: 700, minWidth: 0 }}
     >
-      {done ? doneLabel : label}
+      {label}
+      <Box component="span" role="status" sx={visuallyHidden}>
+        {done ? doneLabel : ''}
+      </Box>
     </Button>
   );
 }
@@ -76,7 +94,7 @@ export function RoomHeader({ code }: { code: string }) {
           ml: { md: 'auto' },
           width: { xs: '100%', md: LOBBY_SIDE_WIDTH },
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
+          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
           gap: 1.5,
         }}
       >
