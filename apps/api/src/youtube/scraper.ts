@@ -5,6 +5,7 @@ import {
   type ScrapeProgressCallback,
 } from '../spotify/scraper.js';
 import { USER_AGENT } from '../music/userAgent.js';
+import { smallYouTubeThumbnail } from '../catalog/covers.js';
 
 const YTM_BROWSE = 'https://music.youtube.com/youtubei/v1/browse?prettyPrint=false';
 const YTM_SEARCH = 'https://music.youtube.com/youtubei/v1/search?prettyPrint=false';
@@ -478,7 +479,7 @@ function findPlaylistThumbnail(data: Record<string, unknown>): string | null {
       const thumb = bestThumbnail(
         header.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails,
       );
-      if (thumb) return thumb;
+      if (thumb) return smallYouTubeThumbnail(thumb) ?? thumb;
     }
 
     for (const value of Object.values(obj)) {

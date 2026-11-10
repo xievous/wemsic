@@ -5,7 +5,7 @@ import { config } from './config.js';
 import { RoomManager } from './rooms/RoomManager.js';
 import { registerSocketHandlers } from './socket/handlers.js';
 import { ScrapeError, parseMusicLink, playlistSourceKey, scrapeMusicFromLink, toYouTubeBrowseId } from './music/scraper.js';
-import { getPresetCatalog } from './catalog/presets.js';
+import { getPresetCatalog, warmPresetCovers } from './catalog/presets.js';
 import { searchCatalog } from './catalog/search.js';
 
 const fastify = Fastify({ logger: true });
@@ -183,6 +183,8 @@ fastify.post<{ Body: { roomCode: string; playerId: string } }>(
 try {
   await fastify.listen({ port: config.port, host: '0.0.0.0' });
   console.log(`API listening on http://localhost:${config.port}`);
+  // In the background: a failed cover just leaves that preset without one.
+  void warmPresetCovers();
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
