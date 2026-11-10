@@ -94,8 +94,9 @@ function PickScene({ covers, still }: { covers: (CatalogSearchResult | undefined
     <Box
       sx={{
         position: 'absolute',
-        left: { xs: 14, md: 34 },
-        top: { xs: 26, md: 40 },
+        // Towards the middle of the stage, leaving Eko room on the right.
+        left: { xs: 14, md: '14%' },
+        top: { xs: 26, md: '12%' },
         width: 300,
         height: 320,
         transform: { xs: 'scale(0.72)', md: 'none' },
@@ -459,13 +460,19 @@ export function HowItWorksDemo({
         p: { xs: 1.5, md: 2.5 },
         pb: { xs: 1.25, md: 2 },
         minWidth: 0,
+        // On desktop the card fills its column, from "Pick." down to the buttons.
+        flex: { md: 1 },
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
       <Box
         aria-hidden
         sx={{
           position: 'relative',
-          height: { xs: 330, md: 430 },
+          height: { xs: 330, md: 'auto' },
+          flex: { md: 1 },
+          minHeight: { md: 420 },
           overflow: 'hidden',
           borderRadius: '22px',
           background: 'linear-gradient(180deg, #F6F9FF, #EAF1FF)',

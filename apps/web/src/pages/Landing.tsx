@@ -60,12 +60,13 @@ export function Landing() {
       <Box
         sx={{
           display: 'grid',
-          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1.05fr)' },
+          // The demo gets the larger share, so its card is a landscape rectangle.
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: 'minmax(0, 1fr) minmax(0, 1.3fr)' },
           gridTemplateAreas: { xs: '"verbs" "demo" "ways"', md: '"verbs demo" "ways demo"' },
           gridTemplateRows: { md: 'auto 1fr' },
-          columnGap: 6,
+          columnGap: 5,
           rowGap: { xs: 3, md: 0 },
-          // The demo card's top lines up with the top of "Pick.".
+          // The demo card's top lines up with the top of "Pick.", and its bottom with the buttons.
           alignItems: 'start',
         }}
       >
@@ -129,7 +130,7 @@ export function Landing() {
           </Typography>
         </Box>
 
-        <Box sx={{ gridArea: 'demo', minWidth: 0 }}>
+        <Box sx={{ gridArea: 'demo', minWidth: 0, alignSelf: { md: 'stretch' }, display: { md: 'flex' } }}>
           <HowItWorksDemo step={step} run={run} still={still} onJump={jump} />
         </Box>
 
