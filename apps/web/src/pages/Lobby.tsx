@@ -114,10 +114,10 @@ export function Lobby() {
   // The shared screen shows a QR so players can scan to join.
   const presenter = hostMode && isHost;
   const roster = {
-    players: lobby.players,
+    // The host-screen host only runs the screen and never plays, so they're not listed.
+    players: hostMode ? lobby.players.filter((p) => p.id !== lobby.hostPlayerId) : lobby.players,
     myPlayerId: session.playerId,
     isHost,
-    hostMode,
     onKick: kickPlayer,
   };
 
