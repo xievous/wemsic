@@ -1,51 +1,19 @@
 import BoltRoundedIcon from '@mui/icons-material/BoltRounded';
+import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import KeyboardRoundedIcon from '@mui/icons-material/KeyboardRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import {
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
-  Divider,
-  IconButton,
-  Stack,
-  Tooltip,
-  Typography,
-} from '@mui/material';
+import { Box, Button, ButtonBase, Card, CardContent, Chip, Collapse, Stack, Typography } from '@mui/material';
 import type { LobbyState } from '@wemsic/shared';
 import { useState } from 'react';
 import {
-  AdvancedSettingsSection,
   GuessVisibilitySegment,
   LeniencySegment,
   NumberField,
   QuestionSetSegment,
-  SPELLING_LENIENCY_OPTIONS,
 } from './SettingsControls';
 
 type RoomSettings = LobbyState['settings'];
 
-/** "10 rounds · 20s per round · Normal spelling · guesses hidden" */
-function settingsSummary(settings: RoomSettings): string {
-  const parts = [
-    ...(settings.questionSet === 'trivia' ? ['Trivia mix'] : []),
-    `${settings.roundCount} rounds`,
-    `${settings.roundDurationSeconds}s per round`,
-  ];
-  if (settings.gameMode === 'typing') {
-    const leniency =
-      SPELLING_LENIENCY_OPTIONS.find(
-        (o) => o.value === (settings.typingSpellingLeniency ?? 'normal'),
-      )?.title ?? 'Normal';
-    parts.push(`${leniency} spelling`);
-  }
-  parts.push(settings.showOthersGuesses ? 'guesses visible' : 'guesses hidden');
-  return parts.join(' · ');
-}
+const TITLE_SX = { fontSize: { xs: '1.5rem', sm: '1.7rem' } };
 
 function ModeTile({
   active,
@@ -61,37 +29,64 @@ function ModeTile({
   desc: string;
 }) {
   return (
-    <Box
-      role="button"
-      tabIndex={0}
+    <ButtonBase
       onClick={onClick}
-      onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && onClick()}
+      aria-pressed={active}
       sx={{
-        flex: 1,
-        cursor: 'pointer',
+        display: 'flex',
+        flexDirection: { xs: 'column', sm: 'row' },
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        justifyContent: 'flex-start',
+        gap: { xs: 1, sm: 1.75 },
+        textAlign: 'left',
         borderRadius: '18px',
-        p: 2,
+        p: { xs: 2, sm: 2.5 },
         border: '2px solid',
         borderColor: active ? 'primary.main' : 'rgba(20,33,63,0.1)',
         bgcolor: active ? 'rgba(58,107,255,0.08)' : 'background.paper',
-        transition: 'all 160ms ease',
-        '&:hover': { borderColor: 'primary.main', transform: 'translateY(-2px)' },
+        transition: 'border-color 160ms ease, background-color 160ms ease',
+        '&:hover': { borderColor: 'primary.main' },
+        '&.Mui-focusVisible': { outline: '3px solid', outlineColor: 'primary.main', outlineOffset: 2 },
       }}
     >
-      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-        <Box sx={{ color: active ? 'primary.main' : 'text.secondary', display: 'flex' }}>
-          {icon}
-        </Box>
-        <Typography fontWeight={700}>{title}</Typography>
-      </Stack>
-      <Typography variant="body2" color="text.secondary">
-        {desc}
+      <Box sx={{ color: active ? 'primary.main' : 'text.secondary', display: 'flex', '& svg': { fontSize: 32 } }}>
+        {icon}
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ fontFamily: '"Fredoka", sans-serif', fontWeight: 600, fontSize: '1.35rem', lineHeight: 1.2 }}>
+          {title}
+        </Typography>
+        <Typography color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' } }}>
+          {desc}
+        </Typography>
+      </Box>
+    </ButtonBase>
+  );
+}
+
+/** One More options row: a plain label on the left, its control on the right (stacked on phones). */
+function OptionRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Box
+      sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', sm: '190px minmax(0, 1fr)' },
+        alignItems: 'start',
+        gap: { xs: 1, sm: 2 },
+      }}
+    >
+      <Typography fontWeight={700} sx={{ fontSize: '1.05rem', pt: { sm: 1 } }}>
+        {label}
       </Typography>
+      <Box sx={{ minWidth: 0, maxWidth: 420 }}>{children}</Box>
     </Box>
   );
 }
 
-/** Host-only: game mode picker, settings summary, and the advanced settings dialog. */
+/**
+ * Host-only "Game" card: the two modes up front, and everything else behind
+ * More options, which opens in place.
+ */
 export function GameSettingsCard({
   settings,
   onChange,
@@ -99,152 +94,131 @@ export function GameSettingsCard({
   settings: RoomSettings;
   onChange: (settings: Partial<RoomSettings>) => void;
 }) {
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const typing = settings.gameMode === 'typing';
 
   return (
-    <>
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
-          <Stack
-            direction="row"
-            alignItems="center"
-            justifyContent="space-between"
-            sx={{ mb: 2 }}
-          >
-            <Typography variant="h5">Game settings</Typography>
-            <Tooltip title="Advanced settings">
-              <IconButton
-                aria-label="Advanced settings"
-                onClick={() => setAdvancedOpen(true)}
-                sx={{
-                  bgcolor: 'rgba(58,107,255,0.08)',
-                  '&:hover': { bgcolor: 'rgba(58,107,255,0.14)' },
-                }}
-              >
-                <SettingsRoundedIcon />
-              </IconButton>
-            </Tooltip>
-          </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-            <ModeTile
-              active={settings.gameMode === 'speed_choice'}
-              onClick={() => onChange({ gameMode: 'speed_choice' })}
-              icon={<BoltRoundedIcon />}
-              title="Speed choice"
-              desc="Tap the right answer fastest"
-            />
-            <ModeTile
-              active={settings.gameMode === 'typing'}
-              onClick={() => onChange({ gameMode: 'typing' })}
-              icon={<KeyboardRoundedIcon />}
-              title="Typing"
-              desc={
-                settings.questionSet === 'trivia'
-                  ? 'Type the answer'
-                  : 'Type the artist and the song'
-              }
-            />
-          </Stack>
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="body2" fontWeight={700} sx={{ mb: 1 }}>
-              Questions
-            </Typography>
-            <QuestionSetSegment
-              value={settings.questionSet ?? 'song'}
-              onChange={(questionSet) => onChange({ questionSet })}
-            />
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-            {settingsSummary(settings)}
-          </Typography>
-        </CardContent>
-      </Card>
+    <Card sx={{ mb: 3 }}>
+      <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
+        <Typography variant="h5" sx={{ ...TITLE_SX, mb: 2 }}>
+          Game
+        </Typography>
+        <Box sx={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 1.5 }}>
+          <ModeTile
+            active={!typing}
+            onClick={() => onChange({ gameMode: 'speed_choice' })}
+            icon={<BoltRoundedIcon />}
+            title="Speed choice"
+            desc="Tap the right answer first"
+          />
+          <ModeTile
+            active={typing}
+            onClick={() => onChange({ gameMode: 'typing' })}
+            icon={<KeyboardRoundedIcon />}
+            title="Typing"
+            desc="Type the answer"
+          />
+        </Box>
 
-      <Dialog
-        open={advancedOpen}
-        onClose={() => setAdvancedOpen(false)}
-        fullWidth
-        maxWidth="sm"
-        PaperProps={{ sx: { borderRadius: '20px' } }}
-      >
-        <DialogTitle sx={{ pb: 1 }}>Advanced settings</DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
-          <Stack spacing={2.5} divider={<Divider flexItem sx={{ borderColor: 'rgba(20,33,63,0.08)' }} />}>
-            <AdvancedSettingsSection
-              title="Round length"
-              description="How many rounds to play and how long each round lasts."
-            >
-              <Stack direction="row" spacing={1.5}>
+        <Button
+          onClick={() => setMoreOpen((open) => !open)}
+          aria-expanded={moreOpen}
+          aria-controls="more-options"
+          endIcon={
+            <ExpandMoreRoundedIcon
+              sx={{ transform: moreOpen ? 'rotate(180deg)' : 'none', transition: 'transform 200ms ease' }}
+            />
+          }
+          sx={{ mt: 1.5, ml: -1.5, px: 1.5, fontSize: '1.05rem' }}
+        >
+          More options
+        </Button>
+
+        <Collapse in={moreOpen} id="more-options">
+          <Stack
+            spacing={2.5}
+            sx={{ mt: 1.5, pt: 2.5, borderTop: '1px solid rgba(20,33,63,0.08)' }}
+          >
+            <OptionRow label="Questions">
+              <QuestionSetSegment
+                value={settings.questionSet ?? 'song'}
+                onChange={(questionSet) => onChange({ questionSet })}
+              />
+            </OptionRow>
+            <OptionRow label="Rounds">
+              <Box sx={{ display: 'flex', maxWidth: 160 }}>
                 <NumberField
                   label="Rounds"
+                  hideLabel
                   value={settings.roundCount}
                   onChange={(v) => onChange({ roundCount: v })}
                   min={5}
                   max={30}
                 />
+              </Box>
+            </OptionRow>
+            <OptionRow label="Seconds per round">
+              <Box sx={{ display: 'flex', maxWidth: 160 }}>
                 <NumberField
                   label="Seconds per round"
+                  hideLabel
                   value={settings.roundDurationSeconds}
                   onChange={(v) => onChange({ roundDurationSeconds: v })}
                   min={10}
                   max={60}
                 />
+              </Box>
+            </OptionRow>
+            <OptionRow label="Others’ guesses">
+              <Stack spacing={1}>
+                <GuessVisibilitySegment
+                  value={settings.showOthersGuesses ?? false}
+                  onChange={(showOthersGuesses) => onChange({ showOthersGuesses })}
+                />
+                <Typography variant="caption" color="text.secondary" sx={{ px: 0.25, lineHeight: 1.45 }}>
+                  {typing
+                    ? 'When visible, wrong guesses appear as clues. Correct ones only show as “Guessed right”.'
+                    : 'When visible, everyone sees which answer each player picked.'}
+                </Typography>
               </Stack>
-            </AdvancedSettingsSection>
-
-            <AdvancedSettingsSection
-              title="Other players' guesses"
-              description={
-                settings.gameMode === 'speed_choice'
-                  ? 'When visible, everyone sees which answer each player picked.'
-                  : 'When visible, wrong guesses appear as clues. Correct guesses only show as “Guessed right”.'
-              }
-            >
-              <GuessVisibilitySegment
-                value={settings.showOthersGuesses ?? false}
-                onChange={(showOthersGuesses) => onChange({ showOthersGuesses })}
-              />
-            </AdvancedSettingsSection>
-
-            {settings.gameMode === 'typing' && (
-              <AdvancedSettingsSection
-                title="Spelling leniency"
-                description="How strictly typed answers are matched."
-              >
+            </OptionRow>
+            {typing && (
+              <OptionRow label="Spelling">
                 <LeniencySegment
                   value={settings.typingSpellingLeniency ?? 'normal'}
                   onChange={(typingSpellingLeniency) => onChange({ typingSpellingLeniency })}
                 />
-              </AdvancedSettingsSection>
+              </OptionRow>
             )}
           </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setAdvancedOpen(false)} variant="contained">
-            Done
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </>
+        </Collapse>
+      </CardContent>
+    </Card>
   );
 }
 
-/** Read-only settings line for everyone but the host, so they know what's coming. */
+/** Everyone but the host: just what they'll be playing. */
 export function GameSettingsSummary({ settings }: { settings: RoomSettings }) {
   const typing = settings.gameMode === 'typing';
   return (
     <Card sx={{ mb: 3 }}>
-      <CardContent sx={{ p: { xs: 2, sm: 2.5 }, '&:last-child': { pb: { xs: 2, sm: 2.5 } } }}>
+      <CardContent sx={{ p: { xs: 2.5, sm: 3 }, '&:last-child': { pb: { xs: 2.5, sm: 3 } } }}>
+        <Typography variant="h5" sx={{ ...TITLE_SX, mb: 1.5 }}>
+          Game
+        </Typography>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <Box sx={{ color: 'primary.main', display: 'flex' }}>
+          <Box sx={{ color: 'primary.main', display: 'flex', '& svg': { fontSize: 30 } }}>
             {typing ? <KeyboardRoundedIcon /> : <BoltRoundedIcon />}
           </Box>
-          <Box sx={{ minWidth: 0 }}>
-            <Typography fontWeight={700}>{typing ? 'Typing' : 'Speed choice'}</Typography>
-            <Typography variant="body2" color="text.secondary">
-              {settingsSummary(settings)}
-            </Typography>
-          </Box>
+          <Typography sx={{ fontFamily: '"Fredoka", sans-serif', fontWeight: 600, fontSize: '1.35rem' }}>
+            {typing ? 'Typing' : 'Speed choice'}
+          </Typography>
+          {settings.questionSet === 'trivia' && (
+            <Chip
+              label="Trivia"
+              sx={{ bgcolor: 'rgba(58,107,255,0.12)', color: 'primary.main', fontWeight: 700 }}
+            />
+          )}
         </Stack>
       </CardContent>
     </Card>

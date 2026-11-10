@@ -3,7 +3,7 @@ import type { QuestionSet, TypingSpellingLeniency } from '@wemsic/shared';
 import { useState } from 'react';
 import { settleSetting, validSetting } from './numberSetting';
 
-export const SPELLING_LENIENCY_OPTIONS: {
+const SPELLING_LENIENCY_OPTIONS: {
   value: TypingSpellingLeniency;
   title: string;
   desc: string;
@@ -38,12 +38,15 @@ export function NumberField({
   onChange,
   min,
   max,
+  hideLabel = false,
 }: {
   label: string;
   value: number;
   onChange: (v: number) => void;
   min: number;
   max: number;
+  /** When a row label beside the field already says what it is; screen readers still get `label`. */
+  hideLabel?: boolean;
 }) {
   // What's in the field while the host is editing it; null shows `value`.
   const [draft, setDraft] = useState<string | null>(null);
@@ -57,7 +60,7 @@ export function NumberField({
 
   return (
     <TextField
-      label={label}
+      label={hideLabel ? undefined : label}
       type="number"
       size="small"
       sx={{ flex: 1 }}
@@ -73,32 +76,8 @@ export function NumberField({
       onKeyDown={(e) => {
         if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
       }}
-      inputProps={{ min, max }}
+      inputProps={{ min, max, 'aria-label': label }}
     />
-  );
-}
-
-export function AdvancedSettingsSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Box>
-      <Typography variant="overline" color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
-        {title}
-      </Typography>
-      {description && (
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
-          {description}
-        </Typography>
-      )}
-      {children}
-    </Box>
   );
 }
 
