@@ -7,6 +7,8 @@ import {
   GAME_START_COUNTDOWN_SECONDS,
   MIN_PLAYLIST_TRACKS,
   MAX_PLAYERS,
+  pickColorIndex,
+  pickInitials,
 } from '@wemsic/shared';
 import type {
   GameEndPayload,
@@ -38,6 +40,9 @@ interface RoomPlayer {
   isReady: boolean;
   playlists: PlayerPlaylistEntry[];
   score: number;
+  /** Their avatar colour and initials, both unique in the room; fixed for as long as they stay. */
+  colorIndex: number;
+  initials: string;
   /** Open socket ids; the player is online while this isn't empty. */
   sockets: Set<string>;
   awayTimer: ReturnType<typeof setTimeout> | null;
@@ -109,7 +114,7 @@ export class RoomManager {
       catchUp: [],
     };
 
-    room.players.set(playerId, this.newPlayer(playerId, hostDisplayName, true));
+    room.players.set(playerId, this.newPlayer(room, playerId, hostDisplayName, true));
     this.rooms.set(code, room);
     this.startAwayTimer(room, playerId);
     this.emitLobby(room);
@@ -132,7 +137,7 @@ export class RoomManager {
     }
 
     const playerId = nanoid();
-    room.players.set(playerId, this.newPlayer(playerId, displayName, false));
+    room.players.set(playerId, this.newPlayer(room, playerId, displayName, false));
     // Offline until their socket joins; a tab closed before that is cleaned up.
     this.startAwayTimer(room, playerId);
     this.emitLobby(room);
@@ -564,7 +569,8 @@ export class RoomManager {
     return player.playlists.flatMap((pl) => pl.tracks);
   }
 
-  private newPlayer(id: string, displayName: string, isHost: boolean): RoomPlayer {
+  private newPlayer(room: Room, id: string, displayName: string, isHost: boolean): RoomPlayer {
+    const others = [...room.players.values()];
     return {
       id,
       displayName,
@@ -572,6 +578,8 @@ export class RoomManager {
       isReady: false,
       playlists: [],
       score: 0,
+      colorIndex: pickColorIndex(others.map((p) => p.colorIndex)),
+      initials: pickInitials(displayName, others.map((p) => p.initials)),
       sockets: new Set(),
       awayTimer: null,
     };
@@ -613,6 +621,8 @@ export class RoomManager {
       })),
       trackCount: this.playerTrackCount(p),
       score: p.score,
+      colorIndex: p.colorIndex,
+      initials: p.initials,
     }));
 
     return {
