@@ -1,7 +1,8 @@
 import type { CatalogSearchResult } from '@wemsic/shared';
 import { PRESET_MIN_TRACKS } from '@wemsic/shared';
 import { searchAppleMusicPlaylists } from '../apple/search.js';
-import { matchPresets } from './presets.js';
+import { smallYouTubeThumbnail, spotifyPlaylistCover, spotifyPlaylistIdFromUrl } from './covers.js';
+import { matchPresets, withCovers } from './presets.js';
 import { searchSpotifyPlaylists } from '../spotify/search.js';
 import { searchYouTubeMusicPlaylists } from '../youtube/scraper.js';
 
@@ -15,11 +16,24 @@ function presetToResult(preset: ReturnType<typeof matchPresets>[number]): Catalo
     url: preset.url,
     trackCount: preset.estimatedTracks,
     source: 'preset',
+    thumbnailUrl: preset.coverUrl,
   };
 }
 
 function spotifyPlaylistId(url: string): string | null {
   return url.match(/playlist\/([a-zA-Z0-9]+)/)?.[1] ?? null;
+}
+
+/** Spotify search leaves its editorial playlists without an image; fetch those from the embed page. */
+async function fillMissingSpotifyCovers(hits: CatalogSearchResult[]): Promise<CatalogSearchResult[]> {
+  return Promise.all(
+    hits.map(async (hit) => {
+      if (hit.thumbnailUrl) return hit;
+      const id = spotifyPlaylistIdFromUrl(hit.url);
+      const cover = id ? await spotifyPlaylistCover(id) : null;
+      return cover ? { ...hit, thumbnailUrl: cover } : hit;
+    }),
+  );
 }
 
 function rankResults(results: CatalogSearchResult[]): CatalogSearchResult[] {
@@ -53,7 +67,7 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
   const trimmed = query.trim();
   if (!trimmed) return [];
 
-  const presetMatches = matchPresets(trimmed).map(presetToResult);
+  const presetMatches = (await withCovers(matchPresets(trimmed))).map(presetToResult);
   const presetIds = new Set(presetMatches.map((p) => p.id));
   const presetSpotifyIds = new Set(
     presetMatches
@@ -79,13 +93,13 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
         ytmBrowseId: hit.browseId,
         trackCount: hit.trackCount,
         source: 'youtube' as const,
-        thumbnailUrl: hit.thumbnailUrl,
+        thumbnailUrl: smallYouTubeThumbnail(hit.thumbnailUrl),
       }));
   }
 
   let spotifyHits: CatalogSearchResult[] = [];
   if (spotifyResult.status === 'fulfilled') {
-    spotifyHits = spotifyResult.value
+    spotifyHits = await fillMissingSpotifyCovers(spotifyResult.value
       .filter((hit) => !presetSpotifyIds.has(hit.id))
       .map((hit) => ({
         id: `spotify:${hit.id}`,
@@ -95,7 +109,7 @@ export async function searchCatalog(query: string): Promise<CatalogSearchResult[
         trackCount: hit.trackCount,
         source: 'spotify' as const,
         thumbnailUrl: hit.thumbnailUrl,
-      }));
+      })));
   }
 
   let appleHits: CatalogSearchResult[] = [];

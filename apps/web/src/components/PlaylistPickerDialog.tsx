@@ -68,6 +68,7 @@ function presetToResult(preset: PresetPlaylist): CatalogSearchResult {
     url: preset.url,
     trackCount: preset.estimatedTracks,
     source: 'preset',
+    thumbnailUrl: preset.coverUrl,
   };
 }
 

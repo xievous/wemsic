@@ -11,6 +11,8 @@ export interface PresetPlaylist {
   provider: 'spotify' | 'youtube';
   estimatedTracks: number;
   category: PresetCategory;
+  /** The playlist's own cover art, when the server could find it. */
+  coverUrl?: string;
 }
 
 export interface PresetCatalogResponse {

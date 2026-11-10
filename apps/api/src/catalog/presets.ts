@@ -1,4 +1,5 @@
 import type { PresetCatalogResponse, PresetPlaylist } from '@wemsic/shared';
+import { spotifyPlaylistCover, spotifyPlaylistIdFromUrl } from './covers.js';
 
 /** Curated public Spotify editorial playlists (50+ tracks each). */
 const PRESETS: PresetPlaylist[] = [
@@ -154,11 +155,28 @@ const PRESETS: PresetPlaylist[] = [
   },
 ];
 
-export function getPresetCatalog(): PresetCatalogResponse {
+/** Presets with their Spotify covers filled in (cached, so this is quick after the first call). */
+export async function withCovers(presets: PresetPlaylist[]): Promise<PresetPlaylist[]> {
+  return Promise.all(
+    presets.map(async (preset) => {
+      const id = spotifyPlaylistIdFromUrl(preset.url);
+      const coverUrl = id ? await spotifyPlaylistCover(id) : null;
+      return coverUrl ? { ...preset, coverUrl } : preset;
+    }),
+  );
+}
+
+/** Fetch every preset cover once at startup, so the first lobby already has them. */
+export function warmPresetCovers(): Promise<unknown> {
+  return withCovers(PRESETS);
+}
+
+export async function getPresetCatalog(): Promise<PresetCatalogResponse> {
+  const presets = await withCovers(PRESETS);
   return {
-    trending: PRESETS.filter((p) => p.category === 'trending'),
-    genre: PRESETS.filter((p) => p.category === 'genre'),
-    theme: PRESETS.filter((p) => p.category === 'theme'),
+    trending: presets.filter((p) => p.category === 'trending'),
+    genre: presets.filter((p) => p.category === 'genre'),
+    theme: presets.filter((p) => p.category === 'theme'),
   };
 }
 
