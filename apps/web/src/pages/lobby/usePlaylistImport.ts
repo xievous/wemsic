@@ -5,7 +5,7 @@ import { useSocket } from '../../socket/SocketContext';
 
 /**
  * Adding and removing this player's playlists, plus the status message shown
- * at the top of the lobby. The picker dialog and the paste-a-link field share
+ * at the top of the lobby. The cover carousel and the paste-a-link field share
  * one `importing` flag so only one import runs at a time.
  */
 export function usePlaylistImport(roomCode: string, playerId: string) {
@@ -47,7 +47,7 @@ export function usePlaylistImport(roomCode: string, playerId: string) {
     }
   }
 
-  /** Rethrows so the picker dialog can show the error inline too. */
+  /** Rethrows so the caller knows it failed (the message bar shows why). */
   async function importFromCatalog(item: CatalogSearchResult) {
     if (!item.url) throw new Error('This playlist cannot be imported.');
     try {
