@@ -1,7 +1,5 @@
-import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import QueueMusicRoundedIcon from '@mui/icons-material/QueueMusicRounded';
-import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import {
   Box,
   Button,
@@ -16,7 +14,6 @@ import {
 import { MIN_PLAYLIST_TRACKS } from '@wemsic/shared';
 import type { Player, PlaylistImportProgressPayload } from '@wemsic/shared';
 import { useState } from 'react';
-import { useAudio } from '../../audio/AudioProvider';
 import { MyPlaylistsStrip } from '../../components/MyPlaylistsStrip';
 import { PlaylistPickerDialog } from '../../components/PlaylistPickerDialog';
 import type { PlaylistImport } from './usePlaylistImport';
@@ -70,31 +67,13 @@ function ImportProgressBar({ progress }: { progress: PlaylistImportProgressPaylo
 }
 
 /**
- * "Your music" card: paste a link or open the playlist picker, see and remove
- * your playlists, and the per-device sound / ready buttons.
+ * "Your music" card: paste a link or open the playlist picker, and see and
+ * remove your playlists. Ready and sound live in the lobby's action bar.
  */
-export function MusicCard({
-  me,
-  imports,
-  hostMode,
-  isHost,
-  onReadyChange,
-}: {
-  me: Player | undefined;
-  imports: PlaylistImport;
-  hostMode: boolean;
-  isHost: boolean;
-  onReadyChange: (ready: boolean) => void;
-}) {
-  const { enabled: soundOn, enableAudio } = useAudio();
+export function MusicCard({ me, imports }: { me: Player | undefined; imports: PlaylistImport }) {
   const [playlistUrl, setPlaylistUrl] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const { importing, progress, removingPlaylistId } = imports;
-
-  // In host mode the host runs the shared screen (needs sound, never readies),
-  // while players answer on their phones (no sound needed, must ready up).
-  const needsSound = !hostMode || isHost;
-  const needsReady = !hostMode || !isHost;
 
   async function handleImportFromUrl() {
     if (!playlistUrl.trim()) return;
@@ -150,7 +129,7 @@ export function MusicCard({
                 disabled={importing || removingPlaylistId !== null}
               />
             )}
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} flexWrap="wrap" useFlexGap>
+            <Box>
               <Button
                 variant="outlined"
                 startIcon={<QueueMusicRoundedIcon />}
@@ -159,42 +138,8 @@ export function MusicCard({
               >
                 Add playlist
               </Button>
-              {needsSound && (
-                <Button
-                  variant={soundOn ? 'outlined' : 'contained'}
-                  color={soundOn ? 'success' : 'secondary'}
-                  startIcon={soundOn ? <CheckCircleRoundedIcon /> : <VolumeUpRoundedIcon />}
-                  onClick={enableAudio}
-                  disabled={soundOn}
-                  sx={soundOn ? { '&.Mui-disabled': { color: 'success.main', borderColor: 'success.main', opacity: 0.9 } } : undefined}
-                >
-                  {soundOn ? 'Sound ready' : 'Enable sound'}
-                </Button>
-              )}
-              {needsReady && (
-                <Button
-                  variant={me?.isReady ? 'outlined' : 'contained'}
-                  color="success"
-                  onClick={() => onReadyChange(!me?.isReady)}
-                  sx={{ ml: { sm: 'auto' } }}
-                >
-                  {me?.isReady ? "I'm not ready" : "I'm ready"}
-                </Button>
-              )}
-            </Stack>
+            </Box>
           </Stack>
-          {needsSound && !soundOn && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-              {hostMode
-                ? 'Turn on sound here so the song plays on this shared screen the moment the game starts.'
-                : 'Turn on sound here so track previews play the moment the game starts.'}
-            </Typography>
-          )}
-          {hostMode && !isHost && (
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-              No need to turn on sound — the music plays on the host&apos;s screen.
-            </Typography>
-          )}
         </CardContent>
       </Card>
 

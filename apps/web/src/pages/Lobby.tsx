@@ -1,16 +1,17 @@
-import { Alert, Box, Button, CircularProgress, Stack, Typography } from '@mui/material';
+import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material';
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { reconnect } from '../api/client';
 import { Layout } from '../components/Layout';
+import { ReconnectingBanner } from '../components/ReconnectingBanner';
 import { clearSession, loadSession, type Session } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { GameSettingsCard, GameSettingsSummary } from './lobby/GameSettingsCard';
+import { ActionBar } from './lobby/ActionBar';
+import { LOBBY_SIDE_WIDTH } from './lobby/layout';
 import { MusicCard } from './lobby/MusicCard';
-import { PlayerList } from './lobby/PlayerList';
-import { HostModeNotice, RoomHeader } from './lobby/RoomHeader';
-import { StartControls } from './lobby/StartControls';
-import { startBlocker } from './lobby/startStatus';
+import { PlayerColumn, PlayerStrip } from './lobby/PlayerList';
+import { HostModeNotice, JoinQrCard, RoomHeader } from './lobby/RoomHeader';
 import { usePlaylistImport } from './lobby/usePlaylistImport';
 
 export function Lobby() {
@@ -84,10 +85,20 @@ export function Lobby() {
   const me = lobby.players.find((p) => p.id === session.playerId);
   const isHost = me?.isHost ?? false;
   const hostMode = lobby.settings.roomType === 'host';
+  // The shared screen shows a QR so players can scan to join.
+  const presenter = hostMode && isHost;
+  const roster = {
+    players: lobby.players,
+    myPlayerId: session.playerId,
+    isHost,
+    hostMode,
+    onKick: kickPlayer,
+  };
 
   return (
-    <Layout maxWidth="md">
-      <RoomHeader code={code} hostMode={hostMode} isHost={isHost} connected={connected} />
+    <Layout maxWidth="lg">
+      <ReconnectingBanner />
+      <RoomHeader code={code} />
 
       {hostMode && <HostModeNotice isHost={isHost} />}
 
@@ -102,49 +113,47 @@ export function Lobby() {
         </Alert>
       )}
 
-      {isHost ? (
-        <GameSettingsCard settings={lobby.settings} onChange={updateSettings} />
-      ) : (
-        <GameSettingsSummary settings={lobby.settings} />
-      )}
-
-      <PlayerList
-        players={lobby.players}
-        myPlayerId={session.playerId}
-        isHost={isHost}
-        hostMode={hostMode}
-        onKick={kickPlayer}
-      />
-
-      <MusicCard
-        me={me}
-        imports={imports}
-        hostMode={hostMode}
-        isHost={isHost}
-        onReadyChange={setReady}
-      />
-
-      <StartControls
-        startCountdownEndsAt={lobby.startCountdownEndsAt}
-        isHost={isHost}
-        canStart={lobby.canStart}
-        blocker={startBlocker(lobby, session.playerId)}
-        onStart={startGame}
-      />
-
-      <Box sx={{ textAlign: 'center', mt: 3 }}>
-        <Button
-          color="inherit"
-          onClick={() => {
-            leaveRoom();
-            clearSession();
-            navigate('/');
-          }}
-          sx={{ color: 'text.secondary' }}
-        >
-          Leave room
-        </Button>
+      {/* Phones and tablets: QR and an avatar strip above the cards. */}
+      <Box sx={{ display: { md: 'none' } }}>
+        {presenter && <JoinQrCard code={code} />}
+        <PlayerStrip {...roster} />
       </Box>
+
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: 'minmax(0, 1fr)', md: `minmax(0, 1fr) ${LOBBY_SIDE_WIDTH}px` },
+          columnGap: 3,
+          alignItems: 'start',
+        }}
+      >
+        <Box sx={{ minWidth: 0 }}>
+          <MusicCard me={me} imports={imports} />
+          {isHost ? (
+            <GameSettingsCard settings={lobby.settings} onChange={updateSettings} />
+          ) : (
+            <GameSettingsSummary settings={lobby.settings} />
+          )}
+        </Box>
+
+        {/* Desktop: the players column, which stays in view while the page scrolls. */}
+        <Box sx={{ display: { xs: 'none', md: 'block' }, position: 'sticky', top: 16, mb: 3 }}>
+          {presenter && <JoinQrCard code={code} />}
+          <PlayerColumn {...roster} />
+        </Box>
+      </Box>
+
+      <ActionBar
+        lobby={lobby}
+        myPlayerId={session.playerId}
+        onReadyChange={setReady}
+        onStart={startGame}
+        onLeave={() => {
+          leaveRoom();
+          clearSession();
+          navigate('/');
+        }}
+      />
     </Layout>
   );
 }

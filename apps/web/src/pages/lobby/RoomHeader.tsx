@@ -1,153 +1,115 @@
 import CastForEducationRoundedIcon from '@mui/icons-material/CastForEducationRounded';
-import { Alert, Box, Chip, Stack, Typography } from '@mui/material';
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import IosShareRoundedIcon from '@mui/icons-material/IosShareRounded';
+import { Alert, Box, Button, Card, CardContent, Typography } from '@mui/material';
+import { useState } from 'react';
 import QRCode from 'react-qr-code';
-import { CopyRoomCodeButton } from '../../components/CopyRoomCodeButton';
-import { InviteLinkButton, joinUrlFor } from '../../components/InviteLinkButton';
+import { Eko } from '../../components/eko/Eko';
+import { copyText, joinUrlFor, shareJoinLink } from '../../components/inviteLink';
+import { INK } from '../../theme';
+import { LOBBY_SIDE_WIDTH } from './layout';
 
-const bannerSx = {
-  mb: 3,
-  p: { xs: 2.5, sm: 3 },
-  borderRadius: '24px',
-  color: '#fff',
-  background: 'linear-gradient(120deg, #3A6BFF 0%, #6C5CE7 55%, #00BFD8 100%)',
-  boxShadow: '0 24px 50px -24px rgba(58,107,255,0.6)',
-} as const;
-
-function RoomCode({ code, compact = false }: { code: string; compact?: boolean }) {
+/** A button that briefly says it worked ("Copied"), then goes back to its label. */
+function FlashButton({
+  label,
+  doneLabel,
+  icon,
+  onClick,
+}: {
+  label: string;
+  doneLabel: string;
+  icon: React.ReactNode;
+  onClick: () => Promise<'shared' | 'copied' | 'failed'>;
+}) {
+  const [done, setDone] = useState(false);
   return (
-    <Stack direction="row" alignItems="center" spacing={0.25}>
-      <Typography
-        variant="h2"
-        sx={
-          compact
-            ? { letterSpacing: '0.18em', fontSize: { xs: '2rem', sm: '2.35rem' }, lineHeight: 1 }
-            : { letterSpacing: '0.18em', fontSize: { xs: '2.4rem', sm: '3rem' } }
-        }
-      >
-        {code}
-      </Typography>
-      <CopyRoomCodeButton code={code} />
-    </Stack>
+    <Button
+      variant="contained"
+      size="large"
+      startIcon={done ? <CheckCircleRoundedIcon /> : icon}
+      onClick={async () => {
+        if ((await onClick()) !== 'copied') return;
+        setDone(true);
+        window.setTimeout(() => setDone(false), 2000);
+      }}
+      sx={{ py: 1.75, fontSize: '1.1rem', fontWeight: 700 }}
+    >
+      {done ? doneLabel : label}
+    </Button>
   );
 }
 
 /**
- * Gradient room-code banner. The host-mode shared screen also gets a QR code
- * so players can scan to join; elsewhere there's an invite link to share.
+ * Eko and the room code, big enough to read from across the room (the lobby
+ * is often on a TV), with Copy and Invite in a block as wide as the players
+ * column below it.
  */
-export function RoomHeader({
-  code,
-  hostMode,
-  isHost,
-  connected,
-}: {
-  code: string;
-  hostMode: boolean;
-  isHost: boolean;
-  connected: boolean;
-}) {
-  if (!hostMode) {
-    return (
-      <Box
-        sx={{
-          ...bannerSx,
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 2,
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}
-      >
-        <Box>
-          <Typography variant="overline" sx={{ opacity: 0.85 }}>
-            Room code
-          </Typography>
-          <RoomCode code={code} />
-        </Box>
-        <Stack direction="row" spacing={1} alignItems="center">
-          <InviteLinkButton code={code} />
-          <Chip
-            label={connected ? 'Connected' : 'Connecting...'}
-            sx={{
-              bgcolor: 'rgba(255,255,255,0.2)',
-              color: '#fff',
-              fontWeight: 700,
-              backdropFilter: 'blur(4px)',
-            }}
-          />
-        </Stack>
-      </Box>
-    );
-  }
-
-  if (!isHost) {
-    return (
-      <Box sx={{ ...bannerSx, overflow: 'hidden' }}>
-        <Stack alignItems="center" spacing={0.75} sx={{ textAlign: 'center' }}>
-          <Typography variant="overline" sx={{ opacity: 0.85 }}>
-            Room code
-          </Typography>
-          <RoomCode code={code} compact />
-          <InviteLinkButton code={code} />
-        </Stack>
-      </Box>
-    );
-  }
-
-  const joinUrl = joinUrlFor(code);
+export function RoomHeader({ code }: { code: string }) {
   return (
-    <Box sx={{ ...bannerSx, overflow: 'hidden' }}>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-          alignItems: 'center',
-          gap: { xs: 2.5, sm: 0 },
-        }}
-      >
-        <Stack
-          alignItems="center"
-          spacing={0.75}
+    <Box
+      component="header"
+      sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: { xs: 2, md: 3 }, mb: 3 }}
+    >
+      <Box sx={{ width: { xs: 72, md: 112 }, flexShrink: 0, my: -1 }}>
+        <Eko face="happy" move="bob" />
+      </Box>
+      <Box sx={{ minWidth: 0 }}>
+        <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+          Room code
+        </Typography>
+        <Typography
+          component="p"
           sx={{
-            textAlign: 'center',
-            pb: { xs: 2.5, sm: 0 },
-            borderBottom: { xs: '1px solid rgba(255,255,255,0.18)', sm: 'none' },
-            borderRight: { sm: '1px solid rgba(255,255,255,0.18)' },
-            pr: { sm: 3 },
+            fontFamily: '"Fredoka", sans-serif',
+            fontWeight: 700,
+            fontSize: { xs: '2.8rem', md: '5rem' },
+            letterSpacing: '0.14em',
+            lineHeight: 1,
           }}
         >
-          <Typography variant="overline" sx={{ opacity: 0.85 }}>
-            Room code
-          </Typography>
-          <RoomCode code={code} compact />
-        </Stack>
-
-        <Stack alignItems="center" spacing={1} sx={{ pl: { sm: 3 }, pt: { xs: 0.5, sm: 0 } }}>
-          <Box
-            sx={{
-              lineHeight: 0,
-              p: 1,
-              borderRadius: '16px',
-              bgcolor: 'rgba(255,255,255,0.1)',
-              border: '1px solid rgba(255,255,255,0.18)',
-              '& svg': {
-                display: 'block',
-                width: { xs: 110, sm: 120 },
-                height: 'auto',
-              },
-            }}
-          >
-            <QRCode value={joinUrl} size={120} bgColor="transparent" fgColor="#FFFFFF" />
-          </Box>
-          <Typography
-            variant="overline"
-            sx={{ opacity: 0.85, fontSize: '0.62rem', letterSpacing: '0.14em' }}
-          >
-            Scan to join
-          </Typography>
-        </Stack>
+          {code.toUpperCase()}
+        </Typography>
+      </Box>
+      <Box
+        sx={{
+          ml: { md: 'auto' },
+          width: { xs: '100%', md: LOBBY_SIDE_WIDTH },
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 1.5,
+        }}
+      >
+        <FlashButton
+          label="Copy"
+          doneLabel="Copied"
+          icon={<ContentCopyRoundedIcon />}
+          onClick={() => copyText(code.toUpperCase())}
+        />
+        <FlashButton
+          label="Invite"
+          doneLabel="Link copied"
+          icon={<IosShareRoundedIcon />}
+          onClick={() => shareJoinLink(code)}
+        />
       </Box>
     </Box>
+  );
+}
+
+/** Host-screen mode: a big QR on the shared screen, so players scan to join. */
+export function JoinQrCard({ code }: { code: string }) {
+  return (
+    <Card sx={{ mb: 3 }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5, '&:last-child': { pb: 2.5 } }}>
+        <Box sx={{ lineHeight: 0, flexShrink: 0, '& svg': { width: 120, height: 'auto', display: 'block' } }}>
+          <QRCode value={joinUrlFor(code)} size={120} bgColor="transparent" fgColor={INK} />
+        </Box>
+        <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+          Scan to join
+        </Typography>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -158,15 +120,15 @@ export function HostModeNotice({ isHost }: { isHost: boolean }) {
       severity="info"
       icon={<CastForEducationRoundedIcon />}
       sx={{
-        mb: 2,
+        mb: 3,
         bgcolor: 'rgba(58,107,255,0.08)',
         color: 'text.primary',
         '& .MuiAlert-icon': { color: 'primary.main' },
       }}
     >
       {isHost
-        ? 'Host screen mode: this device is the shared screen. Keep it visible to everyone and turn on sound — it plays the music and shows each question and answers.'
-        : 'Host screen mode: watch the host’s screen and listen there. Add a playlist if you like, then ready up — you’ll just tap your answers on this phone.'}
+        ? 'Host screen mode: this device is the shared screen. Keep it visible to everyone. It plays the music and shows each question and answers.'
+        : 'Host screen mode: watch the host’s screen and listen there. Add a playlist if you like, then ready up. You’ll just tap your answers on this phone.'}
     </Alert>
   );
 }
