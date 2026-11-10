@@ -25,21 +25,16 @@ type RosterProps = {
   players: Player[];
   myPlayerId: string;
   isHost: boolean;
-  hostMode: boolean;
   onKick: (playerId: string) => void;
 };
 
-/** Ticked when ready; the host-screen presenter never readies, so never ticked. */
-function showsReady(p: Player, hostMode: boolean): boolean {
-  return p.isReady && !(hostMode && p.isHost);
-}
 
 /**
  * Desktop: the players in a column beside the lobby, with ready and online
  * state. The host gets a remove button on everyone else (on hover, always on
  * touch), behind a confirmation so one mis-tap doesn't kick anyone.
  */
-export function PlayerColumn({ players, myPlayerId, isHost, hostMode, onKick }: RosterProps) {
+export function PlayerColumn({ players, myPlayerId, isHost, onKick }: RosterProps) {
   const [confirmKick, setConfirmKick] = useState<Player | null>(null);
 
   return (
@@ -54,6 +49,9 @@ export function PlayerColumn({ players, myPlayerId, isHost, hostMode, onKick }: 
               {players.length} here
             </Typography>
           </Stack>
+          {players.length === 0 && (
+            <Typography color="text.secondary">No one has joined yet. Share the code or the QR.</Typography>
+          )}
           <Stack spacing={0.5}>
             {players.map((p) => (
               <Stack
@@ -70,10 +68,10 @@ export function PlayerColumn({ players, myPlayerId, isHost, hostMode, onKick }: 
                   '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
                 }}
               >
-                <PlayerAvatar id={p.id} name={p.displayName} size={48} done={showsReady(p, hostMode)} />
+                <PlayerAvatar id={p.id} name={p.displayName} size={48} done={p.isReady} />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <PlayerName player={p} me={p.id === myPlayerId} hostMode={hostMode} />
-                  <PlayerStatus player={p} presenter={hostMode && p.isHost} />
+                  <PlayerName player={p} me={p.id === myPlayerId} />
+                  <PlayerStatus player={p} />
                 </Box>
                 {isHost && p.id !== myPlayerId && (
                   <Tooltip title={`Remove ${p.displayName}`}>
@@ -108,7 +106,7 @@ export function PlayerColumn({ players, myPlayerId, isHost, hostMode, onKick }: 
  * Phones: one row of avatars under the room code. Tapping one opens a sheet
  * with that player's status, and Remove for the host.
  */
-export function PlayerStrip({ players, myPlayerId, isHost, hostMode, onKick }: RosterProps) {
+export function PlayerStrip({ players, myPlayerId, isHost, onKick }: RosterProps) {
   const [open, setOpen] = useState<Player | null>(null);
   // Keep the sheet's content while it slides closed.
   const [shown, setShown] = useState<Player | null>(null);
@@ -134,15 +132,19 @@ export function PlayerStrip({ players, myPlayerId, isHost, hostMode, onKick }: R
               opacity: p.connected ? 1 : 0.55,
             }}
           >
-            <PlayerAvatar id={p.id} name={p.displayName} size={52} done={showsReady(p, hostMode)} />
+            <PlayerAvatar id={p.id} name={p.displayName} size={52} done={p.isReady} />
             <Typography variant="caption" fontWeight={600} noWrap sx={{ maxWidth: 64, color: 'text.secondary' }}>
               {p.id === myPlayerId ? 'You' : p.displayName}
             </Typography>
           </ButtonBase>
         ))}
-        <Typography color="text.secondary" fontWeight={600} sx={{ ml: 'auto !important', pl: 1, whiteSpace: 'nowrap' }}>
-          {players.length} here
-        </Typography>
+        {players.length === 0 ? (
+          <Typography color="text.secondary">No one has joined yet. Share the code.</Typography>
+        ) : (
+          <Typography color="text.secondary" fontWeight={600} sx={{ ml: 'auto !important', pl: 1, whiteSpace: 'nowrap' }}>
+            {players.length} here
+          </Typography>
+        )}
       </Stack>
 
       <Drawer
@@ -154,10 +156,10 @@ export function PlayerStrip({ players, myPlayerId, isHost, hostMode, onKick }: R
         {shown && (
           <Stack spacing={2.5}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <PlayerAvatar id={shown.id} name={shown.displayName} size={56} done={showsReady(shown, hostMode)} />
+              <PlayerAvatar id={shown.id} name={shown.displayName} size={56} done={shown.isReady} />
               <Box sx={{ minWidth: 0 }}>
-                <PlayerName player={shown} me={shown.id === myPlayerId} hostMode={hostMode} />
-                <PlayerStatus player={shown} presenter={hostMode && shown.isHost} />
+                <PlayerName player={shown} me={shown.id === myPlayerId} />
+                <PlayerStatus player={shown} />
               </Box>
             </Stack>
             <Stack direction="row" spacing={1.5}>
@@ -186,7 +188,7 @@ export function PlayerStrip({ players, myPlayerId, isHost, hostMode, onKick }: R
   );
 }
 
-function PlayerName({ player, me, hostMode }: { player: Player; me: boolean; hostMode: boolean }) {
+function PlayerName({ player, me }: { player: Player; me: boolean }) {
   return (
     <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
       <Typography fontWeight={700} noWrap sx={{ fontSize: '1.1rem' }}>
@@ -200,7 +202,7 @@ function PlayerName({ player, me, hostMode }: { player: Player; me: boolean; hos
       </Typography>
       {player.isHost && (
         <Chip
-          label={hostMode ? 'Screen' : 'Host'}
+          label="Host"
           size="small"
           sx={{ height: 22, bgcolor: 'rgba(58,107,255,0.12)', color: 'primary.main', fontWeight: 700 }}
         />
@@ -243,8 +245,8 @@ function KickDialog({
   );
 }
 
-/** "Ready · 42 songs", "Not ready · No songs yet", "Runs the screen", or offline. */
-function PlayerStatus({ player, presenter }: { player: Player; presenter: boolean }) {
+/** "Ready · 42 songs", "Not ready · No songs yet", or offline. */
+function PlayerStatus({ player }: { player: Player }) {
   if (!player.connected) {
     return (
       <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
@@ -258,16 +260,12 @@ function PlayerStatus({ player, presenter }: { player: Player; presenter: boolea
       : 'No songs yet';
   return (
     <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
-      {presenter ? (
-        'Runs the screen'
-      ) : (
-        <Box
-          component="span"
-          sx={{ color: player.isReady ? 'success.dark' : 'text.secondary', fontWeight: 700 }}
-        >
-          {player.isReady ? 'Ready' : 'Not ready'}
-        </Box>
-      )}
+      <Box
+        component="span"
+        sx={{ color: player.isReady ? 'success.dark' : 'text.secondary', fontWeight: 700 }}
+      >
+        {player.isReady ? 'Ready' : 'Not ready'}
+      </Box>
       {' · '}
       {songs}
     </Typography>
