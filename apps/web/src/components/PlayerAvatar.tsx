@@ -1,14 +1,28 @@
 import { Box } from '@mui/material';
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
-import { colorForId } from '../theme';
+import { AVATAR_COLOR_COUNT } from '@wemsic/shared';
+import { useSocket } from '../socket/SocketContext';
+import { AVATAR_COLORS } from '../theme';
 
-function initials(name: string): string {
+function fallbackInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '?';
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
+function hashIndex(id: string): number {
+  let h = 0;
+  for (let i = 0; i < id.length; i += 1) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+  return h % AVATAR_COLOR_COUNT;
+}
+
+/**
+ * A player's avatar: their colour and initials, which the server makes unique
+ * in the room, looked up by id, so the lobby, the reveal's "Added by", the
+ * leaderboard and the winner card all show the same face. Someone no longer
+ * in the room falls back to a colour from their id and their name's initials.
+ */
 export function PlayerAvatar({
   id,
   name,
@@ -22,7 +36,11 @@ export function PlayerAvatar({
   done?: boolean;
   ring?: boolean;
 }) {
-  const color = colorForId(id);
+  const { lobby } = useSocket();
+  const player = lobby?.players.find((p) => p.id === id);
+  const look = AVATAR_COLORS[(player?.colorIndex ?? hashIndex(id)) % AVATAR_COLORS.length];
+  const color = look.bg;
+  const letters = player?.initials ?? fallbackInitials(name);
   return (
     <Box
       sx={{
@@ -33,7 +51,7 @@ export function PlayerAvatar({
         borderRadius: '32%',
         display: 'grid',
         placeItems: 'center',
-        color: '#fff',
+        color: look.text,
         fontWeight: 700,
         fontFamily: '"Fredoka", sans-serif',
         fontSize: size * 0.42,
@@ -41,7 +59,7 @@ export function PlayerAvatar({
         boxShadow: ring ? `0 0 0 3px #fff, 0 0 0 6px ${color}` : 'none',
       }}
     >
-      {initials(name)}
+      {letters}
       {done && (
         <Box
           sx={{

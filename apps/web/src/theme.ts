@@ -21,24 +21,29 @@ export const TILE_COLORS = [
   { bg: '#FFB020', shadow: '#E0900A', text: '#14213F' }, // warm amber pop
 ] as const;
 
-/** Avatar / player colours. Picked by a stable hash of the player id. */
+/**
+ * Player avatar colours, in the order the server hands them out (see
+ * pickColorIndex in shared): eight clearly different hues, so no two players
+ * in a room look alike. Light ones get ink initials so they stay readable.
+ */
 export const AVATAR_COLORS = [
-  '#3A6BFF',
-  '#00BFD8',
-  '#16C79A',
-  '#6C5CE7',
-  '#2DB7FF',
-  '#7C4DFF',
-  '#0FB5C9',
-  '#FFB020',
-];
+  { bg: '#3A6BFF', text: '#FFFFFF' }, // blue
+  { bg: '#FF5C9E', text: '#FFFFFF' }, // pink
+  { bg: '#16C79A', text: INK }, // mint
+  { bg: '#FFB020', text: INK }, // amber
+  { bg: '#7C4DFF', text: '#FFFFFF' }, // violet
+  { bg: '#00BFD8', text: INK }, // cyan
+  { bg: '#FF7A45', text: INK }, // orange
+  { bg: INK, text: '#FFFFFF' }, // ink
+] as const;
 
+/** A stable colour for anything without an assigned one (cover tiles, players who have left). */
 export function colorForId(id: string): string {
   let h = 0;
   for (let i = 0; i < id.length; i += 1) {
     h = (h * 31 + id.charCodeAt(i)) >>> 0;
   }
-  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+  return AVATAR_COLORS[h % AVATAR_COLORS.length].bg;
 }
 
 export const theme = createTheme({

@@ -414,3 +414,30 @@ describe('RoomManager: game end and rematch', () => {
     expect(ctx.sent('round:start')).toHaveLength(1);
   });
 });
+
+describe('player looks', () => {
+  it('gives everyone a colour and initials no one else in the room has', () => {
+    const { rooms, roomCode, lobby } = setup();
+    for (const name of ['Sam', 'Sara', 'Sarah']) {
+      const joined = rooms.joinRoom(roomCode, name);
+      if ('error' in joined) throw new Error(joined.error);
+    }
+    const players = lobby().players;
+    expect(new Set(players.map((p) => p.colorIndex)).size).toBe(players.length);
+    expect(new Set(players.map((p) => p.initials)).size).toBe(players.length);
+    expect(players.map((p) => p.initials)).toEqual(['HO', 'GU', 'SA', 'SR', 'SH']);
+  });
+
+  it('keeps looks when someone leaves, and hands their colour to the next player', () => {
+    const { rooms, roomCode, host, guest, lobby } = setup();
+    const before = lobby().players.find((p) => p.id === host)!;
+    const guestColour = lobby().players.find((p) => p.id === guest)!.colorIndex;
+    rooms.leaveRoom(roomCode, guest);
+    const joined = rooms.joinRoom(roomCode, 'Jo');
+    if ('error' in joined) throw new Error(joined.error);
+
+    const after = lobby().players;
+    expect(after.find((p) => p.id === host)).toMatchObject({ colorIndex: before.colorIndex, initials: 'HO' });
+    expect(after.find((p) => p.id === joined.playerId)!.colorIndex).toBe(guestColour);
+  });
+});
