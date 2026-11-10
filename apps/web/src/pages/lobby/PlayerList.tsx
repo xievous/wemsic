@@ -2,12 +2,16 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import {
   Box,
   Button,
+  ButtonBase,
+  Card,
+  CardContent,
   Chip,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  Drawer,
   IconButton,
   Stack,
   Tooltip,
@@ -17,125 +21,225 @@ import type { Player } from '@wemsic/shared';
 import { useState } from 'react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
-/**
- * Lobby roster with ready and online state; the host gets a remove button on
- * everyone else, behind a confirmation so one mis-tap doesn't kick anyone.
- */
-export function PlayerList({
-  players,
-  myPlayerId,
-  isHost,
-  hostMode,
-  onKick,
-}: {
+type RosterProps = {
   players: Player[];
   myPlayerId: string;
   isHost: boolean;
   hostMode: boolean;
   onKick: (playerId: string) => void;
-}) {
+};
+
+/** Ticked when ready; the host-screen presenter never readies, so never ticked. */
+function showsReady(p: Player, hostMode: boolean): boolean {
+  return p.isReady && !(hostMode && p.isHost);
+}
+
+/**
+ * Desktop: the players in a column beside the lobby, with ready and online
+ * state. The host gets a remove button on everyone else (on hover, always on
+ * touch), behind a confirmation so one mis-tap doesn't kick anyone.
+ */
+export function PlayerColumn({ players, myPlayerId, isHost, hostMode, onKick }: RosterProps) {
   const [confirmKick, setConfirmKick] = useState<Player | null>(null);
 
   return (
     <>
-      <Typography variant="h5" sx={{ mb: 1.5 }}>
-        Players
-      </Typography>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-          gap: 1.5,
-          mb: 3,
-        }}
-      >
-        {players.map((p) => {
-          const ready = p.isReady;
-          const offline = !p.connected;
-          return (
-            <Stack
-              key={p.id}
-              direction="row"
-              spacing={1.5}
-              alignItems="center"
-              sx={{
-                p: 1.75,
-                borderRadius: '20px',
-                bgcolor: 'background.paper',
-                border: '2px solid',
-                borderColor: ready ? 'success.main' : 'rgba(20,33,63,0.06)',
-                boxShadow: '0 16px 36px -28px rgba(20,33,63,0.4)',
-                transition: 'border-color 200ms ease, opacity 200ms ease',
-                opacity: offline ? 0.55 : 1,
-              }}
-            >
-              <PlayerAvatar id={p.id} name={p.displayName} size={44} done={ready} />
-              <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Stack direction="row" spacing={0.75} alignItems="center">
-                  <Typography fontWeight={700} noWrap>
-                    {p.displayName}
-                    {p.id === myPlayerId && (
-                      <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>
-                    )}
-                  </Typography>
-                  {p.isHost && (
-                    <Chip
-                      label={hostMode ? 'Host · screen' : 'Host'}
+      <Card>
+        <CardContent sx={{ p: 3 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ mb: 1.5 }}>
+            <Typography variant="h5" sx={{ fontSize: '1.6rem' }}>
+              Players
+            </Typography>
+            <Typography color="text.secondary" fontWeight={600}>
+              {players.length} here
+            </Typography>
+          </Stack>
+          <Stack spacing={0.5}>
+            {players.map((p) => (
+              <Stack
+                key={p.id}
+                direction="row"
+                spacing={1.5}
+                alignItems="center"
+                sx={{
+                  p: 1,
+                  mx: -1,
+                  borderRadius: '16px',
+                  opacity: p.connected ? 1 : 0.55,
+                  '&:hover': { bgcolor: 'rgba(58,107,255,0.06)' },
+                  '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
+                }}
+              >
+                <PlayerAvatar id={p.id} name={p.displayName} size={48} done={showsReady(p, hostMode)} />
+                <Box sx={{ minWidth: 0, flex: 1 }}>
+                  <PlayerName player={p} me={p.id === myPlayerId} hostMode={hostMode} />
+                  <PlayerStatus player={p} presenter={hostMode && p.isHost} />
+                </Box>
+                {isHost && p.id !== myPlayerId && (
+                  <Tooltip title={`Remove ${p.displayName}`}>
+                    <IconButton
+                      className="kick"
                       size="small"
-                      sx={{ height: 20, bgcolor: 'rgba(58,107,255,0.12)', color: 'primary.main', fontWeight: 700 }}
-                    />
-                  )}
-                </Stack>
-                <PlayerStatus player={p} presenter={hostMode && p.isHost} />
-              </Box>
-              {isHost && p.id !== myPlayerId && (
-                <Tooltip title={`Remove ${p.displayName}`}>
-                  <IconButton
-                    size="small"
-                    aria-label={`Remove ${p.displayName}`}
-                    onClick={() => setConfirmKick(p)}
-                    sx={{
-                      color: 'text.secondary',
-                      '&:hover': { color: 'error.main', bgcolor: 'rgba(255,84,112,0.1)' },
-                    }}
-                  >
-                    <CloseRoundedIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </Stack>
-          );
-        })}
-      </Box>
+                      aria-label={`Remove ${p.displayName}`}
+                      onClick={() => setConfirmKick(p)}
+                      sx={{
+                        opacity: 0,
+                        transition: 'opacity 120ms ease',
+                        '@media (hover: none)': { opacity: 1 },
+                        color: 'text.secondary',
+                        '&:hover': { color: 'error.main', bgcolor: 'rgba(255,84,112,0.1)' },
+                      }}
+                    >
+                      <CloseRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </Stack>
+            ))}
+          </Stack>
+        </CardContent>
+      </Card>
+      <KickDialog player={confirmKick} onClose={() => setConfirmKick(null)} onKick={onKick} />
+    </>
+  );
+}
 
-      <Dialog
-        open={confirmKick !== null}
-        onClose={() => setConfirmKick(null)}
-        PaperProps={{ sx: { borderRadius: '20px' } }}
-      >
-        <DialogTitle>Remove {confirmKick?.displayName}?</DialogTitle>
-        <DialogContent>
-          <DialogContentText>
-            Their playlists leave with them. They can rejoin with the room code.
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2.5 }}>
-          <Button onClick={() => setConfirmKick(null)} color="inherit">
-            Cancel
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
+/**
+ * Phones: one row of avatars under the room code. Tapping one opens a sheet
+ * with that player's status, and Remove for the host.
+ */
+export function PlayerStrip({ players, myPlayerId, isHost, hostMode, onKick }: RosterProps) {
+  const [open, setOpen] = useState<Player | null>(null);
+  // Keep the sheet's content while it slides closed.
+  const [shown, setShown] = useState<Player | null>(null);
+
+  return (
+    <>
+      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ overflowX: 'auto', pb: 0.5, mb: 3 }}>
+        {players.map((p) => (
+          <ButtonBase
+            key={p.id}
             onClick={() => {
-              if (confirmKick) onKick(confirmKick.id);
-              setConfirmKick(null);
+              setShown(p);
+              setOpen(p);
+            }}
+            aria-label={`${p.displayName}${p.isReady ? ', ready' : ''}`}
+            sx={{
+              flexDirection: 'column',
+              gap: 0.5,
+              width: 64,
+              flexShrink: 0,
+              borderRadius: '14px',
+              py: 0.5,
+              opacity: p.connected ? 1 : 0.55,
             }}
           >
-            Remove
-          </Button>
-        </DialogActions>
-      </Dialog>
+            <PlayerAvatar id={p.id} name={p.displayName} size={52} done={showsReady(p, hostMode)} />
+            <Typography variant="caption" fontWeight={600} noWrap sx={{ maxWidth: 64, color: 'text.secondary' }}>
+              {p.id === myPlayerId ? 'You' : p.displayName}
+            </Typography>
+          </ButtonBase>
+        ))}
+        <Typography color="text.secondary" fontWeight={600} sx={{ ml: 'auto !important', pl: 1, whiteSpace: 'nowrap' }}>
+          {players.length} here
+        </Typography>
+      </Stack>
+
+      <Drawer
+        anchor="bottom"
+        open={open !== null}
+        onClose={() => setOpen(null)}
+        PaperProps={{ sx: { borderRadius: '24px 24px 0 0', p: 3, pb: 4 } }}
+      >
+        {shown && (
+          <Stack spacing={2.5}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <PlayerAvatar id={shown.id} name={shown.displayName} size={56} done={showsReady(shown, hostMode)} />
+              <Box sx={{ minWidth: 0 }}>
+                <PlayerName player={shown} me={shown.id === myPlayerId} hostMode={hostMode} />
+                <PlayerStatus player={shown} presenter={hostMode && shown.isHost} />
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1.5}>
+              <Button variant="outlined" fullWidth size="large" onClick={() => setOpen(null)}>
+                Close
+              </Button>
+              {isHost && shown.id !== myPlayerId && (
+                <Button
+                  variant="contained"
+                  color="error"
+                  fullWidth
+                  size="large"
+                  onClick={() => {
+                    onKick(shown.id);
+                    setOpen(null);
+                  }}
+                >
+                  Remove {shown.displayName}
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+        )}
+      </Drawer>
     </>
+  );
+}
+
+function PlayerName({ player, me, hostMode }: { player: Player; me: boolean; hostMode: boolean }) {
+  return (
+    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+      <Typography fontWeight={700} noWrap sx={{ fontSize: '1.1rem' }}>
+        {player.displayName}
+        {me && (
+          <Box component="span" sx={{ color: 'primary.main', fontWeight: 600 }}>
+            {' '}
+            · you
+          </Box>
+        )}
+      </Typography>
+      {player.isHost && (
+        <Chip
+          label={hostMode ? 'Screen' : 'Host'}
+          size="small"
+          sx={{ height: 22, bgcolor: 'rgba(58,107,255,0.12)', color: 'primary.main', fontWeight: 700 }}
+        />
+      )}
+    </Stack>
+  );
+}
+
+function KickDialog({
+  player,
+  onClose,
+  onKick,
+}: {
+  player: Player | null;
+  onClose: () => void;
+  onKick: (playerId: string) => void;
+}) {
+  return (
+    <Dialog open={player !== null} onClose={onClose} PaperProps={{ sx: { borderRadius: '20px' } }}>
+      <DialogTitle>Remove {player?.displayName}?</DialogTitle>
+      <DialogContent>
+        <DialogContentText>Their playlists leave with them. They can rejoin with the room code.</DialogContentText>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onClose} color="inherit">
+          Cancel
+        </Button>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={() => {
+            if (player) onKick(player.id);
+            onClose();
+          }}
+        >
+          Remove
+        </Button>
+      </DialogActions>
+    </Dialog>
   );
 }
 
@@ -143,7 +247,7 @@ export function PlayerList({
 function PlayerStatus({ player, presenter }: { player: Player; presenter: boolean }) {
   if (!player.connected) {
     return (
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+      <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
         Offline · doesn't block the start
       </Typography>
     );
@@ -153,7 +257,7 @@ function PlayerStatus({ player, presenter }: { player: Player; presenter: boolea
       ? `${player.trackCount} song${player.trackCount === 1 ? '' : 's'}`
       : 'No songs yet';
   return (
-    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+    <Typography variant="body2" color="text.secondary" sx={{ display: 'block' }}>
       {presenter ? (
         'Runs the screen'
       ) : (
