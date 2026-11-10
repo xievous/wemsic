@@ -14,6 +14,31 @@ import { PlayerColumn, PlayerStrip } from './lobby/PlayerList';
 import { HostModeNotice, JoinQrCard, RoomHeader } from './lobby/RoomHeader';
 import { usePlaylistImport } from './lobby/usePlaylistImport';
 
+const NOTICE_KEY = 'wemsic_host_notice_closed';
+
+/** The host-screen notice, once closed, stays closed for this room in this tab (it survives a reload). */
+function useClosedNotice(roomCode: string): [boolean, () => void] {
+  const key = `${NOTICE_KEY}:${roomCode.toUpperCase()}`;
+  const [closed, setClosed] = useState(() => {
+    try {
+      return sessionStorage.getItem(key) === '1';
+    } catch {
+      return false;
+    }
+  });
+  return [
+    closed,
+    () => {
+      setClosed(true);
+      try {
+        sessionStorage.setItem(key, '1');
+      } catch {
+        // Storage can be blocked; it just comes back on reload.
+      }
+    },
+  ];
+}
+
 export function Lobby() {
   const { code } = useParams<{ code: string }>();
   const navigate = useNavigate();
@@ -32,6 +57,7 @@ export function Lobby() {
 
   const [session, setSession] = useState<Session | null>(null);
   const imports = usePlaylistImport(code ?? '', session?.playerId ?? '');
+  const [noticeClosed, closeNotice] = useClosedNotice(code ?? '');
 
   useEffect(() => {
     const s = loadSession();
@@ -100,7 +126,7 @@ export function Lobby() {
       <ReconnectingBanner />
       <RoomHeader code={code} />
 
-      {hostMode && <HostModeNotice isHost={isHost} />}
+      {hostMode && !noticeClosed && <HostModeNotice isHost={isHost} onClose={closeNotice} />}
 
       {(imports.message || socketError) && (
         <Alert

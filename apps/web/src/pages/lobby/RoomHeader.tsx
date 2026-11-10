@@ -115,28 +115,40 @@ export function RoomHeader({ code }: { code: string }) {
   );
 }
 
-/** Host-screen mode: a big QR on the shared screen, so players scan to join. */
+/**
+ * Host-screen mode: a big QR on the shared screen, so players can scan it
+ * from where they sit (the 10-foot rule). It fills the players column.
+ */
 export function JoinQrCard({ code }: { code: string }) {
   return (
     <Card sx={{ mb: 3 }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Box sx={{ lineHeight: 0, flexShrink: 0, '& svg': { width: 120, height: 'auto', display: 'block' } }}>
-          <QRCode value={joinUrlFor(code)} size={120} bgColor="transparent" fgColor={INK} />
-        </Box>
-        <Typography variant="h6" sx={{ lineHeight: 1.2 }}>
+      <CardContent sx={{ p: 3, '&:last-child': { pb: 3 }, textAlign: 'center' }}>
+        <Typography variant="h5" sx={{ fontSize: '1.6rem', mb: 2 }}>
           Scan to join
         </Typography>
+        <Box
+          sx={{
+            lineHeight: 0,
+            mx: 'auto',
+            width: '100%',
+            maxWidth: 300,
+            '& svg': { width: '100%', height: 'auto', display: 'block' },
+          }}
+        >
+          <QRCode value={joinUrlFor(code)} size={300} bgColor="transparent" fgColor={INK} />
+        </Box>
       </CardContent>
     </Card>
   );
 }
 
-/** Explains the host-screen split to whichever side of it this device is. */
-export function HostModeNotice({ isHost }: { isHost: boolean }) {
+/** Explains the host-screen split to whichever side of it this device is; closable once read. */
+export function HostModeNotice({ isHost, onClose }: { isHost: boolean; onClose: () => void }) {
   return (
     <Alert
       severity="info"
       icon={<CastForEducationRoundedIcon />}
+      onClose={onClose}
       sx={{
         mb: 3,
         bgcolor: 'rgba(58,107,255,0.08)',
