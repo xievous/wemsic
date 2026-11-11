@@ -12,8 +12,9 @@ export interface Session {
   displayName: string;
 }
 
-export function saveSession(session: Session): void {
+export function saveSession(session: Session, { rememberName = true } = {}): void {
   sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  if (!rememberName) return;
   try {
     localStorage.setItem(NAME_KEY, session.displayName);
   } catch {
