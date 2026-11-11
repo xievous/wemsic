@@ -7,10 +7,11 @@ import {
   GAME_START_COUNTDOWN_SECONDS,
   MIN_PLAYLIST_TRACKS,
   MAX_PLAYERS,
+  lookFromSeed,
   pickColorIndex,
-  pickInitials,
 } from '@wemsic/shared';
 import type {
+  AvatarLook,
   GameEndPayload,
   GameMode,
   LobbyState,
@@ -40,9 +41,8 @@ interface RoomPlayer {
   isReady: boolean;
   playlists: PlayerPlaylistEntry[];
   score: number;
-  /** Their avatar colour and initials, both unique in the room; fixed for as long as they stay. */
-  colorIndex: number;
-  initials: string;
+  /** Their mini-Eko avatar; fixed for as long as they stay. */
+  avatar: AvatarLook;
   /** Open socket ids; the player is online while this isn't empty. */
   sockets: Set<string>;
   awayTimer: ReturnType<typeof setTimeout> | null;
@@ -81,6 +81,7 @@ export class RoomManager {
   createRoom(
     hostDisplayName: string,
     roomType: RoomType = 'online',
+    avatar: AvatarLook | null = null,
   ): {
     roomCode: string;
     playerId: string;
@@ -114,7 +115,7 @@ export class RoomManager {
       catchUp: [],
     };
 
-    room.players.set(playerId, this.newPlayer(room, playerId, hostDisplayName, true));
+    room.players.set(playerId, this.newPlayer(room, playerId, hostDisplayName, true, avatar));
     this.rooms.set(code, room);
     this.startAwayTimer(room, playerId);
     this.emitLobby(room);
@@ -125,6 +126,7 @@ export class RoomManager {
   joinRoom(
     roomCode: string,
     displayName: string,
+    avatar: AvatarLook | null = null,
   ): { playerId: string } | { error: string } {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
@@ -137,7 +139,7 @@ export class RoomManager {
     }
 
     const playerId = nanoid();
-    room.players.set(playerId, this.newPlayer(room, playerId, displayName, false));
+    room.players.set(playerId, this.newPlayer(room, playerId, displayName, false, avatar));
     // Offline until their socket joins; a tab closed before that is cleaned up.
     this.startAwayTimer(room, playerId);
     this.emitLobby(room);
@@ -569,7 +571,17 @@ export class RoomManager {
     return player.playlists.flatMap((pl) => pl.tracks);
   }
 
-  private newPlayer(room: Room, id: string, displayName: string, isHost: boolean): RoomPlayer {
+  /**
+   * Without a chosen look (an older client), they get a look from their id
+   * in the first colour no one else has, so they still stand out.
+   */
+  private newPlayer(
+    room: Room,
+    id: string,
+    displayName: string,
+    isHost: boolean,
+    avatar: AvatarLook | null,
+  ): RoomPlayer {
     const others = [...room.players.values()];
     return {
       id,
@@ -578,8 +590,10 @@ export class RoomManager {
       isReady: false,
       playlists: [],
       score: 0,
-      colorIndex: pickColorIndex(others.map((p) => p.colorIndex)),
-      initials: pickInitials(displayName, others.map((p) => p.initials)),
+      avatar: avatar ?? {
+        ...lookFromSeed(id),
+        color: pickColorIndex(others.map((p) => p.avatar.color)),
+      },
       sockets: new Set(),
       awayTimer: null,
     };
@@ -621,8 +635,7 @@ export class RoomManager {
       })),
       trackCount: this.playerTrackCount(p),
       score: p.score,
-      colorIndex: p.colorIndex,
-      initials: p.initials,
+      avatar: p.avatar,
     }));
 
     return {

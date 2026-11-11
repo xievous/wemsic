@@ -14,7 +14,7 @@ import type { RoomType } from '@wemsic/shared';
 import { useNavigate } from 'react-router-dom';
 import { createRoomWithHost } from '../api/client';
 import { Layout } from '../components/Layout';
-import { loadSavedName, saveSession } from '../hooks/useSession';
+import { loadSavedLook, loadSavedName, saveSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 
 function RoomTypeTile({
@@ -82,7 +82,12 @@ export function CreateRoom() {
     setLoading(true);
     setError(null);
     try {
-      const { roomCode, playerId } = await createRoomWithHost(displayName, roomType);
+      const { roomCode, playerId } = await createRoomWithHost(
+        displayName,
+        roomType,
+        // The maker comes to this page next; until then the host plays as the look they last built.
+        roomType === 'online' ? loadSavedLook() : undefined,
+      );
       resetRoomState();
       saveSession({ roomCode, playerId, displayName });
       navigate(`/lobby/${roomCode}`);

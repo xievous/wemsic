@@ -113,7 +113,7 @@ export function Results() {
                   >
                     {i + 2}
                   </Typography>
-                  <PlayerAvatar id={entry.playerId} name={entry.displayName} size={36} />
+                  <PlayerAvatar id={entry.playerId} size={36} />
                   <Typography fontWeight={700} sx={{ flex: 1 }} noWrap>
                     {entry.displayName}
                     {isMe && <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>}

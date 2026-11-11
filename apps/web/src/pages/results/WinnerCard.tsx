@@ -36,7 +36,7 @@ export function WinnerCard({ winner }: { winner: LeaderboardEntry }) {
         <Eko face="love" move="roof" onDark entrance />
       </Box>
       <Stack direction="row" justifyContent="center" sx={{ mb: 1.5 }}>
-        <PlayerAvatar id={winner.playerId} name={winner.displayName} size={64} ring />
+        <PlayerAvatar id={winner.playerId} size={64} ring />
       </Stack>
       <Typography variant="h3" sx={{ color: '#fff' }}>
         {winner.displayName} wins

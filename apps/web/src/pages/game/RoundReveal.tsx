@@ -117,7 +117,6 @@ export function RoundReveal({
               <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 1.25 }}>
                 <PlayerAvatar
                   id={reveal.addedBy.playerId}
-                  name={reveal.addedBy.displayName}
                   size={22}
                 />
                 <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.85 }} noWrap>
@@ -220,7 +219,7 @@ export function RoundReveal({
                 >
                   {i + 1}
                 </Typography>
-                <PlayerAvatar id={e.playerId} name={e.displayName} size={34} />
+                <PlayerAvatar id={e.playerId} size={34} />
                 <Typography fontWeight={700} sx={{ flex: 1 }} noWrap>
                   {e.displayName}
                   {isMe && <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>}

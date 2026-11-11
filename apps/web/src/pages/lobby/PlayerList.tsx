@@ -68,7 +68,7 @@ export function PlayerColumn({ players, myPlayerId, isHost, onKick }: RosterProp
                   '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
                 }}
               >
-                <PlayerAvatar id={p.id} name={p.displayName} size={48} done={p.isReady} />
+                <PlayerAvatar id={p.id} size={48} done={p.isReady} />
                 <Box sx={{ minWidth: 0, flex: 1 }}>
                   <PlayerName player={p} me={p.id === myPlayerId} />
                   <PlayerStatus player={p} />
@@ -132,7 +132,7 @@ export function PlayerStrip({ players, myPlayerId, isHost, onKick }: RosterProps
               opacity: p.connected ? 1 : 0.55,
             }}
           >
-            <PlayerAvatar id={p.id} name={p.displayName} size={52} done={p.isReady} />
+            <PlayerAvatar id={p.id} size={52} done={p.isReady} />
             <Typography variant="caption" fontWeight={600} noWrap sx={{ maxWidth: 64, color: 'text.secondary' }}>
               {p.id === myPlayerId ? 'You' : p.displayName}
             </Typography>
@@ -156,7 +156,7 @@ export function PlayerStrip({ players, myPlayerId, isHost, onKick }: RosterProps
         {shown && (
           <Stack spacing={2.5}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <PlayerAvatar id={shown.id} name={shown.displayName} size={56} done={shown.isReady} />
+              <PlayerAvatar id={shown.id} size={56} done={shown.isReady} />
               <Box sx={{ minWidth: 0 }}>
                 <PlayerName player={shown} me={shown.id === myPlayerId} />
                 <PlayerStatus player={shown} />

@@ -23,8 +23,10 @@ export type EkoMove =
   | 'scratch'
   | 'slump';
 
-const INK = '#14213F';
-const CYAN = '#00BFD8';
+export const EKO_INK = '#14213F';
+export const EKO_CYAN = '#00BFD8';
+const INK = EKO_INK;
+const CYAN = EKO_CYAN;
 const EQ_BARS = [
   { x: 74, color: '#00BFD8', delay: 0 },
   { x: 90, color: '#16C79A', delay: -0.3 },
@@ -230,6 +232,16 @@ function Face({ face }: { face: EkoFace }) {
   }
 }
 
+/** A four-point sparkle centred on (cx, cy); Eko's starry eyes. */
+export function starPath(cx: number, cy: number, r: number): string {
+  return `M${cx} ${cy - r} Q${cx} ${cy} ${cx + r} ${cy} Q${cx} ${cy} ${cx} ${cy + r} Q${cx} ${cy} ${cx - r} ${cy} Q${cx} ${cy} ${cx} ${cy - r} Z`;
+}
+
+/** A small heart centred on (cx, cy); Eko's love eyes. */
+export function heartPath(cx: number, cy: number): string {
+  return `M${cx} ${cy + 4.5} C${cx - 8} ${cy - 1} ${cx - 4.5} ${cy - 7.5} ${cx} ${cy - 3} C${cx + 4.5} ${cy - 7.5} ${cx + 8} ${cy - 1} ${cx} ${cy + 4.5} Z`;
+}
+
 function Stroke({ d }: { d: string }) {
   return (
     <path
@@ -248,7 +260,7 @@ function Star({ cx, cy, r }: { cx: number; cy: number; r: number }) {
     <path
       className="eko-twinkle"
       style={{ transformOrigin: `${cx}px ${cy}px` }}
-      d={`M${cx} ${cy - r} Q${cx} ${cy} ${cx + r} ${cy} Q${cx} ${cy} ${cx} ${cy + r} Q${cx} ${cy} ${cx - r} ${cy} Q${cx} ${cy} ${cx} ${cy - r} Z`}
+      d={starPath(cx, cy, r)}
       fill="#FFB020"
     />
   );
@@ -259,7 +271,7 @@ function Heart({ cx, cy }: { cx: number; cy: number }) {
     <path
       className="eko-pulse"
       style={{ transformOrigin: `${cx}px ${cy}px` }}
-      d={`M${cx} ${cy + 4.5} C${cx - 8} ${cy - 1} ${cx - 4.5} ${cy - 7.5} ${cx} ${cy - 3} C${cx + 4.5} ${cy - 7.5} ${cx + 8} ${cy - 1} ${cx} ${cy + 4.5} Z`}
+      d={heartPath(cx, cy)}
       fill="#FF6B9A"
     />
   );

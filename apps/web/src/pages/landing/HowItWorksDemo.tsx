@@ -1,12 +1,13 @@
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded';
 import { Box, ButtonBase, Typography } from '@mui/material';
 import { keyframes } from '@mui/system';
-import type { CatalogSearchResult } from '@wemsic/shared';
+import type { AvatarLook, CatalogSearchResult } from '@wemsic/shared';
 import { useEffect, useState } from 'react';
 import { fetchPresetPlaylists } from '../../api/client';
 import { BouncingBars } from '../../components/BouncingBars';
 import { Eko } from '../../components/eko/Eko';
-import { AVATAR_COLORS, INK, TILE_COLORS } from '../../theme';
+import { INK, TILE_COLORS } from '../../theme';
+import { BotAvatar, lookColor } from '../../components/avatar/BotAvatar';
 import { presetResults } from '../lobby/coverItems';
 import { DEMO_STEPS, DEMO_STEP_MS } from './demoSteps';
 
@@ -38,9 +39,9 @@ const tapPress = keyframes`
 const fill = keyframes`from { transform: scaleX(0); } to { transform: scaleX(1); }`;
 
 const PICKERS = [
-  { name: 'Oscar', initials: 'OS', look: AVATAR_COLORS[0] },
-  { name: 'Sam', initials: 'SA', look: AVATAR_COLORS[1] },
-  { name: 'Jo', initials: 'JO', look: AVATAR_COLORS[3] },
+  { name: 'Oscar', look: { color: 0, face: 0, top: 2 } },
+  { name: 'Sam', look: { color: 1, face: 3, top: 6 } },
+  { name: 'Jo', look: { color: 3, face: 2, top: 4 } },
 ];
 /** The popular playlists the Pick step drops in, by preset id. */
 const DEMO_PRESETS = ['80s', 'disney', 'top-hits-global'];
@@ -62,23 +63,10 @@ export function usePrefersReducedMotion(): boolean {
   return reduced;
 }
 
-function Avatar({ initials, look }: { initials: string; look: (typeof AVATAR_COLORS)[number] }) {
+function Avatar({ look }: { look: AvatarLook }) {
   return (
-    <Box
-      sx={{
-        width: 28,
-        height: 28,
-        borderRadius: '32%',
-        display: 'grid',
-        placeItems: 'center',
-        bgcolor: look.bg,
-        color: look.text,
-        fontFamily: '"Fredoka", sans-serif',
-        fontWeight: 700,
-        fontSize: '0.72rem',
-      }}
-    >
-      {initials}
+    <Box sx={{ width: 30, height: 30, flexShrink: 0 }}>
+      <BotAvatar look={look} />
     </Box>
   );
 }
@@ -116,7 +104,7 @@ function PickScene({ covers, still }: { covers: (CatalogSearchResult | undefined
               width: 170,
               height: 170,
               borderRadius: '16px',
-              background: `linear-gradient(140deg, ${p.look.bg}, #3A6BFF)`,
+              background: `linear-gradient(140deg, ${lookColor(p.look)}, #3A6BFF)`,
               boxShadow: '0 18px 30px -16px rgba(20,33,63,0.55)',
               '--from': t.from,
               '--to': t.to,
@@ -150,7 +138,7 @@ function PickScene({ covers, still }: { covers: (CatalogSearchResult | undefined
                 boxShadow: '0 6px 16px -8px rgba(20,33,63,0.45)',
               }}
             >
-              <Avatar initials={p.initials} look={p.look} />
+              <Avatar look={p.look} />
               {p.name}
             </Box>
           </Box>
@@ -395,7 +383,7 @@ function GuessScene({ still }: { still: boolean }) {
               boxShadow: '0 8px 18px -12px rgba(20,33,63,0.4)',
             }}
           >
-            <Avatar initials={p.initials} look={p.look} />
+            <Avatar look={p.look} />
             {p.name}
             <Box
               component="span"
