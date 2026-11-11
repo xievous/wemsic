@@ -6,7 +6,13 @@ export const DEFAULT_SPEED_CHOICE_SECONDS = 15;
 export const DEFAULT_TYPING_SECONDS = 30;
 export const DEFAULT_TYPING_SPELLING_LENIENCY = 'normal' as const;
 export const ROOM_CODE_LENGTH = 6;
-export const MAX_PLAYERS = 8;
+/**
+ * Players per room. On one big screen the screen itself doesn't count, so
+ * that's this many phones plus the screen.
+ */
+export const MAX_PLAYERS = 20;
+/** Past this many players, lists switch to compact grids and short leaderboards. */
+export const COMPACT_ROSTER_AFTER = 8;
 /** A player offline this long outside a game is removed, freeing their slot. */
 export const AWAY_PLAYER_REMOVAL_MS = 3 * 60_000;
 

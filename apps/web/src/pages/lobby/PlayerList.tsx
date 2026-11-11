@@ -17,7 +17,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import type { Player } from '@wemsic/shared';
+import { COMPACT_ROSTER_AFTER, type Player } from '@wemsic/shared';
 import { useState } from 'react';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 
@@ -36,6 +36,29 @@ type RosterProps = {
  */
 export function PlayerColumn({ players, myPlayerId, isHost, onKick }: RosterProps) {
   const [confirmKick, setConfirmKick] = useState<Player | null>(null);
+  // A big room swaps the list for a two-column grid: avatar, name, ready tick.
+  const compact = players.length > COMPACT_ROSTER_AFTER;
+  const kickButton = (p: Player) =>
+    isHost &&
+    p.id !== myPlayerId && (
+      <Tooltip title={`Remove ${p.displayName}`}>
+        <IconButton
+          className="kick"
+          size="small"
+          aria-label={`Remove ${p.displayName}`}
+          onClick={() => setConfirmKick(p)}
+          sx={{
+            opacity: 0,
+            transition: 'opacity 120ms ease',
+            '@media (hover: none)': { opacity: 1 },
+            color: 'text.secondary',
+            '&:hover': { color: 'error.main', bgcolor: 'rgba(255,84,112,0.1)' },
+          }}
+        >
+          <CloseRoundedIcon fontSize="small" />
+        </IconButton>
+      </Tooltip>
+    );
 
   return (
     <>
@@ -47,54 +70,80 @@ export function PlayerColumn({ players, myPlayerId, isHost, onKick }: RosterProp
             </Typography>
             <Typography color="text.secondary" fontWeight={600}>
               {players.length} here
+              {compact && ` · ${players.filter((p) => p.isReady).length} ready`}
             </Typography>
           </Stack>
           {players.length === 0 && (
             <Typography color="text.secondary">No one has joined yet. Share the code or the QR.</Typography>
           )}
-          <Stack spacing={0.5}>
-            {players.map((p) => (
-              <Stack
-                key={p.id}
-                direction="row"
-                spacing={1.5}
-                alignItems="center"
-                sx={{
-                  p: 1,
-                  mx: -1,
-                  borderRadius: '16px',
-                  opacity: p.connected ? 1 : 0.55,
-                  '&:hover': { bgcolor: 'rgba(58,107,255,0.06)' },
-                  '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
-                }}
-              >
-                <PlayerAvatar id={p.id} size={48} done={p.isReady} />
-                <Box sx={{ minWidth: 0, flex: 1 }}>
-                  <PlayerName player={p} me={p.id === myPlayerId} />
-                  <PlayerStatus player={p} />
-                </Box>
-                {isHost && p.id !== myPlayerId && (
-                  <Tooltip title={`Remove ${p.displayName}`}>
-                    <IconButton
-                      className="kick"
-                      size="small"
-                      aria-label={`Remove ${p.displayName}`}
-                      onClick={() => setConfirmKick(p)}
-                      sx={{
-                        opacity: 0,
-                        transition: 'opacity 120ms ease',
-                        '@media (hover: none)': { opacity: 1 },
-                        color: 'text.secondary',
-                        '&:hover': { color: 'error.main', bgcolor: 'rgba(255,84,112,0.1)' },
-                      }}
-                    >
-                      <CloseRoundedIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
-            ))}
-          </Stack>
+          {compact ? (
+            <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 0.75, mx: -1 }}>
+              {players.map((p) => {
+                const me = p.id === myPlayerId;
+                return (
+                  <Stack
+                    key={p.id}
+                    direction="row"
+                    spacing={1.25}
+                    alignItems="center"
+                    sx={{
+                      p: 0.875,
+                      minWidth: 0,
+                      borderRadius: '14px',
+                      bgcolor: me ? 'rgba(58,107,255,0.08)' : 'transparent',
+                      opacity: p.connected ? 1 : 0.55,
+                      '&:hover': { bgcolor: 'rgba(58,107,255,0.06)' },
+                      '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
+                    }}
+                  >
+                    <PlayerAvatar id={p.id} size={44} done={p.isReady} />
+                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                      <Typography fontWeight={700} noWrap sx={{ fontSize: '1.02rem', lineHeight: 1.2 }}>
+                        {me ? 'You' : p.displayName}
+                      </Typography>
+                      {p.isHost && (
+                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: 'primary.main', lineHeight: 1.1 }}>
+                          Host
+                        </Typography>
+                      )}
+                    </Box>
+                    {kickButton(p)}
+                  </Stack>
+                );
+              })}
+            </Box>
+          ) : (
+            <Stack spacing={0.5}>
+              {players.map((p) => (
+                <Stack
+                  key={p.id}
+                  direction="row"
+                  spacing={1.5}
+                  alignItems="center"
+                  sx={{
+                    p: 1,
+                    mx: -1,
+                    borderRadius: '16px',
+                    opacity: p.connected ? 1 : 0.55,
+                    '&:hover': { bgcolor: 'rgba(58,107,255,0.06)' },
+                    '&:hover .kick, & .kick:focus-visible': { opacity: 1 },
+                  }}
+                >
+                  <PlayerAvatar id={p.id} size={48} done={p.isReady} />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                    <PlayerName player={p} me={p.id === myPlayerId} />
+                    <PlayerStatus player={p} />
+                  </Box>
+                  {kickButton(p)}
+                </Stack>
+              ))}
+            </Stack>
+          )}
+          {compact && (
+            <Typography color="text.secondary" sx={{ mt: 1.5, fontSize: '0.9rem' }}>
+              A tick means ready. Faded means offline.
+            </Typography>
+          )}
         </CardContent>
       </Card>
       <KickDialog player={confirmKick} onClose={() => setConfirmKick(null)} onKick={onKick} />

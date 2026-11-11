@@ -1,11 +1,12 @@
 import { Alert, Box, Button, Stack, Typography } from '@mui/material';
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded';
-import { useEffect, useRef } from 'react';
+import { COMPACT_ROSTER_AFTER } from '@wemsic/shared';
+import { useEffect, useRef, useState } from 'react';
 import { Link as RouterLink, useNavigate, useParams } from 'react-router-dom';
 import { Eko } from '../components/eko/Eko';
 import { Layout } from '../components/Layout';
-import { PlayerAvatar } from '../components/PlayerAvatar';
 import { ReconnectingBanner } from '../components/ReconnectingBanner';
+import { ScoreList } from '../components/ScoreList';
 import { clearSession, useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { WinnerCard } from './results/WinnerCard';
@@ -51,6 +52,9 @@ export function Results() {
   const noRoundsPlayed = gameEnd?.roundsPlayed === 0;
   const winner = noRoundsPlayed ? undefined : leaderboard[0];
   const rest = noRoundsPlayed ? [] : leaderboard.slice(1);
+  // A big room shows the top 5 and your place, with everyone a tap away.
+  const compact = leaderboard.length > COMPACT_ROSTER_AFTER;
+  const [showAll, setShowAll] = useState(false);
 
   return (
     <Layout>
@@ -87,44 +91,24 @@ export function Results() {
           <Typography variant="overline" color="text.secondary">
             Final scores
           </Typography>
-          <Stack spacing={1} sx={{ mt: 1 }}>
-            {rest.map((entry, i) => {
-              const isMe = entry.playerId === session?.playerId;
-              return (
-                <Stack
-                  key={entry.playerId}
-                  direction="row"
-                  spacing={1.5}
-                  alignItems="center"
-                  sx={{
-                    p: 1,
-                    borderRadius: '16px',
-                    bgcolor: isMe ? 'rgba(58,107,255,0.08)' : 'transparent',
-                  }}
-                >
-                  <Typography
-                    sx={{
-                      width: 26,
-                      textAlign: 'center',
-                      fontWeight: 700,
-                      color: 'text.secondary',
-                      fontFamily: '"Fredoka", sans-serif',
-                    }}
-                  >
-                    {i + 2}
-                  </Typography>
-                  <PlayerAvatar id={entry.playerId} size={36} />
-                  <Typography fontWeight={700} sx={{ flex: 1 }} noWrap>
-                    {entry.displayName}
-                    {isMe && <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>}
-                  </Typography>
-                  <Typography fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                    {entry.score}
-                  </Typography>
-                </Stack>
-              );
-            })}
-          </Stack>
+          <ScoreList
+            entries={rest}
+            myId={session?.playerId}
+            compact={compact}
+            showAll={showAll}
+            firstPosition={2}
+            show={4}
+          />
+          {compact && (
+            <Button
+              variant="outlined"
+              fullWidth
+              onClick={() => setShowAll((v) => !v)}
+              sx={{ mt: 1.5, borderRadius: '14px', borderWidth: 2, fontWeight: 700, '&:hover': { borderWidth: 2 } }}
+            >
+              {showAll ? 'Show the top 5' : `Show all ${leaderboard.length}`}
+            </Button>
+          )}
         </Box>
       )}
 

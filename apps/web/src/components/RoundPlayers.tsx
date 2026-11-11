@@ -1,6 +1,6 @@
 import { memo, useRef } from 'react';
 import { Box, Stack, Typography } from '@mui/material';
-import type { GameMode, RoundPlayerStatus, TriviaKind } from '@wemsic/shared';
+import { COMPACT_ROSTER_AFTER, type GameMode, type RoundPlayerStatus, type TriviaKind } from '@wemsic/shared';
 import { PlayerAvatar } from './PlayerAvatar';
 
 function typingSecondary(p: RoundPlayerStatus): string {
@@ -56,6 +56,12 @@ export const RoundPlayers = memo(function RoundPlayers({
     lastRoundRef.current = roundIndex;
   }
 
+  // A big room shows an avatar grid with a bar for how many have answered.
+  const compact = players.length > COMPACT_ROSTER_AFTER;
+  const answered = players.filter((p) =>
+    isTyping ? p.bothCorrect || (p.artistCorrect && p.titleCorrect) : p.done,
+  ).length;
+
   return (
     <Box
       sx={{
@@ -66,10 +72,39 @@ export const RoundPlayers = memo(function RoundPlayers({
         boxShadow: '0 18px 40px -28px rgba(20,33,63,0.3)',
       }}
     >
-      <Typography variant="overline" color="text.secondary" sx={{ px: 0.5 }}>
-        In the room · {players.length}
-      </Typography>
-      <Stack spacing={1} sx={{ mt: 1 }}>
+      {compact ? (
+        <>
+          <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ px: 0.5 }}>
+            <Typography variant="overline" color="text.secondary">
+              In the room
+            </Typography>
+            <Typography color="text.secondary" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              {answered} of {players.length} {isTyping ? 'got it' : 'answered'}
+            </Typography>
+          </Stack>
+          <Box sx={{ mt: 0.5, mb: 1.5, height: 8, borderRadius: 999, bgcolor: 'rgba(20,33,63,0.07)', overflow: 'hidden' }}>
+            <Box
+              sx={{
+                height: '100%',
+                width: `${(answered / players.length) * 100}%`,
+                bgcolor: 'success.main',
+                transition: 'width 300ms ease',
+              }}
+            />
+          </Box>
+        </>
+      ) : (
+        <Typography variant="overline" color="text.secondary" sx={{ px: 0.5 }}>
+          In the room · {players.length}
+        </Typography>
+      )}
+      <Box
+        sx={
+          compact
+            ? { display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 1 }
+            : { display: 'flex', flexDirection: 'column', gap: 1, mt: 1 }
+        }
+      >
         {players.map((p) => {
           const isMe = p.playerId === currentPlayerId;
           const showWrongGuess = showOthersGuesses && isTyping && !!p.guessText;
@@ -118,6 +153,31 @@ export const RoundPlayers = memo(function RoundPlayers({
               ? 'success.main'
               : 'text.secondary';
 
+          if (compact) {
+            return (
+              <Stack
+                key={p.playerId}
+                alignItems="center"
+                spacing={0.5}
+                sx={{
+                  minWidth: 0,
+                  px: 0.5,
+                  pt: 1,
+                  pb: 0.75,
+                  borderRadius: '14px',
+                  bgcolor: done ? 'rgba(22,199,154,0.12)' : 'transparent',
+                  boxShadow: isMe ? 'inset 0 0 0 2px #3A6BFF' : 'none',
+                  transition: 'background-color 200ms ease',
+                }}
+              >
+                <PlayerAvatar id={p.playerId} size={48} done={isTyping ? bothCorrect : done} />
+                <Typography fontWeight={700} noWrap sx={{ fontSize: '0.85rem', maxWidth: '100%' }}>
+                  {isMe ? 'You' : p.displayName}
+                </Typography>
+              </Stack>
+            );
+          }
+
           return (
             <Stack
               key={p.playerId}
@@ -162,7 +222,7 @@ export const RoundPlayers = memo(function RoundPlayers({
             </Stack>
           );
         })}
-      </Stack>
+      </Box>
       {triviaTyping && (
         <Typography
           variant="caption"
