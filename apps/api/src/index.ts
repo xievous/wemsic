@@ -1,6 +1,7 @@
 import cors from '@fastify/cors';
 import Fastify from 'fastify';
 import { Server } from 'socket.io';
+import { sanitizeLook } from '@wemsic/shared';
 import { config } from './config.js';
 import { RoomManager } from './rooms/RoomManager.js';
 import { registerSocketHandlers } from './socket/handlers.js';
@@ -40,14 +41,14 @@ fastify.get('/', async () => ({
   health: '/health',
 }));
 
-fastify.post<{ Params: { code: string }; Body: { displayName: string } }>(
+fastify.post<{ Params: { code: string }; Body: { displayName: string; avatar?: unknown } }>(
   '/rooms/:code/join',
   async (request) => {
     const displayName = request.body?.displayName?.trim();
     if (!displayName || displayName.length < 1 || displayName.length > 24) {
       return { error: 'Invalid display name' };
     }
-    const result = roomManager.joinRoom(request.params.code, displayName);
+    const result = roomManager.joinRoom(request.params.code, displayName, sanitizeLook(request.body?.avatar));
     if ('error' in result) return { error: result.error };
     return { playerId: result.playerId, roomCode: request.params.code.toUpperCase() };
   },
@@ -59,12 +60,12 @@ fastify.get<{ Params: { code: string } }>('/rooms/:code', async (request) => {
   return state;
 });
 
-fastify.post<{ Body: { displayName: string; roomType?: string } }>(
+fastify.post<{ Body: { displayName: string; roomType?: string; avatar?: unknown } }>(
   '/rooms/create-with-host',
   async (request) => {
     const displayName = request.body?.displayName?.trim() || 'Host';
     const roomType = request.body?.roomType === 'host' ? 'host' : 'online';
-    const created = roomManager.createRoom(displayName, roomType);
+    const created = roomManager.createRoom(displayName, roomType, sanitizeLook(request.body?.avatar));
     return {
       roomCode: created.roomCode,
       playerId: created.playerId,

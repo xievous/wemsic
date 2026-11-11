@@ -1,3 +1,5 @@
+import type { AvatarLook } from './playerLook.js';
+
 export type GameMode = 'speed_choice' | 'typing';
 
 /**
@@ -52,10 +54,8 @@ export interface Player {
   /** Total tracks contributed across all of this player's playlists. */
   trackCount: number;
   score: number;
-  /** Index into the web theme's AVATAR_COLORS; no one else in the room has it. */
-  colorIndex: number;
-  /** Avatar initials, unique in the room (Sam is SA, so Sara becomes SR). */
-  initials: string;
+  /** Their mini-Eko avatar, chosen on Create or Join. */
+  avatar: AvatarLook;
 }
 
 export interface RoomSettings {

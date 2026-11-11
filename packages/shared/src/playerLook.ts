@@ -1,11 +1,20 @@
-import { MAX_PLAYERS } from './constants.js';
-
 /**
- * How many avatar colours there are. At least MAX_PLAYERS, so everyone in a
- * full room still gets a colour no one else has. The colours themselves live
- * in the web theme (AVATAR_COLORS), in this order.
+ * A player's avatar: a mini Eko robot in their colour, with one of Eko's
+ * visor faces and a top piece. Each part is an index; the drawings and the
+ * colours live in the web app (AVATAR_COLORS, BotAvatar), in this order.
  */
-export const AVATAR_COLOR_COUNT = Math.max(8, MAX_PLAYERS);
+export interface AvatarLook {
+  color: number;
+  face: number;
+  top: number;
+}
+
+/** Blue, pink, mint, amber, violet, cyan, orange, ink, red. */
+export const AVATAR_COLOR_COUNT = 9;
+/** Happy, neutral, starry, love, whoa, focused, sleepy, oops, wink. */
+export const AVATAR_FACE_COUNT = 9;
+/** Nothing, antenna, headphones, cap, crown, party hat, bow, sprout. */
+export const AVATAR_TOP_COUNT = 8;
 
 /** The first colour no one in the room is using. */
 export function pickColorIndex(taken: number[]): number {
@@ -17,37 +26,33 @@ export function pickColorIndex(taken: number[]): number {
   return taken.length % AVATAR_COLOR_COUNT;
 }
 
-function letters(word: string): string[] {
-  return [...word.toUpperCase()].filter((c) => /\p{L}|\p{N}/u.test(c));
+export function randomLook(random: () => number = Math.random): AvatarLook {
+  const pick = (n: number) => Math.min(n - 1, Math.floor(random() * n));
+  return { color: pick(AVATAR_COLOR_COUNT), face: pick(AVATAR_FACE_COUNT), top: pick(AVATAR_TOP_COUNT) };
 }
 
-/**
- * Two-character initials no one else in the room has. "Oscar Lam" is OL and
- * "Sam" is SA; a second "Sara" then becomes SR (first letter plus the next
- * one that makes it unique), and as a last resort S2, S3...
- */
-export function pickInitials(displayName: string, taken: string[]): string {
-  const used = new Set(taken.map((t) => t.toUpperCase()));
-  const words = displayName.trim().split(/\s+/).map(letters).filter((w) => w.length > 0);
-  const all = words.flat();
-  if (all.length === 0) {
-    for (let n = 1; ; n += 1) {
-      const c = n === 1 ? '?' : `?${n}`;
-      if (!used.has(c)) return c;
-    }
-  }
+/** A stable look from an id, for players who never chose one. */
+export function lookFromSeed(seed: string): AvatarLook {
+  let h = 0;
+  for (let i = 0; i < seed.length; i += 1) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return {
+    color: h % AVATAR_COLOR_COUNT,
+    face: Math.floor(h / AVATAR_COLOR_COUNT) % AVATAR_FACE_COUNT,
+    top: Math.floor(h / (AVATAR_COLOR_COUNT * AVATAR_FACE_COUNT)) % AVATAR_TOP_COUNT,
+  };
+}
 
-  const first = all[0]!;
-  const candidates: string[] = [];
-  if (words.length > 1) candidates.push(first + words[words.length - 1]![0]);
-  for (const c of all.slice(1)) candidates.push(first + c);
-  if (all.length === 1) candidates.push(first);
+function part(value: unknown, count: number): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 && value < count ? value : null;
+}
 
-  for (const c of candidates) {
-    if (!used.has(c)) return c;
-  }
-  for (let n = 2; ; n += 1) {
-    const c = `${first}${n}`;
-    if (!used.has(c)) return c;
-  }
+/** A look sent by a client, if it's a real one; anything else is null. */
+export function sanitizeLook(value: unknown): AvatarLook | null {
+  if (!value || typeof value !== 'object') return null;
+  const v = value as Record<string, unknown>;
+  const color = part(v.color, AVATAR_COLOR_COUNT);
+  const face = part(v.face, AVATAR_FACE_COUNT);
+  const top = part(v.top, AVATAR_TOP_COUNT);
+  if (color === null || face === null || top === null) return null;
+  return { color, face, top };
 }

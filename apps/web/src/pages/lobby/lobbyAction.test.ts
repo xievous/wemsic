@@ -12,8 +12,7 @@ function player(id: string, overrides: Partial<Player> = {}): Player {
     playlists: [],
     trackCount: 0,
     score: 0,
-    colorIndex: 0,
-    initials: id.slice(0, 2).toUpperCase(),
+    avatar: { color: 0, face: 0, top: 0 },
     ...overrides,
   };
 }

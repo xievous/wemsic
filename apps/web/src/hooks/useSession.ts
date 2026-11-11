@@ -1,8 +1,10 @@
 import { useState } from 'react';
+import { randomLook, sanitizeLook, type AvatarLook } from '@wemsic/shared';
 
 const SESSION_KEY = 'wemsic_session';
 // Kept in localStorage, unlike the session, so it survives leaving the room.
 const NAME_KEY = 'wemsic_name';
+const LOOK_KEY = 'wemsic_avatar';
 
 export interface Session {
   roomCode: string;
@@ -25,6 +27,24 @@ export function loadSavedName(): string {
     return localStorage.getItem(NAME_KEY) ?? '';
   } catch {
     return '';
+  }
+}
+
+/** The avatar this device last built, or a random one the first time. */
+export function loadSavedLook(): AvatarLook {
+  try {
+    const raw = localStorage.getItem(LOOK_KEY);
+    return (raw && sanitizeLook(JSON.parse(raw))) || randomLook();
+  } catch {
+    return randomLook();
+  }
+}
+
+export function saveLook(look: AvatarLook): void {
+  try {
+    localStorage.setItem(LOOK_KEY, JSON.stringify(look));
+  } catch {
+    // Storage can be blocked; the avatar just won't be remembered.
   }
 }
 

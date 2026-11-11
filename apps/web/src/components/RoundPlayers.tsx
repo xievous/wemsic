@@ -131,7 +131,7 @@ export const RoundPlayers = memo(function RoundPlayers({
                 transition: 'background-color 200ms ease',
               }}
             >
-              <PlayerAvatar id={p.playerId} name={p.displayName} size={36} done={isTyping ? bothCorrect : done} />
+              <PlayerAvatar id={p.playerId} size={36} done={isTyping ? bothCorrect : done} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
                 <Typography
                   variant="body2"

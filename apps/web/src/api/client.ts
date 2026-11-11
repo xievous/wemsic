@@ -1,15 +1,16 @@
-import type { LobbyState, PresetCatalogResponse, RoomType } from '@wemsic/shared';
+import type { AvatarLook, LobbyState, PresetCatalogResponse, RoomType } from '@wemsic/shared';
 import type { CatalogSearchResult } from '@wemsic/shared';
 import { API_URL } from '../config';
 
 export async function createRoomWithHost(
   displayName: string,
   roomType: RoomType = 'online',
+  avatar?: AvatarLook,
 ) {
   const res = await fetch(`${API_URL}/rooms/create-with-host`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName, roomType }),
+    body: JSON.stringify({ displayName, roomType, avatar }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? 'Failed to create room');
@@ -20,11 +21,11 @@ export async function createRoomWithHost(
   };
 }
 
-export async function joinRoom(roomCode: string, displayName: string) {
+export async function joinRoom(roomCode: string, displayName: string, avatar?: AvatarLook) {
   const res = await fetch(`${API_URL}/rooms/${roomCode}/join`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ displayName }),
+    body: JSON.stringify({ displayName, avatar }),
   });
   const data = await res.json();
   if (!res.ok || data.error) throw new Error(data.error ?? 'Failed to join');

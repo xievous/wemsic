@@ -416,28 +416,37 @@ describe('RoomManager: game end and rematch', () => {
 });
 
 describe('player looks', () => {
-  it('gives everyone a colour and initials no one else in the room has', () => {
+  it('keeps the avatar each player chose, even when two pick the same colour', () => {
+    const { rooms, roomCode, lobby } = setup();
+    const look = { color: 8, face: 3, top: 6 };
+    const a = rooms.joinRoom(roomCode, 'Sam', look);
+    const b = rooms.joinRoom(roomCode, 'Jo', { ...look, face: 0 });
+    if ('error' in a || 'error' in b) throw new Error('join failed');
+    const players = lobby().players;
+    expect(players.find((p) => p.id === a.playerId)!.avatar).toEqual(look);
+    expect(players.find((p) => p.id === b.playerId)!.avatar).toEqual({ color: 8, face: 0, top: 6 });
+  });
+
+  it('gives players who chose nothing a colour no one else has', () => {
     const { rooms, roomCode, lobby } = setup();
     for (const name of ['Sam', 'Sara', 'Sarah']) {
       const joined = rooms.joinRoom(roomCode, name);
       if ('error' in joined) throw new Error(joined.error);
     }
     const players = lobby().players;
-    expect(new Set(players.map((p) => p.colorIndex)).size).toBe(players.length);
-    expect(new Set(players.map((p) => p.initials)).size).toBe(players.length);
-    expect(players.map((p) => p.initials)).toEqual(['HO', 'GU', 'SA', 'SR', 'SH']);
+    expect(new Set(players.map((p) => p.avatar.color)).size).toBe(players.length);
   });
 
-  it('keeps looks when someone leaves, and hands their colour to the next player', () => {
+  it("keeps looks when someone leaves, and hands a free colour to the next player", () => {
     const { rooms, roomCode, host, guest, lobby } = setup();
     const before = lobby().players.find((p) => p.id === host)!;
-    const guestColour = lobby().players.find((p) => p.id === guest)!.colorIndex;
+    const guestColour = lobby().players.find((p) => p.id === guest)!.avatar.color;
     rooms.leaveRoom(roomCode, guest);
     const joined = rooms.joinRoom(roomCode, 'Jo');
     if ('error' in joined) throw new Error(joined.error);
 
     const after = lobby().players;
-    expect(after.find((p) => p.id === host)).toMatchObject({ colorIndex: before.colorIndex, initials: 'HO' });
-    expect(after.find((p) => p.id === joined.playerId)!.colorIndex).toBe(guestColour);
+    expect(after.find((p) => p.id === host)!.avatar).toEqual(before.avatar);
+    expect(after.find((p) => p.id === joined.playerId)!.avatar.color).toBe(guestColour);
   });
 });

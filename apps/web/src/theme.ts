@@ -22,9 +22,8 @@ export const TILE_COLORS = [
 ] as const;
 
 /**
- * Player avatar colours, in the order the server hands them out (see
- * pickColorIndex in shared): eight clearly different hues, so no two players
- * in a room look alike. Light ones get ink initials so they stay readable.
+ * Avatar colours, in AvatarLook.color order (AVATAR_COLOR_COUNT in shared):
+ * nine clearly different hues. `text` is what reads on top of each one.
  */
 export const AVATAR_COLORS = [
   { bg: '#3A6BFF', text: '#FFFFFF' }, // blue
@@ -35,6 +34,7 @@ export const AVATAR_COLORS = [
   { bg: '#00BFD8', text: INK }, // cyan
   { bg: '#FF7A45', text: INK }, // orange
   { bg: INK, text: '#FFFFFF' }, // ink
+  { bg: '#E5383B', text: '#FFFFFF' }, // red
 ] as const;
 
 /** A stable colour for anything without an assigned one (cover tiles, players who have left). */
