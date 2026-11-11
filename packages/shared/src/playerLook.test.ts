@@ -1,29 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { MAX_PLAYERS } from './constants.js';
 import {
   AVATAR_COLOR_COUNT,
   AVATAR_FACE_COUNT,
   AVATAR_TOP_COUNT,
   lookFromSeed,
-  pickColorIndex,
   randomLook,
   sanitizeLook,
 } from './playerLook.js';
-
-describe('pickColorIndex', () => {
-  it('takes the first free colour, reusing one freed by someone leaving', () => {
-    expect(pickColorIndex([])).toBe(0);
-    expect(pickColorIndex([0, 1, 2])).toBe(3);
-    expect(pickColorIndex([0, 2])).toBe(1);
-  });
-
-  it('has a distinct colour for everyone in a full room', () => {
-    const taken: number[] = [];
-    for (let i = 0; i < MAX_PLAYERS; i += 1) taken.push(pickColorIndex(taken));
-    expect(new Set(taken).size).toBe(MAX_PLAYERS);
-    expect(AVATAR_COLOR_COUNT).toBeGreaterThanOrEqual(MAX_PLAYERS);
-  });
-});
 
 describe('randomLook', () => {
   it('stays inside every part, even at the edges of the random range', () => {

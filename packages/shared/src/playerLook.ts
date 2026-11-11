@@ -16,16 +16,6 @@ export const AVATAR_FACE_COUNT = 9;
 /** Nothing, antenna, headphones, cap, crown, party hat, bow, sprout. */
 export const AVATAR_TOP_COUNT = 8;
 
-/** The first colour no one in the room is using. */
-export function pickColorIndex(taken: number[]): number {
-  const used = new Set(taken);
-  for (let i = 0; i < AVATAR_COLOR_COUNT; i += 1) {
-    if (!used.has(i)) return i;
-  }
-  // Only reachable if the room outgrows the palette.
-  return taken.length % AVATAR_COLOR_COUNT;
-}
-
 export function randomLook(random: () => number = Math.random): AvatarLook {
   const pick = (n: number) => Math.min(n - 1, Math.floor(random() * n));
   return { color: pick(AVATAR_COLOR_COUNT), face: pick(AVATAR_FACE_COUNT), top: pick(AVATAR_TOP_COUNT) };

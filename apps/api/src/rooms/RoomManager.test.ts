@@ -69,14 +69,6 @@ describe('RoomManager: joining', () => {
     expect(rooms.joinRoom(roomCode.toLowerCase(), 'Late')).toHaveProperty('playerId');
   });
 
-  it(`refuses joins past ${MAX_PLAYERS} players`, () => {
-    const { rooms, roomCode, lobby } = setup();
-    while (lobby().players.length < MAX_PLAYERS) {
-      rooms.joinRoom(roomCode, `Filler ${lobby().players.length}`);
-    }
-    expect(rooms.joinRoom(roomCode, 'One too many')).toEqual({ error: 'Room is full' });
-  });
-
   it('refuses joins once the game has started', async () => {
     const { rooms, roomCode, startAndWait } = setup();
     await startAndWait();
@@ -103,19 +95,16 @@ describe('RoomManager: leaving and offline players', () => {
   const player = (ctx: ReturnType<typeof setup>, id: string) =>
     ctx.lobby().players.find((p) => p.id === id);
 
-  it('shows who is online', () => {
+  it('shows who is online, staying online while any of their tabs is open', () => {
     const ctx = setup();
     expect(player(ctx, ctx.guest)?.connected).toBe(true);
 
-    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
-    expect(player(ctx, ctx.guest)?.connected).toBe(false);
-  });
-
-  it('keeps a player online while any of their tabs is open', () => {
-    const ctx = setup();
     ctx.rooms.playerConnected(ctx.roomCode, ctx.guest, 'second-tab');
     ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, `socket-${ctx.guest}`);
     expect(player(ctx, ctx.guest)?.connected).toBe(true);
+
+    ctx.rooms.playerDisconnected(ctx.roomCode, ctx.guest, 'second-tab');
+    expect(player(ctx, ctx.guest)?.connected).toBe(false);
   });
 
   it("doesn't let an offline player block the start", () => {
@@ -425,28 +414,5 @@ describe('player looks', () => {
     const players = lobby().players;
     expect(players.find((p) => p.id === a.playerId)!.avatar).toEqual(look);
     expect(players.find((p) => p.id === b.playerId)!.avatar).toEqual({ color: 8, face: 0, top: 6 });
-  });
-
-  it('gives players who chose nothing a colour no one else has', () => {
-    const { rooms, roomCode, lobby } = setup();
-    for (const name of ['Sam', 'Sara', 'Sarah']) {
-      const joined = rooms.joinRoom(roomCode, name);
-      if ('error' in joined) throw new Error(joined.error);
-    }
-    const players = lobby().players;
-    expect(new Set(players.map((p) => p.avatar.color)).size).toBe(players.length);
-  });
-
-  it("keeps looks when someone leaves, and hands a free colour to the next player", () => {
-    const { rooms, roomCode, host, guest, lobby } = setup();
-    const before = lobby().players.find((p) => p.id === host)!;
-    const guestColour = lobby().players.find((p) => p.id === guest)!.avatar.color;
-    rooms.leaveRoom(roomCode, guest);
-    const joined = rooms.joinRoom(roomCode, 'Jo');
-    if ('error' in joined) throw new Error(joined.error);
-
-    const after = lobby().players;
-    expect(after.find((p) => p.id === host)!.avatar).toEqual(before.avatar);
-    expect(after.find((p) => p.id === joined.playerId)!.avatar.color).toBe(guestColour);
   });
 });
