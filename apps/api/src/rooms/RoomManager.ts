@@ -8,7 +8,6 @@ import {
   MIN_PLAYLIST_TRACKS,
   MAX_PLAYERS,
   lookFromSeed,
-  pickColorIndex,
 } from '@wemsic/shared';
 import type {
   AvatarLook,
@@ -571,10 +570,7 @@ export class RoomManager {
     return player.playlists.flatMap((pl) => pl.tracks);
   }
 
-  /**
-   * Without a chosen look (an older client), they get a look from their id
-   * in the first colour no one else has, so they still stand out.
-   */
+  /** Without a chosen look (an older client), they get a look made from their id. */
   private newPlayer(
     room: Room,
     id: string,
@@ -582,7 +578,6 @@ export class RoomManager {
     isHost: boolean,
     avatar: AvatarLook | null,
   ): RoomPlayer {
-    const others = [...room.players.values()];
     return {
       id,
       displayName,
@@ -590,10 +585,7 @@ export class RoomManager {
       isReady: false,
       playlists: [],
       score: 0,
-      avatar: avatar ?? {
-        ...lookFromSeed(id),
-        color: pickColorIndex(others.map((p) => p.avatar.color)),
-      },
+      avatar: avatar ?? lookFromSeed(id),
       sockets: new Set(),
       awayTimer: null,
     };
