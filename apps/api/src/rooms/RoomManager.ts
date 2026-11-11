@@ -130,7 +130,7 @@ export class RoomManager {
     const room = this.rooms.get(roomCode.toUpperCase());
     if (!room) return { error: 'Room not found' };
     if (room.phase !== 'lobby') return { error: 'Game already started' };
-    if (room.players.size >= MAX_PLAYERS) return { error: 'Room is full' };
+    if (this.playingCount(room) >= MAX_PLAYERS) return { error: 'Room is full' };
     // Two Sams make the scoreboard and "Added by" ambiguous.
     const taken = [...room.players.values()].find((p) => sameName(p.displayName, displayName));
     if (taken) {
@@ -560,6 +560,12 @@ export class RoomManager {
 
   private getPlayer(roomCode: string, playerId: string): RoomPlayer | undefined {
     return this.rooms.get(roomCode.toUpperCase())?.players.get(playerId);
+  }
+
+  /** Everyone who plays: in host-screen mode the screen (the host) doesn't. */
+  private playingCount(room: Room): number {
+    const screen = room.settings.roomType === 'host' && room.players.has(room.hostPlayerId);
+    return room.players.size - (screen ? 1 : 0);
   }
 
   private playerTrackCount(player: RoomPlayer): number {

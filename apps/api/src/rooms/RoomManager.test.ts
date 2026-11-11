@@ -282,6 +282,15 @@ describe('RoomManager: host settings and kicking', () => {
 });
 
 describe('RoomManager: host screen mode', () => {
+  it(`fits ${MAX_PLAYERS} phones, since the screen doesn't take a place`, () => {
+    const { rooms, roomCode, lobby } = setup('host');
+    while (lobby().players.length < MAX_PLAYERS + 1) {
+      const joined = rooms.joinRoom(roomCode, `Phone ${lobby().players.length}`);
+      if ('error' in joined) throw new Error(joined.error);
+    }
+    expect(rooms.joinRoom(roomCode, 'One too many')).toEqual({ error: 'Room is full' });
+  });
+
   it('lets the presenter start without readying up', () => {
     const { rooms, roomCode, host, lobby, makeReady } = setup('host');
     makeReady();

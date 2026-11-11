@@ -1,10 +1,11 @@
 import { Box, Stack, Typography } from '@mui/material';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
-import { TRIVIA_QUESTIONS, type RoundRevealPayload } from '@wemsic/shared';
+import { COMPACT_ROSTER_AFTER, TRIVIA_QUESTIONS, type RoundRevealPayload } from '@wemsic/shared';
 import { Eko } from '../../components/eko/Eko';
 import { revealMood } from '../../components/eko/ekoMood';
 import { PlayerAvatar } from '../../components/PlayerAvatar';
 import { RoundProgressBar } from '../../components/RoundProgressBar';
+import { ScoreList } from '../../components/ScoreList';
 import { popIn } from '../../styles/animations';
 
 /**
@@ -193,44 +194,11 @@ export function RoundReveal({
         <Typography variant="overline" color="text.secondary">
           Leaderboard
         </Typography>
-        <Stack spacing={1} sx={{ mt: 1 }}>
-          {reveal.leaderboard.map((e, i) => {
-            const isMe = e.playerId === playerId;
-            return (
-              <Stack
-                key={e.playerId}
-                direction="row"
-                spacing={1.5}
-                alignItems="center"
-                sx={{
-                  p: 1,
-                  borderRadius: '16px',
-                  bgcolor: isMe ? 'rgba(58,107,255,0.08)' : 'transparent',
-                }}
-              >
-                <Typography
-                  sx={{
-                    width: 26,
-                    textAlign: 'center',
-                    fontWeight: 700,
-                    color: i === 0 ? 'warning.main' : 'text.secondary',
-                    fontFamily: '"Fredoka", sans-serif',
-                  }}
-                >
-                  {i + 1}
-                </Typography>
-                <PlayerAvatar id={e.playerId} size={34} />
-                <Typography fontWeight={700} sx={{ flex: 1 }} noWrap>
-                  {e.displayName}
-                  {isMe && <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>}
-                </Typography>
-                <Typography fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
-                  {e.score}
-                </Typography>
-              </Stack>
-            );
-          })}
-        </Stack>
+        <ScoreList
+          entries={reveal.leaderboard}
+          myId={playerId}
+          compact={reveal.leaderboard.length > COMPACT_ROSTER_AFTER}
+        />
       </Box>
     </Stack>
   );
