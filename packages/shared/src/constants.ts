@@ -25,7 +25,7 @@ export const TYPING_BOTH_POINTS = 1000;
 
 export const MCQ_OPTION_COUNT = 4;
 
-/** MCQ: timer shrink when any player submits */
+/** MCQ: share of the round's full time cut once everyone has answered (scaled by the share answered) */
 export const TIMER_SHRINK_PER_SUBMISSION_RATIO = 0.45;
 export const MIN_ROUND_REMAINING_MS = 2000;
 /** Minimum time a preview plays before early round end (ms) */

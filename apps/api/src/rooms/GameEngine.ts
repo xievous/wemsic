@@ -370,13 +370,15 @@ export class GameEngine {
     const k = round.mcqDoneIds.size;
     if (n === 0 || k === 0) return;
 
-    const remaining = round.roundEndsAt - Date.now();
-    if (remaining <= MIN_ROUND_REMAINING_MS) return;
+    const now = Date.now();
+    if (round.roundEndsAt - now <= MIN_ROUND_REMAINING_MS) return;
 
+    // Cut from the round's full time by the share of players who have
+    // answered, so half of 20 cuts the same as half of 4. Never lengthens.
+    const fullLeft = round.roundStartedAt + this.roundDurationMs - now;
     const shrink = 1 - (k / n) * TIMER_SHRINK_PER_SUBMISSION_RATIO;
-    const proposed =
-      Date.now() + Math.max(MIN_ROUND_REMAINING_MS, remaining * shrink);
-    round.roundEndsAt = this.capRoundEnd(round, proposed);
+    const proposed = now + Math.max(MIN_ROUND_REMAINING_MS, fullLeft * shrink);
+    round.roundEndsAt = Math.min(round.roundEndsAt, this.capRoundEnd(round, proposed));
     this.scheduleReveal();
   }
 
