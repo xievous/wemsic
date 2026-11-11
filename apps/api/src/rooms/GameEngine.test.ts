@@ -268,6 +268,21 @@ describe('GameEngine: speed choice', () => {
     expect(afterTwo).toBeGreaterThanOrEqual(round.roundEndsAt - SPEED_MS + MIN_ROUND_PLAY_MS);
   });
 
+  it('cuts the timer by the share who answered, whatever the room size', async () => {
+    const endAfterHalfAnswer = async (size: number) => {
+      const players = Array.from({ length: size }, (_, i) => `p${i + 1}`);
+      const { engine, progress, last } = setup({ tracks: makeTracks('p1', 10), players, durationMs: 60_000 });
+      await engine.start();
+      const round = last('start');
+      players.slice(0, size / 2).forEach((id) => engine.submitMcqAnswer(id, correctOption(round)));
+      const end = progress.at(-1)!.roundEndsAt - (round.roundEndsAt - 60_000);
+      engine.destroy();
+      return end;
+    };
+
+    expect(await endAfterHalfAnswer(20)).toBe(await endAfterHalfAnswer(4));
+  });
+
   it('rejects answers after the round has ended', async () => {
     const { engine, last } = setup({ tracks: makeTracks('p1', 10) });
     await engine.start();
