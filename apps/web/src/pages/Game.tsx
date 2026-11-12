@@ -141,8 +141,12 @@ export function Game() {
 
   const showFloatingEnableSound = !audioEnabled && !isPad && (!round || Boolean(reveal));
 
+  // A round gets a wider page than the reveal, so the bigger tiles fit beside the players.
+  const inRound = !!round && !reveal;
+  const maxWidth = isPresenter ? (inRound ? 'xl' : 'lg') : inRound && !isPad ? 'lg' : 'md';
+
   return (
-    <Layout maxWidth={isPresenter ? 'lg' : 'md'}>
+    <Layout maxWidth={maxWidth}>
       {isPresenter ? (
         <PresenterView {...viewProps} />
       ) : isPad ? (

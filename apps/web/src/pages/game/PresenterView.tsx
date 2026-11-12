@@ -2,6 +2,7 @@ import { Box, Stack, Typography } from '@mui/material';
 import { TRIVIA_QUESTIONS } from '@wemsic/shared';
 import { RoundPlayers } from '../../components/RoundPlayers';
 import { PresenterOptions } from './AnswerControls';
+import { RoundLayout } from './RoundLayout';
 import { RoundReveal } from './RoundReveal';
 import { Stage } from './Stage';
 import type { GameViewProps } from './types';
@@ -33,9 +34,10 @@ export function PresenterView({
   if (!round) return <PresenterWaitingStage />;
 
   return (
-    <Stack spacing={2.5} direction={{ xs: 'column', md: 'row' }} alignItems="flex-start">
-      <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-        <Stack spacing={2.5}>
+    <RoundLayout
+      presenter
+      game={
+        <Stack spacing={3}>
           <Stage
             roomCode={roomCode}
             roundIndex={round.roundIndex}
@@ -61,10 +63,10 @@ export function PresenterView({
                 border: '1px solid rgba(20,33,63,0.06)',
               }}
             >
-              <Typography variant="h5" gutterBottom>
+              <Typography variant="h3" gutterBottom>
                 {round.trivia ? 'Type your answer' : 'Name that track'}
               </Typography>
-              <Typography color="text.secondary">
+              <Typography color="text.secondary" sx={{ fontSize: { xs: '1.1rem', sm: '1.4rem' } }}>
                 {showOthersGuesses
                   ? 'Players are typing on their phones. Wrong guesses appear on the board as clues.'
                   : 'Players are typing their guesses on their phones.'}
@@ -72,9 +74,8 @@ export function PresenterView({
             </Box>
           )}
         </Stack>
-      </Box>
-
-      <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
+      }
+      players={
         <RoundPlayers
           players={playerStatuses}
           currentPlayerId={playerId}
@@ -83,7 +84,7 @@ export function PresenterView({
           roundIndex={round.roundIndex}
           trivia={round.trivia}
         />
-      </Box>
-    </Stack>
+      }
+    />
   );
 }

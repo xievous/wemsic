@@ -9,7 +9,7 @@ export function RoundProgressBar({
   low?: boolean;
   size?: 'default' | 'large';
 }) {
-  const height = size === 'large' ? 12 : 10;
+  const height = size === 'large' ? 20 : 14;
 
   return (
     <Box

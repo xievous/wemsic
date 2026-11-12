@@ -3,6 +3,8 @@ import { Box, Stack, Typography } from '@mui/material';
 import { COMPACT_ROSTER_AFTER, type GameMode, type RoundPlayerStatus, type TriviaKind } from '@wemsic/shared';
 import { PlayerAvatar } from './PlayerAvatar';
 
+const HEADER_SX = { fontWeight: 700, fontSize: '1.4rem', fontFamily: '"Fredoka", sans-serif' } as const;
+
 function typingSecondary(p: RoundPlayerStatus): string {
   if (p.bothCorrect || (p.artistCorrect && p.titleCorrect)) return 'Nailed it';
   if (p.artistCorrect) return 'Got the artist';
@@ -14,10 +16,10 @@ function StatusPill({ on, label }: { on: boolean; label: string }) {
   return (
     <Box
       sx={{
-        px: 1.2,
-        py: 0.3,
+        px: 1.4,
+        py: 0.4,
         borderRadius: 999,
-        fontSize: '0.68rem',
+        fontSize: '0.85rem',
         fontWeight: 700,
         letterSpacing: '0.02em',
         color: on ? 'success.contrastText' : 'text.secondary',
@@ -68,21 +70,19 @@ export const RoundPlayers = memo(function RoundPlayers({
         bgcolor: 'background.paper',
         border: '1px solid rgba(20,33,63,0.06)',
         borderRadius: '24px',
-        p: 2,
+        p: 2.5,
         boxShadow: '0 18px 40px -28px rgba(20,33,63,0.3)',
       }}
     >
       {compact ? (
         <>
           <Stack direction="row" justifyContent="space-between" alignItems="baseline" sx={{ px: 0.5 }}>
-            <Typography variant="overline" color="text.secondary">
-              In the room
-            </Typography>
-            <Typography color="text.secondary" fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+            <Typography sx={HEADER_SX}>Players</Typography>
+            <Typography color="text.secondary" fontWeight={700} sx={{ fontSize: '1.15rem', fontVariantNumeric: 'tabular-nums' }}>
               {answered} of {players.length} {isTyping ? 'got it' : 'answered'}
             </Typography>
           </Stack>
-          <Box sx={{ mt: 0.5, mb: 1.5, height: 8, borderRadius: 999, bgcolor: 'rgba(20,33,63,0.07)', overflow: 'hidden' }}>
+          <Box sx={{ mt: 1, mb: 1.5, height: 10, borderRadius: 999, bgcolor: 'rgba(20,33,63,0.07)', overflow: 'hidden' }}>
             <Box
               sx={{
                 height: '100%',
@@ -94,8 +94,8 @@ export const RoundPlayers = memo(function RoundPlayers({
           </Box>
         </>
       ) : (
-        <Typography variant="overline" color="text.secondary" sx={{ px: 0.5 }}>
-          In the room · {players.length}
+        <Typography sx={{ ...HEADER_SX, px: 0.5 }}>
+          Players · {players.length}
         </Typography>
       )}
       <Box
@@ -170,8 +170,8 @@ export const RoundPlayers = memo(function RoundPlayers({
                   transition: 'background-color 200ms ease',
                 }}
               >
-                <PlayerAvatar id={p.playerId} size={48} done={isTyping ? bothCorrect : done} />
-                <Typography fontWeight={700} noWrap sx={{ fontSize: '0.85rem', maxWidth: '100%' }}>
+                <PlayerAvatar id={p.playerId} size={56} done={isTyping ? bothCorrect : done} />
+                <Typography fontWeight={700} noWrap sx={{ fontSize: '1.05rem', maxWidth: '100%' }}>
                   {isMe ? 'You' : p.displayName}
                 </Typography>
               </Stack>
@@ -191,25 +191,15 @@ export const RoundPlayers = memo(function RoundPlayers({
                 transition: 'background-color 200ms ease',
               }}
             >
-              <PlayerAvatar id={p.playerId} size={36} done={isTyping ? bothCorrect : done} />
+              <PlayerAvatar id={p.playerId} size={52} done={isTyping ? bothCorrect : done} />
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography
-                  variant="body2"
-                  fontWeight={700}
-                  noWrap
-                  sx={{ lineHeight: 1.1 }}
-                >
+                <Typography fontWeight={700} noWrap sx={{ fontSize: '1.3rem', lineHeight: 1.15 }}>
                   {p.displayName}
                   {isMe && (
                     <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>
                   )}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  color={successTone}
-                  noWrap
-                  sx={{ display: 'block' }}
-                >
+                <Typography color={successTone} noWrap sx={{ display: 'block', fontSize: '1.05rem', fontWeight: 600 }}>
                   {secondary}
                 </Typography>
               </Box>
@@ -225,9 +215,8 @@ export const RoundPlayers = memo(function RoundPlayers({
       </Box>
       {triviaTyping && (
         <Typography
-          variant="caption"
           color="text.secondary"
-          sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4 }}
+          sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4, fontSize: '0.95rem' }}
         >
           {trivia === 'year' || trivia === 'added_by'
             ? 'One answer each. Everyone finds out at the reveal.'
@@ -236,9 +225,8 @@ export const RoundPlayers = memo(function RoundPlayers({
       )}
       {isTyping && (
         <Typography
-          variant="caption"
           color="text.secondary"
-          sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4 }}
+          sx={{ mt: 1.5, px: 0.5, display: 'block', lineHeight: 1.4, fontSize: '0.95rem' }}
         >
           {showOthersGuesses
             ? 'Wrong guesses appear here as clues. Correct guesses only show as “Guessed right”.'
