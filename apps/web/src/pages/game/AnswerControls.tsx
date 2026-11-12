@@ -48,7 +48,7 @@ export function McqOptions({
       sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-        gap: 1.5,
+        gap: 2,
       }}
     >
       {options.map((opt, i) => {
@@ -66,12 +66,12 @@ export function McqOptions({
             sx={{
               position: 'relative',
               cursor: answered ? 'default' : 'pointer',
-              borderRadius: '18px',
-              px: 2.5,
-              py: { xs: 2.25, sm: 2.75 },
+              borderRadius: '22px',
+              px: { xs: 2.5, sm: 3 },
+              py: { xs: 2.5, sm: 3.5 },
               display: 'flex',
               alignItems: 'center',
-              gap: 1.75,
+              gap: 2,
               color: c.text,
               background: c.bg,
               boxShadow: dimmed ? 'none' : `0 6px 0 ${c.shadow}`,
@@ -84,8 +84,8 @@ export function McqOptions({
               WebkitTapHighlightColor: 'transparent',
             }}
           >
-            <Shape sx={{ fontSize: 26, flexShrink: 0, opacity: 0.95 }} />
-            <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
+            <Shape sx={{ fontSize: { xs: 30, sm: 38 }, flexShrink: 0, opacity: 0.95 }} />
+            <Typography fontWeight={700} sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' }, lineHeight: 1.2 }}>
               {opt.label}
             </Typography>
           </Box>
@@ -102,7 +102,7 @@ export function PresenterOptions({ options }: { options: McqOption[] }) {
       sx={{
         display: 'grid',
         gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-        gap: { xs: 1.5, sm: 2 },
+        gap: { xs: 2, sm: 3 },
       }}
     >
       {options.map((opt, i) => {
@@ -112,9 +112,9 @@ export function PresenterOptions({ options }: { options: McqOption[] }) {
           <Box
             key={opt.id}
             sx={{
-              borderRadius: '18px',
-              px: { xs: 2.5, sm: 3 },
-              py: { xs: 2.75, sm: 3.5 },
+              borderRadius: '26px',
+              px: { xs: 3, sm: 4 },
+              py: { xs: 3.5, sm: 5 },
               display: 'flex',
               alignItems: 'center',
               gap: 2,
@@ -123,10 +123,10 @@ export function PresenterOptions({ options }: { options: McqOption[] }) {
               boxShadow: `0 6px 0 ${c.shadow}`,
             }}
           >
-            <Shape sx={{ fontSize: 34, flexShrink: 0, opacity: 0.95 }} />
+            <Shape sx={{ fontSize: { xs: 40, sm: 56 }, flexShrink: 0, opacity: 0.95 }} />
             <Typography
               fontWeight={700}
-              sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' }, lineHeight: 1.2 }}
+              sx={{ fontSize: { xs: '1.5rem', sm: '2.2rem' }, lineHeight: 1.15 }}
             >
               {opt.label}
             </Typography>
@@ -179,6 +179,11 @@ export function TypingInput({
             multiline
             minRows={1}
             maxRows={3}
+            sx={{
+              '& .MuiInputBase-input': { fontSize: { xs: '1.2rem', sm: '1.45rem' }, fontWeight: 600 },
+              '& .MuiInputLabel-root': { fontSize: '1.1rem' },
+              '& .MuiFormHelperText-root': { fontSize: '1rem' },
+            }}
           />
         </Box>
         <Button
@@ -186,7 +191,7 @@ export function TypingInput({
           variant="contained"
           size="large"
           disabled={disabled || !guess.trim()}
-          sx={{ alignSelf: 'flex-end' }}
+          sx={{ alignSelf: 'flex-end', fontSize: '1.2rem', px: 4, py: 1.5 }}
         >
           {trivia === 'year' || trivia === 'added_by' ? 'Lock in' : 'Submit guess'}
         </Button>
@@ -194,6 +199,13 @@ export function TypingInput({
     </Box>
   );
 }
+
+const STATUS_SX = {
+  fontSize: { xs: '1.05rem', sm: '1.25rem' },
+  fontWeight: 600,
+  alignItems: 'center',
+  '& .MuiAlert-icon': { fontSize: 28 },
+};
 
 /** "Locked in" / "both correct" confirmations above the answer controls. */
 export function AnswerStatus({
@@ -210,20 +222,20 @@ export function AnswerStatus({
   triviaLocked?: boolean;
 }) {
   if (!isTyping && mcqAnswered) {
-    return <Alert severity="success">Answer locked in. Hold tight.</Alert>;
+    return <Alert sx={STATUS_SX} severity="success">Answer locked in. Hold tight.</Alert>;
   }
   if (isTyping && trivia) {
     if (!triviaLocked) return null;
     // A year or a name is final; whether it's right waits for the reveal.
     return trivia === 'year' || trivia === 'added_by' ? (
-      <Alert severity="info">Answer locked in. Find out at the reveal.</Alert>
+      <Alert sx={STATUS_SX} severity="info">Answer locked in. Find out at the reveal.</Alert>
     ) : (
-      <Alert severity="success">That's right. Waiting on the rest.</Alert>
+      <Alert sx={STATUS_SX} severity="success">That's right. Waiting on the rest.</Alert>
     );
   }
   if (isTyping && myBothCorrect) {
     return (
-      <Alert severity="success">
+      <Alert sx={STATUS_SX} severity="success">
         Artist and song, both correct. Waiting on the rest.
       </Alert>
     );

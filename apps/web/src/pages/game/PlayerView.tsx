@@ -1,7 +1,8 @@
-import { Box, Stack } from '@mui/material';
+import { Stack } from '@mui/material';
 import { TRIVIA_QUESTIONS } from '@wemsic/shared';
 import { RoundPlayers } from '../../components/RoundPlayers';
 import { AnswerStatus, McqOptions, TypingInput } from './AnswerControls';
+import { RoundLayout } from './RoundLayout';
 import { RoundReveal } from './RoundReveal';
 import { Stage } from './Stage';
 import type { GameViewProps } from './types';
@@ -47,9 +48,9 @@ export function PlayerView({
 
   const isTyping = round.gameMode === 'typing';
   return (
-    <Stack spacing={2.5} direction={{ xs: 'column', md: 'row' }} alignItems="flex-start">
-      <Box sx={{ flex: 1, minWidth: 0, width: '100%' }}>
-        <Stack spacing={2.5}>
+    <RoundLayout
+      game={
+        <Stack spacing={3}>
           <Stage
             roomCode={roomCode}
             roundIndex={round.roundIndex}
@@ -88,9 +89,8 @@ export function PlayerView({
             />
           )}
         </Stack>
-      </Box>
-
-      <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0 }}>
+      }
+      players={
         <RoundPlayers
           players={playerStatuses}
           currentPlayerId={playerId}
@@ -99,7 +99,7 @@ export function PlayerView({
           roundIndex={round.roundIndex}
           trivia={round.trivia}
         />
-      </Box>
-    </Stack>
+      }
+    />
   );
 }

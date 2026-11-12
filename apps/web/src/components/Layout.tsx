@@ -90,7 +90,7 @@ export function Layout({
   hideWordmark = false,
 }: {
   children: ReactNode;
-  maxWidth?: 'xs' | 'sm' | 'md' | 'lg';
+  maxWidth?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
   hideWordmark?: boolean;
 }) {
   return (

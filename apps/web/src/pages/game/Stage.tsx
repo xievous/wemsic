@@ -35,7 +35,7 @@ export function Stage({
   const seconds = (timeLeft / 1000).toFixed(1);
   const low = timeLeft <= 5000;
   // Eko's width, and the gap kept clear for it (the svg is 1.16 times taller than wide).
-  const eko = presenter ? { xs: 96, sm: 160 } : { xs: 76, sm: 112 };
+  const eko = presenter ? { xs: 110, sm: 200 } : { xs: 84, sm: 140 };
   return (
     <Box
       sx={{
@@ -55,7 +55,15 @@ export function Stage({
       <Box sx={{ position: 'relative', pr: { sm: `${eko.sm + 16}px` } }}>
         <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
           <Box>
-            <Typography variant="overline" sx={{ opacity: 0.7 }}>
+            <Typography
+              sx={{
+                opacity: 0.8,
+                fontWeight: 700,
+                letterSpacing: '0.06em',
+                textTransform: 'uppercase',
+                fontSize: presenter ? { xs: '1.1rem', sm: '1.5rem' } : { xs: '0.95rem', sm: '1.15rem' },
+              }}
+            >
               Round {roundIndex + 1} of {totalRounds}
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, ml: -0.5 }}>
@@ -64,7 +72,13 @@ export function Stage({
               ) : (
                 <EnableSoundButton onClick={enableAudio} />
               )}
-              <Typography variant="h5" sx={{ color: '#fff' }}>
+              <Typography
+                variant="h5"
+                sx={{
+                  color: '#fff',
+                  fontSize: presenter ? { xs: '1.8rem', sm: '2.6rem' } : { xs: '1.5rem', sm: '2rem' },
+                }}
+              >
                 Now playing
               </Typography>
             </Stack>
@@ -76,15 +90,15 @@ export function Stage({
                 fontWeight: 700,
                 lineHeight: 1,
                 fontSize: presenter
-                  ? { xs: '3rem', sm: '3.8rem' }
-                  : { xs: '2.6rem', sm: '3.2rem' },
+                  ? { xs: '4rem', sm: '6.5rem' }
+                  : { xs: '3.2rem', sm: '4.6rem' },
                 color: low ? '#FFB020' : '#fff',
                 transition: 'color 200ms ease',
               }}
             >
               {seconds}
             </Typography>
-            <Typography variant="caption" sx={{ opacity: 0.7 }}>
+            <Typography sx={{ opacity: 0.75, fontSize: presenter ? { xs: '1rem', sm: '1.3rem' } : '1rem' }}>
               seconds left
             </Typography>
           </Box>
@@ -99,8 +113,8 @@ export function Stage({
               fontWeight: 700,
               lineHeight: 1.15,
               fontSize: presenter
-                ? { xs: '1.6rem', sm: '2.4rem' }
-                : { xs: '1.3rem', sm: '1.6rem' },
+                ? { xs: '2rem', sm: '3.2rem' }
+                : { xs: '1.5rem', sm: '2.1rem' },
               color: '#fff',
               animation: `${popIn} 0.45s cubic-bezier(0.16,1,0.3,1)`,
             }}
