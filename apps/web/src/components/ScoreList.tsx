@@ -9,7 +9,7 @@ interface ScoreEntry {
 }
 
 /** A dotted rule with a few words in the middle: "your place", "and 14 more". */
-function Gap({ label }: { label: string }) {
+function Gap({ label, large = false }: { label: string; large?: boolean }) {
   return (
     <Stack
       direction="row"
@@ -19,7 +19,7 @@ function Gap({ label }: { label: string }) {
         px: 1,
         color: 'text.secondary',
         fontWeight: 600,
-        fontSize: '0.9rem',
+        fontSize: large ? '1.1rem' : '0.9rem',
         '&::before, &::after': { content: '""', flex: 1, borderTop: '2px dotted rgba(20,33,63,0.12)' },
       }}
     >
@@ -30,7 +30,8 @@ function Gap({ label }: { label: string }) {
 
 /**
  * Scores in order, one row each. With `compact` (a big room) it shows the
- * top five, your own place and how many more, unless `showAll`.
+ * top five, your own place and how many more, unless `showAll`. `large` sizes
+ * it to read across a room, and `gains` adds the points each player just won.
  */
 export function ScoreList({
   entries,
@@ -39,6 +40,8 @@ export function ScoreList({
   showAll = false,
   firstPosition = 1,
   show = 5,
+  large = false,
+  gains,
 }: {
   entries: ScoreEntry[];
   myId: string | null | undefined;
@@ -46,24 +49,35 @@ export function ScoreList({
   showAll?: boolean;
   firstPosition?: number;
   show?: number;
+  large?: boolean;
+  /** Points won this round, by player id. */
+  gains?: Record<string, number>;
 }) {
   const board = shortBoard(entries, myId, { compact: compact && !showAll, show, firstPosition });
 
   const row = ({ entry, position }: Ranked<ScoreEntry>) => {
     const isMe = entry.playerId === myId;
+    const gain = gains?.[entry.playerId] ?? 0;
+    const text = large ? { xs: '1.1rem', sm: '1.3rem' } : undefined;
     return (
       <Stack
         key={entry.playerId}
         direction="row"
         spacing={1.5}
         alignItems="center"
-        sx={{ p: 1, borderRadius: '16px', bgcolor: isMe ? 'rgba(58,107,255,0.08)' : 'transparent' }}
+        sx={{
+          p: 1,
+          borderRadius: '16px',
+          bgcolor: isMe ? 'rgba(58,107,255,0.08)' : 'transparent',
+          boxShadow: large && isMe ? 'inset 0 0 0 3px #3A6BFF' : 'none',
+        }}
       >
         <Typography
           sx={{
-            width: 28,
+            width: large ? 36 : 28,
             textAlign: 'center',
             fontWeight: 700,
+            fontSize: text,
             color: position === 1 ? 'warning.main' : 'text.secondary',
             fontFamily: '"Fredoka", sans-serif',
             fontVariantNumeric: 'tabular-nums',
@@ -71,12 +85,32 @@ export function ScoreList({
         >
           {position}
         </Typography>
-        <PlayerAvatar id={entry.playerId} size={36} />
-        <Typography fontWeight={700} sx={{ flex: 1 }} noWrap>
+        <PlayerAvatar id={entry.playerId} size={large ? 48 : 36} />
+        <Typography fontWeight={700} sx={{ flex: 1, fontSize: text }} noWrap>
           {entry.displayName}
           {isMe && <Box component="span" sx={{ color: 'primary.main' }}> · you</Box>}
         </Typography>
-        <Typography fontWeight={700} sx={{ fontVariantNumeric: 'tabular-nums' }}>
+        {gain > 0 && (
+          <Box
+            sx={{
+              px: 1.25,
+              py: 0.25,
+              borderRadius: 999,
+              bgcolor: 'rgba(22,199,154,0.16)',
+              color: '#0B7A5C',
+              fontWeight: 700,
+              fontSize: large ? { xs: '0.95rem', sm: '1.1rem' } : '0.85rem',
+              fontVariantNumeric: 'tabular-nums',
+              flexShrink: 0,
+            }}
+          >
+            +{gain}
+          </Box>
+        )}
+        <Typography
+          fontWeight={700}
+          sx={{ fontSize: text, fontVariantNumeric: 'tabular-nums', minWidth: large ? 64 : 0, textAlign: 'right' }}
+        >
           {entry.score}
         </Typography>
       </Stack>
@@ -88,11 +122,11 @@ export function ScoreList({
       {board.top.map(row)}
       {board.mine && (
         <>
-          <Gap label="your place" />
+          <Gap label="your place" large={large} />
           {row(board.mine)}
         </>
       )}
-      {board.more > 0 && <Gap label={`and ${board.more} more`} />}
+      {board.more > 0 && <Gap label={`and ${board.more} more`} large={large} />}
     </Stack>
   );
 }
