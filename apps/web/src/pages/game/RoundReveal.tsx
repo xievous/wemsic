@@ -8,6 +8,8 @@ import { RoundProgressBar } from '../../components/RoundProgressBar';
 import { ScoreList } from '../../components/ScoreList';
 import { popIn } from '../../styles/animations';
 
+const LABEL_SX = { fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' } as const;
+
 /**
  * Answer card + leaderboard between rounds, shared by online players and the
  * host presenter. The presenter doesn't score, so their card has no points
@@ -33,6 +35,8 @@ export function RoundReveal({
   const scored = myScore > 0;
   const mood = revealMood(roomCode, reveal.roundIndex, myScore, presenter);
   const eko = <Eko face={mood.face} move={mood.move} onDark />;
+  const cover = presenter ? { xs: 120, sm: 220 } : { xs: 104, sm: 180 };
+  const label = presenter ? { xs: '1rem', sm: '1.3rem' } : { xs: '0.95rem', sm: '1.1rem' };
   return (
     <Stack spacing={2.5}>
       <Box
@@ -58,14 +62,14 @@ export function RoundReveal({
               animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1)`,
             }}
           >
-            <Typography variant="overline" sx={{ opacity: 0.75, display: 'block', lineHeight: 1.6 }}>
+            <Typography sx={{ ...LABEL_SX, opacity: 0.8, display: 'block', fontSize: label }}>
               {TRIVIA_QUESTIONS[reveal.trivia.kind]}
             </Typography>
             <Typography
               sx={{
                 fontFamily: '"Fredoka", sans-serif',
                 fontWeight: 700,
-                fontSize: { xs: '1.4rem', sm: '1.7rem' },
+                fontSize: presenter ? { xs: '1.8rem', sm: '2.8rem' } : { xs: '1.6rem', sm: '2.2rem' },
                 lineHeight: 1.15,
                 color: '#9FF0D4',
               }}
@@ -81,8 +85,8 @@ export function RoundReveal({
               src={reveal.albumArtUrl}
               alt={`${reveal.correctTitle} album art`}
               sx={{
-                width: { xs: 96, sm: 130 },
-                height: { xs: 96, sm: 130 },
+                width: cover,
+                height: cover,
                 borderRadius: '20px',
                 flexShrink: 0,
                 boxShadow: '0 16px 36px -12px rgba(0,0,0,0.6)',
@@ -92,8 +96,8 @@ export function RoundReveal({
           ) : (
             <Box
               sx={{
-                width: { xs: 96, sm: 130 },
-                height: { xs: 96, sm: 130 },
+                width: cover,
+                height: cover,
                 borderRadius: '20px',
                 flexShrink: 0,
                 display: 'grid',
@@ -101,26 +105,41 @@ export function RoundReveal({
                 bgcolor: 'rgba(255,255,255,0.12)',
               }}
             >
-              <VolumeUpRoundedIcon sx={{ fontSize: 44 }} />
+              <VolumeUpRoundedIcon sx={{ fontSize: 56 }} />
             </Box>
           )}
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="overline" sx={{ opacity: 0.7 }}>
+            <Typography sx={{ ...LABEL_SX, opacity: 0.75, fontSize: label }}>
               The track was
             </Typography>
-            <Typography variant="h4" sx={{ color: '#fff', lineHeight: 1.1 }}>
+            <Typography
+              variant="h4"
+              sx={{
+                color: '#fff',
+                lineHeight: 1.1,
+                mt: 0.5,
+                fontSize: presenter ? { xs: '2rem', sm: '3.2rem' } : { xs: '1.7rem', sm: '2.5rem' },
+              }}
+            >
               {reveal.correctTitle}
             </Typography>
-            <Typography sx={{ opacity: 0.85, mt: 0.5, fontSize: '1.05rem' }}>
+            <Typography
+              sx={{
+                opacity: 0.9,
+                mt: 0.75,
+                fontWeight: 600,
+                fontSize: presenter ? { xs: '1.3rem', sm: '1.8rem' } : { xs: '1.2rem', sm: '1.5rem' },
+              }}
+            >
               {reveal.correctArtists.join(', ')}
             </Typography>
             {reveal.addedBy && (
-              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mt: 1.25 }}>
-                <PlayerAvatar
-                  id={reveal.addedBy.playerId}
-                  size={22}
-                />
-                <Typography variant="body2" sx={{ fontWeight: 600, opacity: 0.85 }} noWrap>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
+                <PlayerAvatar id={reveal.addedBy.playerId} size={presenter ? 40 : 32} />
+                <Typography
+                  sx={{ fontWeight: 600, opacity: 0.9, fontSize: presenter ? { xs: '1.1rem', sm: '1.4rem' } : '1.15rem' }}
+                  noWrap
+                >
                   Added by{' '}
                   {reveal.addedBy.playerId === playerId ? 'you' : reveal.addedBy.displayName}
                 </Typography>
@@ -131,7 +150,7 @@ export function RoundReveal({
           <Box
             sx={{
               display: { xs: 'none', sm: 'block' },
-              width: presenter ? 160 : 120,
+              width: presenter ? 200 : 150,
               flexShrink: 0,
               alignSelf: 'flex-end',
               mb: -1,
@@ -159,25 +178,28 @@ export function RoundReveal({
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: 1,
-                  px: 2,
-                  py: 1,
+                  px: 2.5,
+                  py: 1.25,
                   borderRadius: 999,
                   bgcolor: scored ? 'rgba(22,199,154,0.25)' : 'rgba(255,255,255,0.1)',
                   animation: `${popIn} 0.5s cubic-bezier(0.16,1,0.3,1) 0.15s both`,
                 }}
               >
-                <Typography variant="h6" sx={{ color: scored ? '#7CF0CE' : '#fff' }}>
+                <Typography
+                  variant="h6"
+                  sx={{ color: scored ? '#7CF0CE' : '#fff', fontSize: { xs: '1.2rem', sm: '1.8rem' } }}
+                >
                   {scored ? `+${myScore} points` : 'No points this round'}
                 </Typography>
               </Box>
               {pickNote && (
-                <Typography sx={{ mt: 1, ml: 0.5, opacity: 0.8, fontWeight: 600 }}>
+                <Typography sx={{ mt: 1, ml: 0.5, opacity: 0.85, fontWeight: 600, fontSize: '1.2rem' }}>
                   {pickNote}
                 </Typography>
               )}
             </Box>
           )}
-          <Box sx={{ display: { xs: 'block', sm: 'none' }, width: 76, ml: 'auto', mb: -1 }}>
+          <Box sx={{ display: { xs: 'block', sm: 'none' }, width: 84, ml: 'auto', mb: -1 }}>
             {eko}
           </Box>
         </Stack>
@@ -191,13 +213,17 @@ export function RoundReveal({
           p: { xs: 2, sm: 2.5 },
         }}
       >
-        <Typography variant="overline" color="text.secondary">
+        <Typography
+          sx={{ fontFamily: '"Fredoka", sans-serif', fontWeight: 700, fontSize: { xs: '1.3rem', sm: '1.6rem' }, px: 1 }}
+        >
           Leaderboard
         </Typography>
         <ScoreList
           entries={reveal.leaderboard}
           myId={playerId}
           compact={reveal.leaderboard.length > COMPACT_ROSTER_AFTER}
+          gains={reveal.roundScores}
+          large
         />
       </Box>
     </Stack>
