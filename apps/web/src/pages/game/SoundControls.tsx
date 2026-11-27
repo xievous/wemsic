@@ -1,4 +1,4 @@
-import { Box, Button, IconButton, Popover, Slider, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Button, IconButton, Popover, Slider, Stack, Switch, Tooltip, Typography } from '@mui/material';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import VolumeDownRoundedIcon from '@mui/icons-material/VolumeDownRounded';
 import VolumeOffRoundedIcon from '@mui/icons-material/VolumeOffRounded';
@@ -65,9 +65,14 @@ export function FloatingEnableSound({ onEnable }: { onEnable: () => void }) {
 export function VolumeControl({
   volume,
   onChange,
+  effectsOn,
+  onEffectsChange,
 }: {
   volume: number;
   onChange: (value: number) => void;
+  /** Sound effects and phone buzzes; the music plays either way. */
+  effectsOn: boolean;
+  onEffectsChange: (on: boolean) => void;
 }) {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const muted = volume === 0;
@@ -94,27 +99,35 @@ export function VolumeControl({
         transformOrigin={{ vertical: 'top', horizontal: 'center' }}
         slotProps={{ paper: { sx: { borderRadius: '16px', overflow: 'visible' } } }}
       >
-        <Stack
-          direction="row"
-          spacing={1}
-          alignItems="center"
-          sx={{ px: 1.5, py: 1, width: 180 }}
-        >
-          <Slider
-            aria-label="Volume"
-            size="small"
-            value={Math.round(volume * 100)}
-            onChange={(_, v) => onChange((Array.isArray(v) ? v[0] : v) / 100)}
-            min={0}
-            max={100}
-          />
-          <Typography
-            variant="caption"
-            color="text.secondary"
-            sx={{ width: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
-          >
-            {Math.round(volume * 100)}%
-          </Typography>
+        <Stack sx={{ px: 1.5, py: 1, width: 200 }}>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Slider
+              aria-label="Volume"
+              size="small"
+              value={Math.round(volume * 100)}
+              onChange={(_, v) => onChange((Array.isArray(v) ? v[0] : v) / 100)}
+              min={0}
+              max={100}
+            />
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ width: 34, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}
+            >
+              {Math.round(volume * 100)}%
+            </Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography component="label" htmlFor="effects-switch" variant="body2" fontWeight={600}>
+              Effects
+            </Typography>
+            <Switch
+              id="effects-switch"
+              size="small"
+              checked={effectsOn}
+              onChange={(e) => onEffectsChange(e.target.checked)}
+            />
+          </Stack>
         </Stack>
       </Popover>
     </>

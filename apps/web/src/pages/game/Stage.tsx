@@ -31,7 +31,7 @@ export function Stage({
   question?: string;
   presenter?: boolean;
 }) {
-  const { enabled: audioEnabled, enableAudio, volume, setVolume } = useAudio();
+  const { enabled: audioEnabled, enableAudio, volume, setVolume, effectsOn, setEffectsOn } = useAudio();
   const seconds = (timeLeft / 1000).toFixed(1);
   const low = timeLeft <= 5000;
   // Eko's width, and the gap kept clear for it (the svg is 1.16 times taller than wide).
@@ -68,7 +68,12 @@ export function Stage({
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.5, ml: -0.5 }}>
               {audioEnabled ? (
-                <VolumeControl volume={volume} onChange={setVolume} />
+                <VolumeControl
+                  volume={volume}
+                  onChange={setVolume}
+                  effectsOn={effectsOn}
+                  onEffectsChange={setEffectsOn}
+                />
               ) : (
                 <EnableSoundButton onClick={enableAudio} />
               )}

@@ -4,8 +4,9 @@ import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import VolumeUpRoundedIcon from '@mui/icons-material/VolumeUpRounded';
 import { Box, Button, Typography } from '@mui/material';
 import type { LobbyState } from '@wemsic/shared';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAudio } from '../../audio/AudioProvider';
+import { useGameFx } from '../../audio/useGameFx';
 import { lobbyAction, type LobbyActionKind } from './lobbyAction';
 
 const ICONS: Record<LobbyActionKind, React.ReactNode> = {
@@ -33,6 +34,31 @@ function useCountdown(endsAt: number | null | undefined): number | null {
 }
 
 /**
+ * The countdown's beats: one per number, then "Go" the moment the game
+ * starts (this bar is still on screen for that render, before the lobby
+ * moves to the game).
+ */
+function useCountdownBeats(left: number | null, started: boolean) {
+  const fx = useGameFx();
+  const previous = useRef<number | null>(null);
+  const counted = useRef(false);
+  useEffect(() => {
+    const before = previous.current;
+    previous.current = left;
+    if (left === null || left === before) return;
+    if (left > 0 && left <= 3) {
+      counted.current = true;
+      fx('countBeat', left);
+    }
+  }, [left, fx]);
+  useEffect(() => {
+    if (!started || !counted.current) return;
+    counted.current = false;
+    fx('go');
+  }, [started, fx]);
+}
+
+/**
  * The lobby's bottom bar, stuck to the bottom of the screen: what the room is
  * waiting for, Leave, and this device's one main action (Start for the host,
  * I'm ready for players). Ready and Start also unlock sound, since a tap is
@@ -53,6 +79,7 @@ export function ActionBar({
 }) {
   const { enabled: soundOn, enableAudio } = useAudio();
   const countdownLeft = useCountdown(lobby.startCountdownEndsAt);
+  useCountdownBeats(countdownLeft, lobby.phase === 'playing');
   const action = lobbyAction(lobby, myPlayerId, { soundOn, countdownLeft });
 
   function handleMain() {

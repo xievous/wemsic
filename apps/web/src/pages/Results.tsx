@@ -7,6 +7,7 @@ import { Eko } from '../components/eko/Eko';
 import { Layout } from '../components/Layout';
 import { ReconnectingBanner } from '../components/ReconnectingBanner';
 import { ScoreList } from '../components/ScoreList';
+import { useGameFx } from '../audio/useGameFx';
 import { clearSession, useSession } from '../hooks/useSession';
 import { useSocket } from '../socket/SocketContext';
 import { WinnerCard } from './results/WinnerCard';
@@ -55,6 +56,15 @@ export function Results() {
   // A big room shows the top 5 and your place, with everyone a tap away.
   const compact = leaderboard.length > COMPACT_ROSTER_AFTER;
   const [showAll, setShowAll] = useState(false);
+
+  // The winner's fanfare, once, when there is a winner to show.
+  const fx = useGameFx();
+  const cheered = useRef(false);
+  useEffect(() => {
+    if (!winner || cheered.current) return;
+    cheered.current = true;
+    fx('winner');
+  }, [winner, fx]);
 
   return (
     <Layout>
