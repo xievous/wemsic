@@ -1,6 +1,6 @@
 import type { McqOption } from '@wemsic/shared';
 import { useEffect, useRef, useState } from 'react';
-import { useAudio } from '../../audio/AudioProvider';
+import { useGameFx } from '../../audio/useGameFx';
 import { useSocket } from '../../socket/SocketContext';
 
 function playTypingWrongShake(el: Element) {
@@ -52,7 +52,10 @@ function playTypingCorrectDing(el: Element) {
  */
 export function useRoundAnswers(roundIndex: number | undefined, timerExpired: boolean) {
   const { submitMcqAnswer, submitTypingGuess, lastTypingResult } = useSocket();
-  const { playCorrectChime } = useAudio();
+  const fx = useGameFx();
+  // Read through a ref so toggling effects doesn't re-run the result effect below.
+  const fxRef = useRef(fx);
+  fxRef.current = fx;
   const [mcqAnswered, setMcqAnswered] = useState(false);
   const [selectedOption, setSelectedOption] = useState<McqOption | null>(null);
   const [guess, setGuess] = useState('');
@@ -85,13 +88,14 @@ export function useRoundAnswers(roundIndex: number | undefined, timerExpired: bo
       return;
     }
 
-    playCorrectChime();
+    fxRef.current('correct');
     typingAnimRef.current = playTypingCorrectDing(el);
-  }, [lastTypingResult, playCorrectChime]);
+  }, [lastTypingResult]);
 
   function selectOption(option: McqOption) {
     if (mcqAnswered) return;
     submitMcqAnswer(option.id);
+    fx('lockIn');
     setMcqAnswered(true);
     setSelectedOption(option);
   }
@@ -101,6 +105,7 @@ export function useRoundAnswers(roundIndex: number | undefined, timerExpired: bo
     if (timerExpired || !guess.trim()) return;
     typingChatAtSubmitRef.current = typingChatRef.current;
     submitTypingGuess(guess.trim());
+    fx('lockIn');
     setGuess('');
   }
 

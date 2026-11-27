@@ -10,6 +10,7 @@ import { PlayerView } from './game/PlayerView';
 import { PresenterView } from './game/PresenterView';
 import { FloatingEnableSound } from './game/SoundControls';
 import type { GameViewProps } from './game/types';
+import { useRoundFx } from './game/useRoundFx';
 
 export function Game() {
   const { code } = useParams<{ code: string }>();
@@ -115,6 +116,15 @@ export function Game() {
 
   // Stop playback when leaving the game screen.
   useEffect(() => () => stop(), [stop]);
+
+  useRoundFx({
+    roundIndex,
+    timeLeft,
+    playing: !!round && !reveal && roundEndsAt > 0,
+    playerStatuses,
+    reveal,
+    playerId: session?.playerId,
+  });
 
   if (!session) return null;
 
