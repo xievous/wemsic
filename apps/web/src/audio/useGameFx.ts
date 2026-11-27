@@ -16,9 +16,9 @@ export function useGameFx() {
   const role = deviceRole(lobby, session?.playerId);
 
   return useCallback(
-    (event: FxEvent, arg?: number) => {
+    (event: FxEvent, arg?: number, { buzzOnly = false }: { buzzOnly?: boolean } = {}) => {
       const plan = fxPlan(event, role);
-      if (plan.sound) playSfx(event, arg);
+      if (plan.sound && !buzzOnly) playSfx(event, arg);
       if (plan.buzz && effectsOn) buzz(plan.buzz);
     },
     [role, playSfx, effectsOn],

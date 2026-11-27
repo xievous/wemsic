@@ -133,7 +133,7 @@ export function Results() {
           size="large"
           startIcon={<ReplayRoundedIcon />}
           onClick={() => rematch()}
-          sx={{ minWidth: 200 }}
+          sx={{ minWidth: 220 }}
         >
           Rematch
         </Button>
@@ -142,6 +142,7 @@ export function Results() {
           to="/"
           variant="outlined"
           size="large"
+          sx={{ minWidth: 220 }}
           onClick={() => {
             leaveRoom();
             clearSession();

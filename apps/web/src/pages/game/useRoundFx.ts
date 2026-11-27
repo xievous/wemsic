@@ -3,13 +3,13 @@ import { useEffect, useRef } from 'react';
 import { revealOutcome, tickSecond } from '../../audio/fx';
 import { useGameFx } from '../../audio/useGameFx';
 
-/** How long after the reveal sting your own right/missed sound comes in. */
+/** How long after the reveal sting your own right/missed buzz comes in. */
 const OUTCOME_DELAY_MS = 650;
 
 /**
  * The sounds and buzzes of a round: a beat each second in the last five,
  * a note on the big screen each time someone answers, then the reveal and
- * whether you scored.
+ * a buzz for whether you scored.
  */
 export function useRoundFx({
   roundIndex,
@@ -68,7 +68,9 @@ export function useRoundFx({
     fxRef.current('reveal');
     const outcome = playerId ? revealOutcome(reveal.roundScores, playerId) : null;
     if (!outcome) return;
-    const id = setTimeout(() => fxRef.current(outcome), OUTCOME_DELAY_MS);
+    // Right or missed is just a buzz: the song is playing again by then, and a
+    // typed answer already got its "right" sound the moment it went in.
+    const id = setTimeout(() => fxRef.current(outcome, undefined, { buzzOnly: true }), OUTCOME_DELAY_MS);
     return () => clearTimeout(id);
   }, [reveal, playerId]);
 }
